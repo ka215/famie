@@ -150,7 +150,7 @@ php artisan tinker
 Tinker 上で実行する。
 
 ```php
-$password = Laravel\Prompts\password('初期親アカウントのパスワード');
+$password = Laravel\Prompts\password('初期親アカウントのパスワードを入力');
 App\Models\User::create([
     'username' => '<PARENT_USERNAME>',
     'display_name' => '<PARENT_DISPLAY_NAME>',
@@ -162,9 +162,42 @@ unset($password);
 exit
 ```
 
+`Laravel\Prompts\password()` の引数はパスワードそのものではなく、入力時に表示するラベルである。実際のパスワードは続いて表示される非表示入力へ入力する。作成後、パスワードを表示せずにアカウントの存在を確認する。
+
+```sh
+php artisan tinker --execute 'dump(App\Models\User::query()->get(["id", "username", "email", "role"])->toArray());'
+```
+
+### 4.4 初期アカウントでログインできない場合
+
+入力するログインIDは `users.username` または `users.email` と完全一致する必要がある。前項のコマンドで対象ユーザーが存在することを確認する。
+
+対象ユーザーが存在する場合は、Tinkerを対話起動してパスワードを再設定する。
+
+```sh
+cd "$HOME/famie/backend" || exit 1
+php artisan tinker
+```
+
+Tinker上で実行する。`<PARENT_USERNAME>` は実在するユーザー名へ置き換える。
+
+```php
+$user = App\Models\User::where('username', '<PARENT_USERNAME>')->firstOrFail();
+$password = Laravel\Prompts\password('新しいパスワードを入力');
+$user->password = Illuminate\Support\Facades\Hash::make($password);
+$user->save();
+Illuminate\Support\Facades\Hash::check($password, $user->fresh()->password);
+unset($password);
+exit
+```
+
+`Hash::check` の結果が `true` であることを確認してから、同じユーザー名とパスワードでログインする。
+
+`$user->password = ...` はメモリ上の属性を変更するだけなので、必ず `$user->save()` まで実行する。パスワードを直接書いた `tinker --execute="..."` はシェル履歴に平文が残るため使用しない。
+
 初回は `migrate --pretend` でもmigration管理テーブルの作成を試みるため、migration実行前には使用しない。
 
-### 4.4 Web公開
+### 4.5 Web公開
 
 フロントエンド手順の「初回のみ行う Apache 設定」に従い、次のリンクを作成する。
 
