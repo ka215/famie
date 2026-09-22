@@ -15,7 +15,6 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(RestrictIpAddress::class);
-        $middleware->trustProxies(at: '*');
         // API専用アプリのためゲストのリダイレクト先'login'ルートは存在しない
         $middleware->redirectGuestsTo(fn () => null);
     })

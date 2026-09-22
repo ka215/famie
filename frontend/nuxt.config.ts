@@ -1,9 +1,12 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
 
+const isProduction = import.meta.env.NODE_ENV === 'production'
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: true },
+  ssr: false,
+  devtools: { enabled: !isProduction },
 
   // Apache(127.0.0.1経由のProxyPass)から到達できるようIPv4でも待ち受ける
   devServer: {
@@ -36,9 +39,12 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      apiBase:
-        // process.env の代わりに import.meta.env を使用（Nuxt4推奨）
-        import.meta.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
+      // 静的生成時に値が組み込まれる。本番は同一 Origin の API を使用する。
+      apiEndpoint: isProduction
+        ? '/api/v1'
+        : import.meta.env.NUXT_DEV_API_BASE ||
+          import.meta.env.NUXT_PUBLIC_API_BASE ||
+          'http://localhost:8000/api/v1',
     },
   },
 
@@ -52,19 +58,26 @@ export default defineNuxtConfig({
       name: 'Famie',
       short_name: 'ファミー',
       description: '家族のデイリーアクティビティ記録アプリ',
+      lang: 'ja',
       theme_color: '#3B82F6',
       background_color: '#FFFFFF',
       display: 'standalone',
-      icons: [
-        { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-        { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-      ],
+      icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
     },
     client: {
       installPrompt: true,
     },
     workbox: {
       navigateFallback: '/',
+      navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+      cleanupOutdatedCaches: true,
+      runtimeCaching: [
+        {
+          urlPattern: /\/api(?:\/|$)/,
+          handler: 'NetworkOnly',
+          method: 'GET',
+        },
+      ],
     },
   },
 })

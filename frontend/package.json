@@ -1,11 +1,11 @@
 {
 	"name": "famie-frontend",
 	"description": "Frontend for the Famie project",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"build": "nuxt build",
+		"build": "nuxt generate",
 		"dev": "nuxt dev",
 		"generate": "nuxt generate",
 		"preview": "nuxt preview",

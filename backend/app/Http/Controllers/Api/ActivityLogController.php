@@ -63,20 +63,20 @@ class ActivityLogController extends Controller
         ], 201);
     }
 
-    public function show(ActivityLog $activityLog): JsonResponse
+    public function show(ActivityLog $log): JsonResponse
     {
-        Gate::authorize('view', $activityLog);
+        Gate::authorize('view', $log);
 
-        $activityLog->load(['user:id,display_name,role', 'category:id,name,color_code']);
+        $log->load(['user:id,display_name,role', 'category:id,name,color_code']);
 
         return response()->json([
-            'data' => $activityLog,
+            'data' => $log,
         ]);
     }
 
-    public function update(Request $request, ActivityLog $activityLog): JsonResponse
+    public function update(Request $request, ActivityLog $log): JsonResponse
     {
-        Gate::authorize('update', $activityLog);
+        Gate::authorize('update', $log);
 
         $validated = $request->validate([
             'category_id' => ['sometimes', 'required', 'exists:categories,id'],
@@ -86,20 +86,20 @@ class ActivityLogController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $activityLog->update($validated);
-        $activityLog->load(['user:id,display_name,role', 'category:id,name,color_code']);
+        $log->update($validated);
+        $log->load(['user:id,display_name,role', 'category:id,name,color_code']);
 
         return response()->json([
             'message' => 'ログを更新しました。',
-            'data' => $activityLog,
+            'data' => $log,
         ]);
     }
 
-    public function destroy(ActivityLog $activityLog): JsonResponse
+    public function destroy(ActivityLog $log): JsonResponse
     {
-        Gate::authorize('delete', $activityLog);
+        Gate::authorize('delete', $log);
 
-        $activityLog->delete();
+        $log->delete();
 
         return response()->json([
             'message' => 'ログを削除しました。',

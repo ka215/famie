@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Famie</title>
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+  <path d="M128 238 256 126l128 112v142a34 34 0 0 1-34 34H162a34 34 0 0 1-34-34Z" fill="#fff"/>
+  <path d="M205 414V294h102v120" fill="#dbeafe"/>
+  <circle cx="256" cy="238" r="38" fill="#60a5fa"/>
+</svg>

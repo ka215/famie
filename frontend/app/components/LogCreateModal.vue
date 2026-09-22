@@ -1,16 +1,19 @@
 <script setup lang="ts">
+import type { ApiRequestError, Category } from '#shared/types/api'
+import type { ActivityLogForm } from '#shared/types/forms'
+
 const props = defineProps<{
   isOpen: boolean
-  categories: Array<{ id: number; name: string; color_code: string }>
+  categories: Category[]
 }>()
 
 const emit = defineEmits(['close', 'created'])
 const { fetchApi } = useApi()
 
-const today = new Date().toISOString().split('T')[0]
+const today = new Date().toISOString().slice(0, 10)
 const currentTime = new Date().toTimeString().slice(0, 5)
 
-const form = ref({
+const form = ref<ActivityLogForm>({
   category_id: props.categories[0]?.id || null,
   activity_date: today,
   activity_time: currentTime,
@@ -21,9 +24,19 @@ const form = ref({
 const isLoading = ref(false)
 const errorMessage = ref('')
 
+watch(
+  () => props.categories,
+  (categories) => {
+    if (form.value.category_id === null && categories.length > 0) {
+      form.value.category_id = categories[0]?.id ?? null
+    }
+  },
+  { immediate: true }
+)
+
 const handleSubmit = async () => {
-  if (!form.value.content) {
-    errorMessage.value = '活動内容を入力してください。'
+  if (!form.value.category_id || !form.value.content) {
+    errorMessage.value = 'カテゴリと活動内容を入力してください。'
     return
   }
 
@@ -42,7 +55,7 @@ const handleSubmit = async () => {
     emit('created')
     emit('close')
   } catch (err: unknown) {
-    const e = err as { data?: { message?: string } }
+    const e = err as ApiRequestError
     errorMessage.value = e.data?.message || '登録に失敗しました。'
   } finally {
     isLoading.value = false
@@ -102,6 +115,7 @@ const handleSubmit = async () => {
           <textarea
             v-model="form.content"
             required
+            maxlength="1000"
             rows="3"
             placeholder="例: 算数のドリルを2ページ進めた"
             class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -113,6 +127,7 @@ const handleSubmit = async () => {
           <input
             v-model="form.note"
             type="text"
+            maxlength="1000"
             placeholder="例: つまずいた箇所あり"
             class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >

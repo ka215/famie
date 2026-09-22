@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ApiRequestError } from '#shared/types/api'
+
 definePageMeta({
   layout: false,
 })
@@ -22,7 +24,7 @@ const handleLogin = async () => {
     await login(loginId.value, password.value)
     await navigateTo('/')
   } catch (err: unknown) {
-    const e = err as { data?: { message?: string } }
+    const e = err as ApiRequestError
     errorMessage.value = e.data?.message || 'ログインに失敗しました。'
   } finally {
     isLoading.value = false

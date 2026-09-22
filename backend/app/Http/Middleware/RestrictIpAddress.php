@@ -13,7 +13,8 @@ class RestrictIpAddress
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $allowedIps = array_filter(array_map('trim', explode(',', (string) env('ALLOWED_IPS', ''))));
+        /** @var list<string> $allowedIps */
+        $allowedIps = config('famie.allowed_ips', []);
 
         $clientIp = $request->ip();
 

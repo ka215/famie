@@ -1,27 +1,21 @@
 <script setup lang="ts">
-interface ActivityLogItem {
-  id: number
-  user_id: number
-  activity_date: string
-  activity_time: string | null
-  content: string
-  note: string | null
-  user: { id: number; display_name: string; role: 'parent' | 'child' }
-  category: { id: number; name: string; color_code: string }
-}
+import type { ActivityLog, Category, PaginatedResponse, User } from '#shared/types/api'
+import type { FilterPeriod } from '#shared/types/forms'
 
 const { fetchApi } = useApi()
 const { user } = useAuth()
 
-const logs = ref<ActivityLogItem[]>([])
-const categories = ref<Array<{ id: number; name: string; color_code: string }>>([])
-const familyMembers = ref<
-  Array<{ id: number; username: string; display_name: string; role: string }>
->([])
+const logs = ref<ActivityLog[]>([])
+const categories = ref<Category[]>([])
+const familyMembers = ref<User[]>([])
 const isLoading = ref(false)
 const isModalOpen = ref(false)
+const errorMessage = ref('')
+const currentPage = ref(1)
+const lastPage = ref(1)
+const total = ref(0)
 
-const filterPeriod = ref<'this_week' | 'this_month' | 'custom'>('this_week')
+const filterPeriod = ref<FilterPeriod>('this_week')
 const filterFrom = ref('')
 const filterTo = ref('')
 // 初期表示は自分の投稿のみ。空文字列は全員表示を表す。
@@ -46,19 +40,29 @@ const setPeriodRange = () => {
   }
 }
 
-const fetchLogs = async () => {
+const fetchLogs = async (page = 1) => {
+  if (filterFrom.value && filterTo.value && filterFrom.value > filterTo.value) {
+    errorMessage.value = '開始日は終了日以前の日付を指定してください。'
+    return
+  }
+
   isLoading.value = true
+  errorMessage.value = ''
   try {
     const params = new URLSearchParams()
     if (filterFrom.value) params.append('from', filterFrom.value)
     if (filterTo.value) params.append('to', filterTo.value)
     if (filterUserId.value) params.append('user_id', filterUserId.value)
     if (filterCategoryId.value) params.append('category_id', filterCategoryId.value)
+    params.append('page', String(page))
 
-    const res = await fetchApi<{ data: ActivityLogItem[] }>(`/logs?${params.toString()}`)
+    const res = await fetchApi<PaginatedResponse<ActivityLog>>(`/logs?${params.toString()}`)
     logs.value = res.data
-  } catch (err) {
-    console.error('ログの取得に失敗しました', err)
+    currentPage.value = res.current_page
+    lastPage.value = res.last_page
+    total.value = res.total
+  } catch {
+    errorMessage.value = '記録の取得に失敗しました。通信環境を確認してください。'
   } finally {
     isLoading.value = false
   }
@@ -66,33 +70,29 @@ const fetchLogs = async () => {
 
 const fetchCategories = async () => {
   try {
-    categories.value =
-      await fetchApi<Array<{ id: number; name: string; color_code: string }>>('/categories')
-  } catch (err) {
-    console.error('カテゴリの取得に失敗しました', err)
+    categories.value = await fetchApi<Category[]>('/categories')
+  } catch {
+    errorMessage.value = 'カテゴリの取得に失敗しました。'
   }
 }
 
 const fetchMembers = async () => {
   try {
-    familyMembers.value =
-      await fetchApi<Array<{ id: number; username: string; display_name: string; role: string }>>(
-        '/users'
-      )
-  } catch (err) {
-    console.error('メンバー一覧の取得に失敗しました', err)
+    familyMembers.value = await fetchApi<User[]>('/users')
+  } catch {
+    errorMessage.value = '家族メンバーの取得に失敗しました。'
   }
 }
 
 watch(filterPeriod, () => {
   if (filterPeriod.value !== 'custom') {
     setPeriodRange()
-    fetchLogs()
+    fetchLogs(1)
   }
 })
 
 watch([filterUserId, filterCategoryId], () => {
-  fetchLogs()
+  fetchLogs(1)
 })
 
 onMounted(async () => {
@@ -103,6 +103,9 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-4">
+    <div v-if="errorMessage" class="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+      {{ errorMessage }}
+    </div>
     <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-3">
       <div class="flex items-center justify-between">
         <span class="text-xs font-semibold text-slate-500">表示期間</span>
@@ -132,7 +135,7 @@ onMounted(async () => {
         <input v-model="filterFrom" type="date" class="px-2 py-1 border text-xs rounded-lg w-full">
         <span class="text-slate-400 text-xs">〜</span>
         <input v-model="filterTo" type="date" class="px-2 py-1 border text-xs rounded-lg w-full">
-        <button class="px-3 py-1 bg-slate-800 text-white text-xs rounded-lg shrink-0" @click="fetchLogs">
+        <button class="px-3 py-1 bg-slate-800 text-white text-xs rounded-lg shrink-0" @click="fetchLogs(1)">
           適用
         </button>
       </div>
@@ -206,13 +209,35 @@ onMounted(async () => {
           メモ: {{ log.note }}
         </p>
       </NuxtLink>
+
+      <div v-if="lastPage > 1" class="flex items-center justify-between pt-2">
+        <button
+          type="button"
+          :disabled="currentPage <= 1 || isLoading"
+          class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white disabled:opacity-40"
+          @click="fetchLogs(currentPage - 1)"
+        >
+          前へ
+        </button>
+        <span class="text-xs text-slate-500">
+          {{ currentPage }} / {{ lastPage }} ページ（全 {{ total }} 件）
+        </span>
+        <button
+          type="button"
+          :disabled="currentPage >= lastPage || isLoading"
+          class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white disabled:opacity-40"
+          @click="fetchLogs(currentPage + 1)"
+        >
+          次へ
+        </button>
+      </div>
     </div>
 
     <LogCreateModal
       :is-open="isModalOpen"
       :categories="categories"
       @close="isModalOpen = false"
-      @created="fetchLogs"
+      @created="fetchLogs(1)"
     />
   </div>
 </template>

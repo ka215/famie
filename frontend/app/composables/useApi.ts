@@ -4,7 +4,7 @@ export const useApi = () => {
 
   const fetchApi = async <T>(request: string, options: Parameters<typeof $fetch>[1] = {}) => {
     return await $fetch<T>(request, {
-      baseURL: config.public.apiBase,
+      baseURL: config.public.apiEndpoint,
       ...options,
       headers: {
         Accept: 'application/json',

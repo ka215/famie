@@ -5,9 +5,10 @@
 | 項目 | 内容 |
 | --- | --- |
 | 文書名 | Famie 基本設計書 |
-| 版数 | 1.0 |
+| 版数 | 1.1 |
 | 対象フェーズ | 初期リリース |
 | 作成日 | 2026-09-21 |
+| 更新日 | 2026-09-22 |
 | 関連文書 | `fixed_requirements.md` |
 
 本書は Famie の外部仕様および主要な内部構成を定義する。詳細なクラス実装、マイグレーション、画面コンポーネントの実装手順は本書の対象外とする。
@@ -18,27 +19,38 @@
 
 | 区分 | 採用技術 | 役割 |
 | --- | --- | --- |
-| フロントエンド | Nuxt 4、Vue、Tailwind CSS | SSR 対応 Web UI、PWA、API 呼出し |
+| フロントエンド | Nuxt 4、Vue、Tailwind CSS | SPA のブラウザー描画、PWA、API 呼出し |
 | PWA | `@vite-pwa/nuxt` | Manifest、Service Worker、ホーム画面追加 |
-| バックエンド | PHP 8.4.24 以上、Laravel 11 以降 | REST API、認証、認可、入力検証 |
+| バックエンド | PHP 8.4、Laravel 11 以降 | REST API、認証、認可、入力検証 |
 | 認証 | Laravel Sanctum | Bearer Token の発行と検証 |
-| データベース | PostgreSQL 14.13 以上 | アプリケーションデータの永続化 |
-| Web サーバー | Apache HTTP Server | HTTPS 終端、IP 制限、Laravel 公開、Nuxt へのリバースプロキシ |
-| プロセス管理 | PM2 | Nuxt SSR プロセスの常駐管理 |
-| インフラ | CoreServer VPS、`famie.ka2.org` を想定 | 本番実行環境 |
+| データベース | PostgreSQL 14.13 | アプリケーションデータの永続化 |
+| Web サーバー | Apache HTTP Server | HTTPS 終端、IP 制限、静的ファイル配信、Laravel 公開 |
+| ビルド環境 | ローカル Windows、Node.js、pnpm | Nuxt SPA の静的ファイル生成 |
+| インフラ | 契約中の CoreServer、`famie.ka2.org` | 本番実行環境。Node.js の常駐プロセスは禁止 |
+
+契約環境で Apache、PHP 8.4、PostgreSQL 14.13 が利用可能であり、Laravel API の稼働実績があることを前提とする。
 
 ### 2.2 論理構成
 
 ```mermaid
 flowchart LR
-  Client[利用者のスマートフォン] -->|HTTPS| Apache[Apache HTTP Server]
+  Client[ブラウザー内の Nuxt SPA] -->|HTTPS: 画面・静的ファイル| Apache[Apache HTTP Server]
+  Client -->|HTTPS: /api/v1・Bearer Token| Apache
   Apache -->|/api/v1| Laravel[Laravel API]
-  Apache -->|/| Nuxt[Nuxt 4 SSR]
+  Apache -->|静的配信| Static[HTML・JavaScript・CSS・PWA 資材]
   Laravel --> PostgreSQL[(PostgreSQL)]
-  Nuxt -->|Bearer Token を付与して API 呼出し| Laravel
+  Local[ローカル Windows で pnpm generate] -->|生成物をアップロード| Static
 ```
 
-Apache は `mod_proxy` により Nuxt へリバースプロキシし、`/api/v1` は Laravel の `public` ディレクトリへルーティングする。Apache は `X-Forwarded-For` などのプロキシヘッダーを Laravel に渡し、Laravel は信頼済みプロキシを設定して正しいクライアント IP を用いて許可リストを照合する。
+Apache は Nuxt の静的生成物を配信し、`/api/v1` は Laravel の `public/index.php` へルーティングする。ブラウザーから同一 Origin の API を呼び出す構成とし、本番の Nuxt サーバーおよび Nuxt 向けリバースプロキシは使用しない。
+
+### 2.3 描画・データ取得方式
+
+- Nuxt は `ssr: false` とし、`frontend` で既存の `pnpm generate` を実行して `.output/public` に配信ファイルを生成する。
+- 静的配信するのは SPA の共通画面コードと資材であり、ログ ID ごと・利用者ごとの HTML を事前生成しない。
+- 認証、活動ログ、ユーザー、カテゴリのデータはブラウザーから Laravel API を呼び出して取得・更新する。ビルド時に家族データやトークンを生成物へ埋め込まない。
+- データ更新後は API を再取得して表示へ反映する。再ビルドはフロントエンドのコード・資材・ビルド時設定の変更時に行う。
+- Nuxt のサーバー API やサーバーミドルウェアに本番機能を依存させず、サーバー処理は Laravel に実装する。
 
 ## 3. 認証・認可設計
 
@@ -47,8 +59,11 @@ Apache は `mod_proxy` により Nuxt へリバースプロキシし、`/api/v1`
 1. クライアントは `POST /api/v1/auth/login` に `login` と `password` を送信する。
 2. Laravel は `username` または `email` で利用者を検索し、ハッシュ化済みパスワードを照合する。
 3. 成功時に Sanctum の Personal Access Token と利用者情報を返す。
-4. Nuxt はトークンを `auth_token` Cookie に保持し、以後の API 呼出しで `Authorization: Bearer <token>` を付与する。
-5. API が 401 を返した場合、Nuxt はトークンを破棄して `/login` へ遷移する。
+4. ブラウザー内の Nuxt はトークンを `auth_token` Cookie に保持し、以後の API 呼出しで `Authorization: Bearer <token>` を付与する。
+5. 保護対象画面の初回表示・再読み込み時は、トークンがなければ `/login` へ遷移し、トークンがあれば `/auth/me` で利用者を確認してからデータ取得・画面表示を行う。
+6. API が 401 を返した場合、Nuxt はトークンと利用者の状態を破棄して `/login` へ遷移する。通信失敗は未認証と区別し、日本語のエラーを表示する。
+
+Cookie は本番で `Secure`、`SameSite=Lax`、`Path=/` を設定する。ブラウザーの JavaScript が Bearer Token を読み出す方式のため HttpOnly は使用しない。静的ファイルの取得自体はログインを要求しないが、家族データの参照・変更はすべて Laravel の認証・認可を通す。
 
 トークンの有効期間は 30 日を初期値とする。ログイン時に当該利用者の既存トークンを無効化するため、同時に有効なログイン状態は 1 つとする。
 
@@ -70,10 +85,12 @@ Apache は `mod_proxy` により Nuxt へリバースプロキシし、`/api/v1`
 ### 3.3 IP 制限
 
 - `ALLOWED_IPS` 環境変数にカンマ区切りで許可 IP アドレスを設定する。
-- Apache の `Require ip` と Laravel の `RestrictIpAddress` ミドルウェアの二層で遮断できるようにする。
+- API は Apache の `Require ip` と Laravel の `RestrictIpAddress` ミドルウェアの二層で遮断する。静的ファイルは Apache で遮断する。
 - 許可リストが空、またはクライアント IP が一致しない場合は HTTP 403 を返す。
-- `/api` だけでなく、Nuxt が提供する画面を含めた全経路を保護対象とする。
-- Nginx へ移行または併用する場合も、`/api/v1` を Laravel、それ以外を Nuxt に振り分け、許可 IP とプロキシヘッダーの取り扱いを Apache 構成と同等にする。
+- HTML、JavaScript、CSS、Manifest、Service Worker、アイコンおよび API の全経路を保護対象とする。
+- `ALLOWED_IPS` を正本とし、デプロイ時および許可 IP 変更時に Apache の許可設定へ同期する。Laravel の `.env` は Apache が自動で読み込むものとは扱わない。空の場合は Apache も `Require all denied` とする。
+- Laravel は実際の接続元 IP を使用する。ホスティング環境にプロキシがある場合のみ、その信頼済みプロキシからの転送ヘッダーを使用し、任意の `X-Forwarded-For` を信用しない。
+- IP 制限はサーバーへのリクエストに適用する。ブラウザーに取得済みの共通画面資材が残る場合も、家族データはキャッシュせず API への接続と認証を必須とする。
 
 ## 4. 画面設計
 
@@ -109,6 +126,15 @@ flowchart TD
 - 指定期間では開始日・終了日を入力し、開始日が終了日より後の場合は API 呼出し前にエラー表示する。
 - 権限のない編集・削除操作は UI に表示しない。ただし API 側の認可を必須とする。
 - 作成、更新、削除、通信失敗の結果は日本語メッセージで通知する。
+
+### 4.4 SPA の URL と PWA
+
+- `/login`、`/settings`、`/logs/:id` などへの直接アクセス・再読み込み時は、Apache が SPA の `index.html` を返し、ブラウザーのルーターが画面を選択する。
+- `/api` 配下は SPA フォールバックから除外して Laravel へ渡し、API の 401・403・404・422 などを HTML に置き換えない。存在しない静的資材は 404 とする。
+- 存在しない画面は SPA で未検出として表示し、存在しないログは API の 404 に応じて案内する。
+- Service Worker は共通の静的資材のみをキャッシュ対象とする。API 通信はキャッシュせずネットワークへ送り、画面用のナビゲーションフォールバックからも `/api` 配下を除外する。
+- オフラインでは家族データの取得・投稿・更新を行わず、通信エラーを表示する。下書き保存、送信キュー、再同期は実装しない。
+- HTML と Service Worker の更新が反映される配信設定とし、デプロイ後は既存の PWA 利用者にも新しい資材が適用されることを確認する。
 
 ## 5. API 基本設計
 
@@ -295,12 +321,16 @@ erDiagram
 
 | コンポーネント | 配置・公開方法 |
 | --- | --- |
-| Nuxt | `/var/www/famie-front` でビルドし、PM2 がポート 3000 で実行 |
-| Laravel | `/var/www/famie-api` に配置し、Apache の DocumentRoot を `public` に設定して実行 |
-| PostgreSQL | VPS ローカルで実行し、外部ネットワークに公開しない |
-| Apache | HTTPS のみを受け、`/api/v1` を Laravel、それ以外を PM2 の Nuxt にリバースプロキシ |
+| Nuxt | ローカルで生成した `frontend/.output/public` の内容を Apache の静的公開領域へ配置 |
+| Laravel | 契約環境の PHP 8.4 で実行し、`public` のみを公開対象として `/api/v1` を処理 |
+| PostgreSQL | 契約環境の PostgreSQL 14.13 を利用し、Laravel から接続。ブラウザーから直接接続しない |
+| Apache | HTTPS、全経路の IP 制限、静的配信、SPA フォールバック、Laravel への API 振り分け |
 
-CoreServer の Apache を本番 Web サーバーとして使用する。必要な Apache モジュールは少なくとも `mod_ssl`、`mod_rewrite`、`mod_proxy`、`mod_proxy_http` および `mod_headers` とする。Laravel のルーティングは `public/.htaccess` と `mod_rewrite` を利用する。
+CoreServer の Apache を本番 Web サーバーとして使用する。契約環境の HTTPS、IP 制限、`mod_rewrite` およびヘッダー設定機能を利用する。Nuxt 用の `mod_proxy`、`mod_proxy_http`、PM2 および本番 Node.js は不要とする。配置先の絶対パスは契約環境の公開ディレクトリに合わせ、VPS のディレクトリ構成や管理者権限を前提としない。
+
+Apache の振り分けは、IP 制限を適用したうえで API、実在する静的ファイル、SPA の画面 URL の順に処理する。API は元のパス・クエリ・HTTP メソッド・Authorization ヘッダーを保持して Laravel の `public/index.php` へ渡す。Laravel の `.env`、ソース、`vendor` などは静的公開領域へ配置しない。
+
+ローカルで `pnpm generate` を実行する前に、本番用 API ベースを `/api/v1` に設定する。生成後は `.output/public` の内容をアップロードし、Apache のルーティング・IP 制限設定を適用する。`.output/server`、`node_modules` および開発用 `.env` はフロントエンドの配信対象に含めない。サーバー上での Nuxt ビルド・起動は行わない。
 
 ### 7.2 ローカル開発環境
 
@@ -312,7 +342,9 @@ CoreServer の Apache を本番 Web サーバーとして使用する。必要�
 | PostgreSQL | XAMPP には含めず、Windows に個別インストールしてローカル接続 |
 | Nuxt | pnpm で起動し、通常は `http://localhost:3000` で実行 |
 
-ローカルの Laravel VirtualHost は `mod_rewrite` を有効にし、`AllowOverride All` を設定する。開発時は Nuxt の開発サーバーから Laravel API を呼び出すため、Laravel 側の CORS 設定でローカル Nuxt の Origin を許可する。本番と同じドメイン構成を再現する場合は、Apache の `mod_proxy` で Nuxt をプロキシして同一 Origin とする。
+ローカルの Laravel VirtualHost は `mod_rewrite` を有効にし、`AllowOverride All` を設定する。開発時は Nuxt の開発サーバーから Laravel API を呼び出すため、Laravel 側の CORS 設定でローカル Nuxt の Origin を許可する。開発サーバー利用中に同一 Origin とする場合は、ローカル Apache の `mod_proxy` を利用できる。
+
+本番相当の確認では、ローカルで生成した `.output/public` を Apache から配信し、同一 Origin の `/api/v1` を Laravel へ振り分ける。Nuxt の開発サーバーを停止した状態で、画面 URL の直接アクセス、認証、API 操作、IP 制限および PWA を確認する。PWA の確認は HTTPS またはブラウザーが安全なコンテキストとして扱う localhost で行う。
 
 ### 7.3 環境変数
 
@@ -324,15 +356,18 @@ CoreServer の Apache を本番 Web サーバーとして使用する。必要�
 | `DB_CONNECTION` | `pgsql` |
 | `DB_HOST` / `DB_PORT` | PostgreSQL 接続先 |
 | `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | DB 接続情報 |
-| `ALLOWED_IPS` | 許可するクライアント IP の一覧 |
-| `NUXT_PUBLIC_API_BASE` | `https://famie.ka2.org/api/v1` |
+| `ALLOWED_IPS` | 許可するクライアント IP の一覧。Laravel で使用し、Apache 設定にも同期 |
+| `NUXT_DEV_API_BASE` | Nuxt 開発サーバーから呼び出す API URL。本番生成物では使用しない |
+
+本番生成物の API ベースは同一 Origin の `/api/v1` に固定する。`NUXT_DEV_API_BASE` は開発時だけ使用し、DB 接続情報や API トークンなどの秘密情報を Nuxt の公開設定に含めない。
 
 ### 7.4 バックアップと監視
 
 - PostgreSQL の定期ダンプをアプリケーションとは別の保存先へ保管する。
 - 本番デプロイ前にバックアップからの復元を検証する。
-- Apache、Laravel、Nuxt、PostgreSQL のエラーログとプロセス状態を確認可能にする。
-- SSL 証明書は Certbot で取得し、自動更新を有効にする。
+- 契約環境で参照可能な Apache・PHP・Laravel のログと、PostgreSQL への接続状態を確認可能にする。フロントエンドはブラウザーのエラーと静的ファイル・API の HTTP 応答で調査する。
+- TLS 証明書は契約環境で提供される管理方法に従い、更新と有効期限を確認する。Certbot の常駐・管理者権限を前提としない。
+- フロントエンドの生成物はリリース単位で保管し、配置失敗時に直前の生成物へ戻せるようにする。HTML と資材の不整合を避け、更新後に画面の直接アクセスと PWA の更新を確認する。
 
 ## 8. 実装上の整合事項
 

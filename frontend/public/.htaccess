@@ -1,0 +1,14 @@
+Options -MultiViews
+RewriteEngine On
+
+# API は上位の Apache 設定または Laravel 側のルールへ渡す。
+RewriteCond %{REQUEST_URI} ^/api(?:/|$) [NC]
+RewriteRule ^ - [L]
+
+# 実在する静的ファイルとディレクトリはそのまま配信する。
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Vue Router の画面 URL を SPA のエントリーポイントへ戻す。
+RewriteRule ^ index.html [L]
