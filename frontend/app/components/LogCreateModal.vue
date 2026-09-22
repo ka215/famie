@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   isOpen: boolean
-  categories: Array<{ id: number, name: string, color_code: string }>
+  categories: Array<{ id: number; name: string; color_code: string }>
 }>()
 
 const emit = defineEmits(['close', 'created'])
@@ -41,8 +41,9 @@ const handleSubmit = async () => {
 
     emit('created')
     emit('close')
-  } catch (err: any) {
-    errorMessage.value = err.data?.message || '登録に失敗しました。'
+  } catch (err: unknown) {
+    const e = err as { data?: { message?: string } }
+    errorMessage.value = e.data?.message || '登録に失敗しました。'
   } finally {
     isLoading.value = false
   }

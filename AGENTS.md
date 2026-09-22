@@ -9,8 +9,10 @@
 
 ```
 famie/
-├── */       # etc.
-└── docs/    # ドキュメント
+├── backend/     # バックエンド・アプリケーション（Laravel）
+├── docs/        # ドキュメント
+├── frontend/    # フロントエンド・アプリケーション（Nuxt4）
+└── README.md    # 全体概要
 ```
 
 ---

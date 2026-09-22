@@ -23,10 +23,12 @@ const userIsLoading = ref(false)
 const userSuccessMessage = ref('')
 const userErrorMessage = ref('')
 
-const familyMembers = ref<Array<{ id: number, username: string, display_name: string, role: string }>>([])
+const familyMembers = ref<
+  Array<{ id: number; username: string; display_name: string; role: string }>
+>([])
 
 // カテゴリ管理（親のみ）
-const categories = ref<Array<{ id: number, name: string, color_code: string }>>([])
+const categories = ref<Array<{ id: number; name: string; color_code: string }>>([])
 const categoryForm = ref({ name: '', color_code: '#3B82F6' })
 const categoryIsLoading = ref(false)
 const categorySuccessMessage = ref('')
@@ -34,7 +36,8 @@ const categoryErrorMessage = ref('')
 
 const fetchCategories = async () => {
   try {
-    categories.value = await fetchApi<Array<{ id: number, name: string, color_code: string }>>('/categories')
+    categories.value =
+      await fetchApi<Array<{ id: number; name: string; color_code: string }>>('/categories')
   } catch (err) {
     console.error('カテゴリ一覧の取得に失敗しました', err)
   }
@@ -58,8 +61,9 @@ const handleAddCategory = async () => {
     categorySuccessMessage.value = `「${categoryForm.value.name}」を追加しました。`
     categoryForm.value = { name: '', color_code: '#3B82F6' }
     await fetchCategories()
-  } catch (err: any) {
-    categoryErrorMessage.value = err.data?.message || 'カテゴリの追加に失敗しました。'
+  } catch (err: unknown) {
+    const e = err as { data?: { message?: string } }
+    categoryErrorMessage.value = e.data?.message || 'カテゴリの追加に失敗しました。'
   } finally {
     categoryIsLoading.value = false
   }
@@ -67,7 +71,15 @@ const handleAddCategory = async () => {
 
 const fetchMembers = async () => {
   try {
-    familyMembers.value = await fetchApi<Array<{ id: number, username: string, display_name: string, role: string }>>('/users')
+    familyMembers.value =
+      await fetchApi<
+        Array<{
+          id: number
+          username: string
+          display_name: string
+          role: string
+        }>
+      >('/users')
   } catch (err) {
     console.error('メンバー一覧の取得に失敗しました', err)
   }
@@ -89,9 +101,14 @@ const handlePasswordChange = async () => {
       body: pwdForm.value,
     })
     pwdSuccessMessage.value = 'パスワードを変更しました。'
-    pwdForm.value = { current_password: '', new_password: '', new_password_confirmation: '' }
-  } catch (err: any) {
-    pwdErrorMessage.value = err.data?.message || 'パスワードの変更に失敗しました。'
+    pwdForm.value = {
+      current_password: '',
+      new_password: '',
+      new_password_confirmation: '',
+    }
+  } catch (err: unknown) {
+    const e = err as { data?: { message?: string } }
+    pwdErrorMessage.value = e.data?.message || 'パスワードの変更に失敗しました。'
   } finally {
     pwdIsLoading.value = false
   }
@@ -118,10 +135,18 @@ const handleAddUser = async () => {
       body: userForm.value,
     })
     userSuccessMessage.value = `${userForm.value.display_name} さんのアカウントを作成しました。`
-    userForm.value = { username: '', display_name: '', email: '', password: '', password_confirmation: '', role: 'child' }
+    userForm.value = {
+      username: '',
+      display_name: '',
+      email: '',
+      password: '',
+      password_confirmation: '',
+      role: 'child',
+    }
     await fetchMembers()
-  } catch (err: any) {
-    userErrorMessage.value = err.data?.message || 'アカウントの作成に失敗しました。'
+  } catch (err: unknown) {
+    const e = err as { data?: { message?: string } }
+    userErrorMessage.value = e.data?.message || 'アカウントの作成に失敗しました。'
   } finally {
     userIsLoading.value = false
   }

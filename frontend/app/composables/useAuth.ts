@@ -12,7 +12,9 @@ interface LoginResponse {
 
 export const useAuth = () => {
   const user = useState<User | null>('auth_user', () => null)
-  const token = useCookie<string | null>('auth_token', { maxAge: 60 * 60 * 24 * 30 })
+  const token = useCookie<string | null>('auth_token', {
+    maxAge: 60 * 60 * 24 * 30,
+  })
   const { fetchApi } = useApi()
 
   const login = async (loginId: string, password: string) => {

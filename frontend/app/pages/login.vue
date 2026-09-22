@@ -21,8 +21,9 @@ const handleLogin = async () => {
   try {
     await login(loginId.value, password.value)
     await navigateTo('/')
-  } catch (err: any) {
-    errorMessage.value = err.data?.message || 'ログインに失敗しました。'
+  } catch (err: unknown) {
+    const e = err as { data?: { message?: string } }
+    errorMessage.value = e.data?.message || 'ログインに失敗しました。'
   } finally {
     isLoading.value = false
   }

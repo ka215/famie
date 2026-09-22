@@ -1,7 +1,7 @@
-# AGENTS.md — famie ワークスペース共通方針
+# copilot-instructions.md — famie ワークスペース共通方針
 
 本ドキュメントは `famie` ワークスペース全体に適用される共通ガイドです。
-特定のディレクトリ下に `AGENTS.md` がある場合は、**より深い階層の指示を優先**してください。
+特定のディレクトリ下に `copilot-instructions.md` がある場合は、**より深い階層の指示を優先**してください。
 
 ---
 
@@ -9,8 +9,10 @@
 
 ```
 famie/
-├── */       # etc.
-└── docs/    # ドキュメント
+├── backend/     # バックエンド・アプリケーション（Laravel）
+├── docs/        # ドキュメント
+├── frontend/    # フロントエンド・アプリケーション（Nuxt4）
+└── README.md    # 全体概要
 ```
 
 ---

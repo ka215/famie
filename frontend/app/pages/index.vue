@@ -6,16 +6,18 @@ interface ActivityLogItem {
   activity_time: string | null
   content: string
   note: string | null
-  user: { id: number, display_name: string, role: 'parent' | 'child' }
-  category: { id: number, name: string, color_code: string }
+  user: { id: number; display_name: string; role: 'parent' | 'child' }
+  category: { id: number; name: string; color_code: string }
 }
 
 const { fetchApi } = useApi()
 const { user } = useAuth()
 
 const logs = ref<ActivityLogItem[]>([])
-const categories = ref<Array<{ id: number, name: string, color_code: string }>>([])
-const familyMembers = ref<Array<{ id: number, username: string, display_name: string, role: string }>>([])
+const categories = ref<Array<{ id: number; name: string; color_code: string }>>([])
+const familyMembers = ref<
+  Array<{ id: number; username: string; display_name: string; role: string }>
+>([])
 const isLoading = ref(false)
 const isModalOpen = ref(false)
 
@@ -34,13 +36,13 @@ const setPeriodRange = () => {
     monday.setDate(now.getDate() - day + 1)
     const sunday = new Date(monday)
     sunday.setDate(monday.getDate() + 6)
-    filterFrom.value = monday.toISOString().split('T')[0]
-    filterTo.value = sunday.toISOString().split('T')[0]
+    filterFrom.value = monday.toISOString().slice(0, 10)
+    filterTo.value = sunday.toISOString().slice(0, 10)
   } else if (filterPeriod.value === 'this_month') {
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    filterFrom.value = firstDay.toISOString().split('T')[0]
-    filterTo.value = lastDay.toISOString().split('T')[0]
+    filterFrom.value = firstDay.toISOString().slice(0, 10)
+    filterTo.value = lastDay.toISOString().slice(0, 10)
   }
 }
 
@@ -64,7 +66,8 @@ const fetchLogs = async () => {
 
 const fetchCategories = async () => {
   try {
-    categories.value = await fetchApi<Array<{ id: number, name: string, color_code: string }>>('/categories')
+    categories.value =
+      await fetchApi<Array<{ id: number; name: string; color_code: string }>>('/categories')
   } catch (err) {
     console.error('カテゴリの取得に失敗しました', err)
   }
@@ -72,7 +75,10 @@ const fetchCategories = async () => {
 
 const fetchMembers = async () => {
   try {
-    familyMembers.value = await fetchApi<Array<{ id: number, username: string, display_name: string, role: string }>>('/users')
+    familyMembers.value =
+      await fetchApi<Array<{ id: number; username: string; display_name: string; role: string }>>(
+        '/users'
+      )
   } catch (err) {
     console.error('メンバー一覧の取得に失敗しました', err)
   }

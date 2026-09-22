@@ -11,6 +11,17 @@ export default defineNuxtConfig({
     port: 3000,
   },
 
+  typescript: {
+    strict: true,
+    typeCheck: true,
+    // 追加の compilerOptions が必要な場合はここに記述
+    // tsConfig: {
+    //   compilerOptions: {
+    //     types: ['node'],
+    //   }
+    // }
+  },
+
   modules: ['@vite-pwa/nuxt'],
 
   css: ['~/assets/css/main.css'],
@@ -25,7 +36,9 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
+      apiBase:
+        // process.env の代わりに import.meta.env を使用（Nuxt4推奨）
+        import.meta.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
     },
   },
 
