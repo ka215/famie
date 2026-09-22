@@ -14,6 +14,8 @@ Laravel API を CoreServer の PHP 8.4、PostgreSQL 14.13、Apache で稼働さ�
 
 DB 本体とDBユーザーは CoreServer の管理画面で作成する。テーブル、インデックス、制約はLaravel migrationを正本とし、別の初期DDLは作成しない。
 
+Apacheは `/api` を `backend/public` のマウントパスとして取り除いてからLaravelへ渡す。このため、Laravel内部では `/v1`、公開URLでは `/api/v1` となる。
+
 ## 2. 前提条件
 
 - CoreServer 上の `~/famie` にリポジトリが clone 済みである。
@@ -87,7 +89,7 @@ DB_USERNAME=ka2_famie
 DB_PASSWORD=<CORESERVER_DB_PASSWORD>
 DB_SCHEMA=ka2_famie
 
-ALLOWED_IPS=202.172.28.141,106.152.55.116,153.124.191.230
+ALLOWED_IPS=202.172.28.141,202.172.30.215,106.152.55.116,153.124.191.230
 CORS_ALLOWED_ORIGINS=https://famie.ka2.org
 
 SESSION_DRIVER=database
@@ -236,6 +238,14 @@ curl -i \
 - 実アカウントでログイン、ログアウト、記録の登録と参照ができる。
 - `storage/logs/laravel.log` に新しい例外がない。
 - 許可していない IP から API が `403` になる。
+
+`The route v1/... could not be found.` が返る場合は、古いルートキャッシュが残っている。次を実行してから再確認する。
+
+```sh
+php artisan optimize:clear
+php artisan optimize
+php artisan route:list --path=v1
+```
 
 ## 7. ロールバック
 

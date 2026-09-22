@@ -31,7 +31,7 @@ class ActivityLogControllerTest extends TestCase
         ]);
         Sanctum::actingAs($user);
 
-        $response = $this->getJson("/api/v1/logs/{$log->id}");
+        $response = $this->getJson("/v1/logs/{$log->id}");
 
         $response->assertOk()
             ->assertJsonPath('data.id', $log->id)

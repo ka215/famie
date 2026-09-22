@@ -44,7 +44,7 @@ export default defineNuxtConfig({
         ? '/api/v1'
         : import.meta.env.NUXT_DEV_API_BASE ||
           import.meta.env.NUXT_PUBLIC_API_BASE ||
-          'http://localhost:8000/api/v1',
+          'http://localhost:8000/v1',
     },
   },
 

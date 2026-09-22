@@ -20,8 +20,25 @@ Nuxt SPA をローカルで静的生成し、Git リポジトリ経由で CoreSe
 - CoreServer 上の `~/famie` にリポジトリが clone 済みである。
 - ローカル環境で Node.js、pnpm、Git を利用できる。
 - リリース対象コミットが `main` に push 済みである。
+- `famie.ka2.org` のAレコードがCoreServerのIPアドレスを向いている。
+- CoreServerのサイト設定で `famie.ka2.org` の無料SSLが有効であり、同FQDNをSANに含む証明書が配信されている。
 - `~/public_html/famie.ka2.org/.htaccess` に本番用 IP 許可リストが設定済みである。
 - CoreServer でドキュメントルートから `~/famie/backend/public` へのシンボリックリンクを利用できることを確認済みである。
+
+### 2.1 初回のSSL設定
+
+CoreServer V1のコントロールパネルで、設定済みサイト `famie.ka2.org` の設定変更を開き、「無料SSL」を選択して保存する。DNSのAレコードがCoreServerを向いていない状態では証明書を取得できない。
+
+設定後、数分待ってから証明書を確認する。
+
+```sh
+openssl s_client -connect famie.ka2.org:443 \
+  -servername famie.ka2.org </dev/null 2>/dev/null \
+  | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
+curl -I https://famie.ka2.org/
+```
+
+`subjectAltName` に `DNS:famie.ka2.org` または同ドメインを包含するワイルドカード名があり、`curl` が証明書エラーにならないことを確認する。`CN=*.coreserver.jp` の証明書が返る場合は、独自ドメイン用SSLがまだ割り当てられていないため、アプリの確認へ進まない。
 
 ## 3. ローカルでの生成と検証
 
@@ -97,7 +114,7 @@ rsync -a --delete \
 ```sh
 cp "$HOME/famie/frontend/.output/public/.htaccess" \
   "$HOME/public_html/famie.ka2.org/.htaccess"
-chmod 644 "$HOME/public_html/famie.ka2.org/.htaccess"
+chmod 604 "$HOME/public_html/famie.ka2.org/.htaccess"
 ```
 
 ```apacheconf
@@ -105,6 +122,7 @@ Options -MultiViews
 
 <RequireAny>
     Require ip 202.172.28.141
+    Require ip 202.172.30.215
     Require ip 106.152.55.116
     Require ip 153.124.191.230
 </RequireAny>
@@ -144,6 +162,7 @@ test "$(readlink "$DOCROOT/api")" = "$REPO_DIR/backend/public" || exit 1
 ```sh
 curl -I https://famie.ka2.org/
 curl -I https://famie.ka2.org/login
+curl -I https://famie.ka2.org/login/
 curl -i \
   -H 'Accept: application/json' \
   -H 'Content-Type: application/json' \
@@ -153,7 +172,7 @@ curl -i \
 
 次をすべて満たすことを確認する。
 
-- `/` と `/login` が `200` で HTML を返す。
+- `/` が `200`、`/login` が `/login/` への `301`、`/login/` が `200` で HTML を返す。
 - ログイン API が HTML ではなく JSON を返す。空データなので `422` が正常である。
 - 実アカウントでログイン、ログアウトできる。
 - ブラウザの開発者ツールで JavaScript、CSS、manifest、Service Worker に `404` がない。
