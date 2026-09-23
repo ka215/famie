@@ -1,4 +1,5 @@
 {
     "chatgpt.openOnStartup": true,
-    "chatgpt.commentCodeLensEnabled": true
+    "chatgpt.commentCodeLensEnabled": true,
+    "files.eol": "\n"
 }
