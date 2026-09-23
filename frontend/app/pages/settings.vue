@@ -1,9 +1,50 @@
 <script setup lang="ts">
-import type { ApiRequestError, Category, User } from '#shared/types/api'
+import type { ApiRequestError, Category, CurrentUserResponse, User } from '#shared/types/api'
 import type { CreateUserForm, PasswordForm } from '#shared/types/forms'
+import { type ProfileForm, profileSchema } from '#shared/utils/profileSchema'
 
 const { user, isParent } = useAuth()
 const { fetchApi } = useApi()
+
+const profileForm = ref<ProfileForm>({ display_name: user.value?.display_name ?? '' })
+const profileIsLoading = ref(false)
+const profileSuccessMessage = ref('')
+const profileErrorMessage = ref('')
+
+const handleProfileSave = async () => {
+  if (profileIsLoading.value) return
+  profileSuccessMessage.value = ''
+  profileErrorMessage.value = ''
+  const result = profileSchema.safeParse(profileForm.value)
+  if (!result.success) {
+    profileErrorMessage.value = result.error.issues[0]?.message ?? '表示名を確認してください。'
+    return
+  }
+
+  profileIsLoading.value = true
+  try {
+    const response = await fetchApi<CurrentUserResponse>('/auth/me', {
+      method: 'PATCH',
+      body: result.data,
+    })
+    user.value = response.user
+    profileForm.value.display_name = response.user.display_name
+    familyMembers.value = familyMembers.value.map((member) =>
+      member.id === response.user.id
+        ? { ...member, display_name: response.user.display_name }
+        : member
+    )
+    profileSuccessMessage.value = '表示名を変更しました。'
+  } catch (error: unknown) {
+    const response = error as ApiRequestError
+    profileErrorMessage.value =
+      response.data?.errors?.display_name?.[0] ??
+      response.data?.message ??
+      '表示名を変更できませんでした。通信環境を確認してください。'
+  } finally {
+    profileIsLoading.value = false
+  }
+}
 
 const pwdForm = ref<PasswordForm>({
   current_password: '',
@@ -168,6 +209,26 @@ onMounted(() => {
           {{ isParent ? '親（管理者）' : '子供（一般）' }}
         </span>
       </div>
+      <form class="space-y-3 pt-3" novalidate @submit.prevent="handleProfileSave">
+        <div>
+          <label for="display-name" class="block text-xs font-semibold text-slate-600 mb-1">自分の表示名</label>
+          <input
+            id="display-name"
+            v-model="profileForm.display_name"
+            type="text"
+            autocomplete="nickname"
+            :aria-invalid="!!profileErrorMessage"
+            aria-describedby="display-name-help display-name-error"
+            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+          <p id="display-name-help" class="mt-1 text-xs text-slate-500">50文字以内。前後の空白は取り除きます。</p>
+        </div>
+        <p id="display-name-error" role="alert" class="text-xs text-red-600">{{ profileErrorMessage }}</p>
+        <p v-if="profileSuccessMessage" role="status" class="text-xs text-emerald-600">{{ profileSuccessMessage }}</p>
+        <button type="submit" :disabled="profileIsLoading" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+          {{ profileIsLoading ? '保存中…' : '表示名を保存する' }}
+        </button>
+      </form>
     </div>
 
     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">

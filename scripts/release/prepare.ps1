@@ -37,6 +37,7 @@ try {
         Invoke-Checked pnpm @('install', '--frozen-lockfile')
         Invoke-Checked pnpm @('lint')
         Invoke-Checked pnpm @('typecheck')
+        Invoke-Checked pnpm @('test:unit')
         Invoke-Checked pnpm @('test:e2e')
 
         $outputPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'frontend/.output'))
