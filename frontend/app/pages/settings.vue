@@ -278,25 +278,29 @@ onMounted(() => {
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">初期パスワード<span class="text-red-500">*</span></label>
-          <input
+          <label for="initial-password" class="block text-xs font-semibold text-slate-600 mb-1">初期パスワード<span aria-hidden="true" class="text-red-500">*</span></label>
+          <PasswordInput
+            id="initial-password"
+            label="初期パスワード"
             v-model="userForm.password"
-            type="password"
+            autocomplete="new-password"
             required
             placeholder="6文字以上"
             class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">初期パスワード（確認）<span class="text-red-500">*</span></label>
-          <input
+          <label for="initial-password-confirmation" class="block text-xs font-semibold text-slate-600 mb-1">初期パスワード（確認）<span aria-hidden="true" class="text-red-500">*</span></label>
+          <PasswordInput
+            id="initial-password-confirmation"
+            label="初期パスワード（確認）"
             v-model="userForm.password_confirmation"
-            type="password"
+            autocomplete="new-password"
             required
             placeholder="もう一度入力してください"
             class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          />
         </div>
 
         <div>
@@ -335,33 +339,39 @@ onMounted(() => {
 
       <form class="space-y-3" @submit.prevent="handlePasswordChange">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">現在のパスワード</label>
-          <input
+          <label for="current-password" class="block text-xs font-semibold text-slate-600 mb-1">現在のパスワード</label>
+          <PasswordInput
+            id="current-password"
+            label="現在のパスワード"
             v-model="pwdForm.current_password"
-            type="password"
+            autocomplete="current-password"
             required
             class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">新しいパスワード</label>
-          <input
+          <label for="new-password" class="block text-xs font-semibold text-slate-600 mb-1">新しいパスワード</label>
+          <PasswordInput
+            id="new-password"
+            label="新しいパスワード"
             v-model="pwdForm.new_password"
-            type="password"
+            autocomplete="new-password"
             required
             class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">新しいパスワード（確認）</label>
-          <input
+          <label for="new-password-confirmation" class="block text-xs font-semibold text-slate-600 mb-1">新しいパスワード（確認）</label>
+          <PasswordInput
+            id="new-password-confirmation"
+            label="新しいパスワード（確認）"
             v-model="pwdForm.new_password_confirmation"
-            type="password"
+            autocomplete="new-password"
             required
             class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          />
         </div>
 
         <button
