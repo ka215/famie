@@ -6,6 +6,11 @@ const isProduction = import.meta.env.NODE_ENV === 'production'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
+  app: {
+    head: {
+      link: [{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }],
+    },
+  },
   nitro: {
     devProxy:
       import.meta.env.FAMIE_E2E === '1'

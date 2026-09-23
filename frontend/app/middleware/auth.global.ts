@@ -9,6 +9,22 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/login')
   }
 
+  if (!token.value && to.path === '/login') {
+    const { fetchApi } = useApi()
+    try {
+      const status = await fetchApi<{ status: string }>('/status', { cache: 'no-store' })
+      if (status.status !== 'ok') throw new Error('Unexpected status')
+    } catch {
+      if (isMaintenance.value) return
+      return abortNavigation(
+        createError({
+          statusCode: 503,
+          statusMessage: 'サービスの状態を確認できませんでした。通信環境を確認してください。',
+        })
+      )
+    }
+  }
+
   if (token.value && !user.value && to.path !== '/login') {
     try {
       const fetchedUser = await fetchUser()
