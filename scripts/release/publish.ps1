@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ExpectedBranch,
+    [Parameter(Mandatory)][string]$ExpectedVersion,
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$CommitMessage,
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$PrTitle
 )
@@ -8,6 +9,7 @@ param(
 # Called after prepare.ps1 has obtained consent to publish every displayed change.
 $ErrorActionPreference = 'Stop'
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+. (Join-Path $PSScriptRoot 'version.ps1')
 function Invoke-Checked {
     param([string]$Program, [string[]]$Arguments)
     & $Program @Arguments
@@ -20,6 +22,8 @@ try {
         throw 'Branch changed or is not a feature/hotfix branch. Publishing stopped.'
     }
     $base = if ($branch -like 'hotfix/*') { 'main' } else { 'dev' }
+    $release = Get-ReleaseVersionState -Root $repoRoot
+    if ($release.Next -ne $ExpectedVersion -or $release.State -ne 'next') { throw 'Prepared package versions do not match the release target.' }
     Get-Command gh -ErrorAction Stop | Out-Null
     Invoke-Checked gh @('auth', 'status')
     $remote = & git remote get-url origin

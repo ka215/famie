@@ -4,17 +4,37 @@ set -Eeuo pipefail
 umask 077
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+resolve_release() {
+  local commit=$1 requested_tag=${2:-} version_filter version_json backend_json frontend_json metadata current state tag_commit
+  version_filter=$(git show "$commit:scripts/release/version-state.jq") || return 1
+  version_json=$(git show "$commit:version.json") || return 1
+  backend_json=$(git show "$commit:backend/package.json") || return 1
+  frontend_json=$(git show "$commit:frontend/package.json") || return 1
+  metadata=$(printf '%s\n' "$version_json" "$backend_json" "$frontend_json" | jq -ser "$version_filter") || return 1
+  IFS=$'\t' read -r current version state <<< "$metadata"
+  [[ $state == next ]] || fail 'Both package versions must be prepared at next before deployment.'
+  tag="v$version"
+  [[ -z $requested_tag || $requested_tag == "$tag" ]] || fail "Expected $tag from origin/main; received $requested_tag."
+  tag_commit=$(git rev-parse --verify "refs/tags/$tag^{commit}") || return 1
+  [[ $tag_commit == "$commit" ]] || fail 'Release tag must point to the exact origin/main commit.'
+}
 check_environment() {
   php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); if (!$app->environment("production") || config("app.debug")) { fwrite(STDERR, "Expected production with debug disabled\n"); exit(1); }'
 }
 usage() {
-  echo 'Usage: bash deploy.sh vX.Y.Z [--apply --db-backup BACKUP_REFERENCE]'
+  echo 'Usage: bash deploy.sh [vX.Y.Z] [--apply --db-backup BACKUP_REFERENCE]'
+  echo 'Version is derived from origin/main version.json. An optional tag must match it.'
   echo 'Default: preflight only. Paths: ~/famie, ~/public_html/famie.ka2.org'
 }
+# Allow the version resolver to be tested against a disposable local Git repository.
+if [[ ${BASH_SOURCE[0]} != "$0" ]]; then return 0; fi
 if [[ ${1:-} == --help ]]; then usage; exit 0; fi
-tag=${1:-}
-[[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { usage; exit 1; }
-shift
+requested_tag=''
+if [[ -n ${1:-} && $1 != --* ]]; then
+  requested_tag=$1
+  [[ $requested_tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { usage; exit 1; }
+  shift
+fi
 apply=0
 db_backup=''
 while (($#)); do
@@ -63,10 +83,9 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 git fetch origin main --tags
-commit=$(git rev-parse --verify "refs/tags/$tag^{commit}")
-git merge-base --is-ancestor "$commit" origin/main || fail 'Tag is not on origin/main.'
-version=$(git show "$commit:frontend/package.json" | jq -er '.version')
-[[ $tag == "v$version" ]] || fail 'Tag and frontend package version do not match.'
+commit=$(git rev-parse --verify 'origin/main^{commit}')
+# Read only from the fetched, fixed commit, never from the old live worktree.
+resolve_release "$commit" "$requested_tag"
 for asset in index.html .htaccess sw.js manifest.webmanifest; do
   git cat-file -e "$commit:frontend/.output/public/$asset" || fail "Missing tagged asset: $asset"
 done

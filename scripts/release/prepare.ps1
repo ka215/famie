@@ -2,12 +2,13 @@
 param(
     [ValidateSet('Prompt', 'Skip', 'Publish')]
     [string]$PublishMode = 'Prompt',
-    [string]$CommitMessage = 'chore: prepare release',
-    [string]$PrTitle = 'chore: prepare next release'
+    [string]$CommitMessage,
+    [string]$PrTitle
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+. (Join-Path $PSScriptRoot 'version.ps1')
 
 function Invoke-Checked {
     param([string]$Program, [string[]]$Arguments)
@@ -21,9 +22,15 @@ try {
     if ($LASTEXITCODE -ne 0 -or $branch -notmatch '^(feature|hotfix)/') {
         throw 'Run release preparation on a feature/* or hotfix/* branch.'
     }
-    foreach ($tool in @('git', 'pnpm', 'php', 'composer')) {
+    foreach ($tool in @('git', 'pnpm', 'php', 'composer', 'jq')) {
         Get-Command $tool -ErrorAction Stop | Out-Null
     }
+
+    $release = Get-ReleaseVersionState -Root $repoRoot
+    if ([string]::IsNullOrWhiteSpace($CommitMessage)) { $CommitMessage = "chore: prepare v$($release.Next)" }
+    if ([string]::IsNullOrWhiteSpace($PrTitle)) { $PrTitle = "release: v$($release.Next)" }
+    Set-ReleasePackageVersions -Root $repoRoot -ExpectedNext $release.Next
+    Write-Host "Preparing v$($release.Next) (current: $($release.Current))."
 
     Push-Location (Join-Path $repoRoot 'frontend')
     try {
@@ -49,6 +56,8 @@ try {
         }
     } finally { Pop-Location }
 
+    $verified = Get-ReleaseVersionState -Root $repoRoot
+    if ($verified.Current -ne $release.Current -or $verified.Next -ne $release.Next -or $verified.State -ne 'next') { throw 'Release version changed during preparation.' }
     Write-Host 'Preparation complete. Review ALL changes below (including untracked files).'
     Invoke-Checked git @('--no-pager', 'diff', 'HEAD', '--stat')
     Invoke-Checked git @('--no-pager', 'status', '--short')
@@ -59,7 +68,7 @@ try {
         $publish = $answer -match '^(y|yes)$'
     }
     if ($publish) {
-        & (Join-Path $PSScriptRoot 'publish.ps1') -ExpectedBranch $branch -CommitMessage $CommitMessage -PrTitle $PrTitle
+        & (Join-Path $PSScriptRoot 'publish.ps1') -ExpectedBranch $branch -ExpectedVersion $release.Next -CommitMessage $CommitMessage -PrTitle $PrTitle
     } else {
         Write-Host 'Publishing skipped. Changes remain in the working tree.'
     }

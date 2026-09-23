@@ -5,10 +5,12 @@ $ErrorActionPreference = 'Stop'
 $scriptPath = Join-Path $PSScriptRoot 'deploy.sh'
 $tokens = $null
 $parseErrors = $null
-[System.Management.Automation.Language.Parser]::ParseFile(
-    (Join-Path $PSScriptRoot 'prepare.ps1'), [ref]$tokens, [ref]$parseErrors
-) | Out-Null
-if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+foreach ($file in @('prepare.ps1', 'publish.ps1', 'version.ps1')) {
+    [System.Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot $file), [ref]$tokens, [ref]$parseErrors
+    ) | Out-Null
+    if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+}
 
 & $Bash -n $scriptPath
 if ($LASTEXITCODE -ne 0) { throw 'Invalid deployment script syntax.' }
