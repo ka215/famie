@@ -20,6 +20,8 @@ $cases = @(
     @{ Arguments = @('main'); Expected = 'Usage:' },
     @{ Arguments = @('v0.3.0', '--apply'); Expected = 'Create a DB backup first' },
     @{ Arguments = @('v0.3.0', '--db-backup'); Expected = 'Missing backup reference' },
+    @{ Arguments = @('v0.3.0', '--db-backup', '--apply'); Expected = 'Missing backup reference' },
+    @{ Arguments = @('v0.3.0', '--apply', '--db-backup', '   '); Expected = 'Missing backup reference' },
     @{ Arguments = @('v0.3.0', '--force'); Expected = 'Unknown argument' }
 )
 foreach ($case in $cases) {
@@ -29,4 +31,4 @@ foreach ($case in $cases) {
         throw "Unexpected result for: $arguments`n$result"
     }
 }
-Write-Host 'Release script syntax and 4 rejection cases passed.'
+Write-Host 'Release script syntax and 6 rejection cases passed.'

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local runtime checks only; never invokes the deployment entry point.
 set -Eeuo pipefail
-source "$(dirname "${BASH_SOURCE[0]}")/deploy-cli.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/deploy.sh"
 repo_root=$(git rev-parse --show-toplevel)
 mkdir -p "$repo_root/.temp"
 fixture=$(mktemp -d "$repo_root/.temp/deploy-cli-test.XXXXXX")
@@ -22,9 +22,10 @@ reject() {
   [[ $output == *"$expected"* ]] || fail "Unexpected rejection: $output"
 }
 reject "$fixture/missing" "$fixture/composer fixture.php" 'absolute executable path'
+reject 'relative/php' "$fixture/composer fixture.php" 'absolute executable path'
 reject "$fixture/cgi" "$fixture/composer fixture.php" 'not CGI/FastCGI'
 reject "$runtime" "$fixture/missing" 'readable Composer'
 reject "$runtime" "$fixture/composer-wrapper" 'Composer is a wrapper'
 printf '%s\n' '<?php exit(1);' > "$fixture/broken.php"
 reject "$runtime" "$fixture/broken.php" 'Composer could not run'
-echo 'CLI initialization: success and 5 rejection cases passed.'
+echo 'CLI initialization: success and 6 rejection cases passed.'

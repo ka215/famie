@@ -4,7 +4,7 @@
 
 v0.3.0 以降の通常更新は、ルートの `version.json` を正本とし、フロント・バック共通のタグを自動決定して行う。[ブランチ運用ルール](../../development/decisions/2026-09-23-branch-strategy.md)に従い、作業ブランチ → `dev` → `main` の PR を経由する。
 
-初回のDB・SSL・Apache・`.env` の設定は既存手順で完了させておく。CoreServer には Bash、Git、PHP、Composer、rsync、curl、jq、realpath が必要。サーバー自身から公開 URL への接続も IP 許可リストに含める。`jq` が未導入の場合は先に用意する。
+初回のDB・SSL・Apache・`.env` の設定は既存手順で完了させておく。CoreServer には Bash、Git、PHP CLI、Composer の PHP ファイル（phar）、rsync、curl、jq、realpath が必要。サーバー自身から公開 URL への接続も IP 許可リストに含める。`jq` が未導入の場合は先に用意する。
 
 ## 0. バージョンの管理ルール
 
@@ -75,31 +75,31 @@ DB migration の内容を PR で確認し、CoreServer 管理画面からDBバ�
 
 ## 3. 通常更新を実行
 
-### PHP コマンドが CGI 版を指す環境
+### PHP CLI・Composer の指定（全環境共通）
 
-今回の CoreServer 向けには `scripts/release/deploy-cli.sh` を単独で `~/famie-deploy-cli.sh` に転送して使う。既存の `deploy.sh` の汎用化は次バージョンで扱う。CGI 版で Artisan を実行する対応ではなく、CLI 版を明示的に選択する対応である。
-
-`deploy-cli.sh` は `/usr/local/bin/php84cli` を既定とし、環境確認・全 Artisan コマンド・異常終了時の処理・Composer を同じ PHP CLI で実行する。別の CLI 実行ファイルは環境変数 `PHPCLI` に絶対パスを指定できる。PHP と Composer の実行確認は、Git の取得やメンテナンス開始より前に行う。
+標準入口は `scripts/release/deploy.sh`。既定値は `PHPCLI=/usr/local/bin/php84cli`、`COMPOSER_FILE=$HOME/bin/composer.phar`。環境確認・全 Artisan・Composer・失敗時の処理に同じ PHP CLI を使用する。CGI/FastCGI は受け付けない。PHP CLI の絶対パス・実行可否・SAPI、Composer の PHP ファイル形式・実行可否を、Git 取得やメンテナンス開始より前に検証する。対話シェルの alias は使用しない。
 
 ```sh
-# 事前確認
-bash "$HOME/famie-deploy-cli.sh"
-# 通常更新（実在する取得済みバックアップを指定）
-bash "$HOME/famie-deploy-cli.sh" --apply \
+# 既定パスで事前確認
+bash "$HOME/famie-deploy.sh"
+# パスが異なる場合（Composer はシェルラッパーではなく PHP ファイルを指定）
+PHPCLI=/absolute/path/to/php COMPOSER_FILE=/absolute/path/to/composer.phar \
+  bash "$HOME/famie-deploy.sh"
+# 同じパス設定で通常更新。取得済みの DB バックアップを指定する。
+PHPCLI=/usr/local/bin/php84cli COMPOSER_FILE="$HOME/bin/composer.phar" \
+  bash "$HOME/famie-deploy.sh" --apply \
   --db-backup "$HOME/_db_dump/pgsql.ka2_famie.1790138083.dump"
 ```
 
-Composer はサーバーの `alias composer='/usr/local/bin/php84cli ~/bin/composer.phar'` に合わせ、既定で `$HOME/bin/composer.phar` を PHP CLI で直接起動する。alias の読み込みや PATH 上の composer コマンドは不要で、上記の通常実行では追加指定は必要ない。別の場所に配置した場合のみ `COMPOSER_FILE` で実際の PHP ファイルまたは `composer.phar` を指定する。指定先がシェルラッパーの場合は停止する。
+公開資材は `rsync -a --chmod=D705,F604` でディレクトリ705・ファイル604にする。バックアップ保護用の `umask 077` を維持し、backend 全体の権限は変更しない。本番 `.htaccess`（IP制限を含む）と `api` リンクは保持する。
 
-```sh
-COMPOSER_FILE="$HOME/bin/composer.phar" bash "$HOME/famie-deploy-cli.sh"
-COMPOSER_FILE="$HOME/bin/composer.phar" bash "$HOME/famie-deploy-cli.sh" \
-  --apply --db-backup "$HOME/_db_dump/pgsql.ka2_famie.1790138083.dump"
-```
+### 旧スクリプトからの移行
 
-手動復旧でも、後述の `php artisan ...` は `/usr/local/bin/php84cli artisan ...` に、`composer install ...` は `/usr/local/bin/php84cli /実際のパス/composer.phar install ...` に置き換える。非対話シェルでは対話シェルの alias に依存しない。
-
-`deploy-cli.sh` の公開資材転送は `rsync -a --chmod=D705,F604` でディレクトリを 705、ファイルを 604 に固定する。バックアップ保護用の `umask 077` のまま Git checkout すると、新規ファイルが 600 となり、通常の `rsync -a` では公開先にもその権限が引き継がれるためである。バックアップ・backend の権限は一括変更しない。本番 `.htaccess` と `api` リンクは転送対象外のまま保持する。
+1. 実行中のデプロイがないことを確認する。旧 `~/famie-deploy.sh`、`~/famie-deploy-cli.sh` は存在するものだけリポジトリ外へ退避し、自動実行や手元のコマンドでどちらを使っていたか確認する。
+2. レビュー済みの新 `scripts/release/deploy.sh` を一旦 `~/famie-deploy.sh.new` へ転送する。`bash -n "$HOME/famie-deploy.sh.new"` が通ったら `mv "$HOME/famie-deploy.sh.new" "$HOME/famie-deploy.sh"` で切り替える。稼働中リポジトリの更新は不要。
+3. 旧名を残す必要がある場合だけ、新しい互換入口 `scripts/release/deploy-cli.sh` を `~/famie-deploy-cli.sh` に配置する。同じディレクトリの `famie-deploy.sh` を呼ぶだけで、単体では動作しない。旧版の独立した実装を残したまま使い続けない。
+4. `PHPCLI` と `COMPOSER_FILE` を従来の環境に合わせ、`bash "$HOME/famie-deploy.sh"` で事前確認する。旧名を残した場合は `bash "$HOME/famie-deploy-cli.sh" --help` でも標準入口への転送を確認する。
+5. 以降の手順・自動実行は `~/famie-deploy.sh` に統一する。退避した旧版を通常更新には使用しない。
 
 旧スクリプトで配置後に 403 になり、公開先 `index.html` が 600 の場合は、メンテナンスを維持したまま以下で公開資材を再同期する（削除は行わない）。配置済みコミットが対象タグであることを先に確認する。
 
@@ -113,7 +113,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://famie.ka2.org/login/
 
 両方が 200 になったら `/usr/local/bin/php84cli "$HOME/famie/backend/artisan" up` で解除し、空のログイン要求が 422 になることと実アカウントでの動作を確認する。これは配置後の確認失敗からの復旧であり、完了済みの migration・seed を再実行する必要はない。
 
-### PATH 上の PHP が CLI 版の環境
+### 更新の処理順
 
 ```sh
 bash "$HOME/famie-deploy.sh" --apply --db-backup '管理画面で取得したバックアップの識別情報'
@@ -128,13 +128,13 @@ bash "$HOME/famie-deploy.sh" --apply --db-backup '管理画面で取得したバ
 5. `.htaccess` と `api` リンクを保持して静的資材を同期する。
 6. メンテナンスを解除し、画面の HTTP 200 と、空のログイン要求に対する JSON の HTTP 422 を確認する。
 
-実行ログはバックアップ内の `deploy.log` に保存する。`UserSeeder`、APP_KEY 再生成、DB自動復元は行わない。サーバーの Git はタグが指すコミットへの detached HEAD となる。以後も `git pull` ではなく本スクリプトで更新する。
+実行ログはバックアップ内の `deploy.log` に保存する。失敗時は処理段階、バックアップ場所、復旧に使う CLI・Composer と手順書を表示する。バックアップ作成前の失敗は端末の標準エラーで確認する。`UserSeeder`、APP_KEY 再生成、DB自動復元は行わない。サーバーの Git はタグが指すコミットへの detached HEAD となる。以後も `git pull` ではなく本スクリプトで更新する。
 
 成功後は実アカウントでログイン・記録登録・閲覧・ログアウト、PWA 更新、許可外IPからの拒否を確認し、`docs/operations/change-log/` にタグ・コミット・結果を記録する。
 
 ## 4. 失敗時の復旧
 
-変更開始後に失敗した場合、スクリプトはバックエンドをメンテナンス状態に保ち、バックアップの場所を表示する。DBの自動ロールバックや、未確認のままの `artisan up` は行わない。
+変更開始後に失敗した場合、スクリプトはバックエンドをメンテナンス状態に保ち、失敗段階とバックアップの場所を表示する。メンテナンス再設定自体に失敗した場合は警告を出すため、実際の `storage/framework/down` も確認する。DBの自動ロールバックや、未確認のままの `artisan up` は行わない。
 
 まずログと実際の配置状態を確認する。DB変更と旧コードに互換性がある場合は、次を実行する。`BACKUP_DIR` は実行ログに表示された絶対パスへ置き換える。
 
@@ -143,15 +143,18 @@ BACKUP_DIR="$HOME/famie-release-backups/releases/<実行ID>"
 test -f "$BACKUP_DIR/previous-commit" || exit 1
 test -f "$BACKUP_DIR/frontend/index.html" || exit 1
 PREVIOUS_COMMIT=$(cat "$BACKUP_DIR/previous-commit")
+# デプロイで選択した値を使用する（以下は既定値）。
+PHPCLI=/usr/local/bin/php84cli
+COMPOSER_FILE="$HOME/bin/composer.phar"
 cd "$HOME/famie/backend" || exit 1
-php artisan down --retry=60
+"$PHPCLI" artisan down --retry=60
 git -C "$HOME/famie" checkout --detach "$PREVIOUS_COMMIT" || exit 1
-composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction || exit 1
-php artisan optimize:clear || exit 1
-php artisan optimize || exit 1
-rsync -a --delete --exclude='/.htaccess' --exclude='/api' \
+"$PHPCLI" "$COMPOSER_FILE" install --no-dev --prefer-dist --optimize-autoloader --no-interaction || exit 1
+"$PHPCLI" artisan optimize:clear || exit 1
+"$PHPCLI" artisan optimize || exit 1
+rsync -a --chmod=D705,F604 --delete --exclude='/.htaccess' --exclude='/api' \
   "$BACKUP_DIR/frontend/" "$HOME/public_html/famie.ka2.org/" || exit 1
-php artisan up
+"$PHPCLI" artisan up
 ```
 
 DB非互換の場合は修正 migration または管理画面からのDB復元が必要。旧コードだけへ戻さず、復旧方針を決めてから実行する。復旧後に通常と同じ動作確認を行う。
@@ -166,6 +169,7 @@ Windows の Git Bash がある場合は、次で構文と誤操作時の停止�
 ./scripts/release/test-guards.ps1 -Bash 'C:/Program Files/Git/bin/bash.exe'
 ./scripts/release/test-guards.ps1 -Bash 'C:/Program Files/Git/bin/bash.exe' -DeployScript deploy-cli.sh
 & 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-cli.sh
+& 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-deploy.sh
 ./scripts/release/test-publish.ps1
 ./scripts/release/test-version.ps1
 & 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-version.sh
@@ -174,3 +178,15 @@ Windows の Git Bash がある場合は、次で構文と誤操作時の停止�
 `test-publish.ps1` は Git / gh / pnpm をスタブ化し、成功・既存PR再利用・commit失敗・push失敗・main拒否・バージョンからの名前生成の6ケースを検証する。実際のコミット・push・PRは作成しない。`test-version.ps1` は専用フィクスチャで更新・再実行・不正値を検証する。`test-version.sh` は `.temp/` の使い捨て Git リポジトリで古い作業ツリー、タグ未作成、タグのコミット不一致などを検証する。本体のブランチ・タグや公開環境は変更しない。
 
 ローカルで準備スクリプト、E2E、ビルド、配置スクリプトの構文と引数による停止を確認する。CoreServer での適用・復旧は本番実行前に検証が必要。iPhone 実機確認も別途行う。
+
+### POSIX 権限の確認（#6 の完了に必須）
+
+`test-deploy.sh` は本番へ接続せず、一時ディレクトリ内で標準スクリプトの公開処理を実行する。PHP はスタブを使い、事前失敗・変更開始後の失敗・メンテナンス再設定失敗の3ケースも確認する。Windows Git Bash ではこの3ケースの後、権限検証をスキップして終了コード2を返す。これは検証完了を意味しない。
+
+Linux / CoreServer の POSIX ファイルシステム上で、レビュー対象の `deploy.sh` と `test-deploy.sh` を専用ディレクトリに転送し、実行する。Bash・rsync・GNU stat が必要。アプリ配置・DB・本番ドキュメントルートには触れず、一時ディレクトリは結果確認用に残す。
+
+```sh
+bash /path/to/verification/test-deploy.sh
+```
+
+終了コード0と `PASS: POSIX public modes 705/604...` を確認する。公開権限・バックアップの保護・backendの権限・本番相当の `.htaccess` とIP制限・APIリンクの保持・古い資材の削除を検証する。実行環境、日時、出力を Issue #6 に記録する。本番での配置結果とは別に扱う。
