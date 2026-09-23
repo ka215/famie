@@ -1,8 +1,8 @@
 [CmdletBinding()]
-param([string]$Bash = 'bash')
+param([string]$Bash = 'bash', [string]$DeployScript = 'deploy.sh')
 
 $ErrorActionPreference = 'Stop'
-$scriptPath = Join-Path $PSScriptRoot 'deploy.sh'
+$scriptPath = Join-Path $PSScriptRoot $DeployScript
 $tokens = $null
 $parseErrors = $null
 foreach ($file in @('prepare.ps1', 'publish.ps1', 'version.ps1')) {

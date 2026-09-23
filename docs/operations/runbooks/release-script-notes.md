@@ -75,6 +75,46 @@ DB migration の内容を PR で確認し、CoreServer 管理画面からDBバ�
 
 ## 3. 通常更新を実行
 
+### PHP コマンドが CGI 版を指す環境
+
+今回の CoreServer 向けには `scripts/release/deploy-cli.sh` を単独で `~/famie-deploy-cli.sh` に転送して使う。既存の `deploy.sh` の汎用化は次バージョンで扱う。CGI 版で Artisan を実行する対応ではなく、CLI 版を明示的に選択する対応である。
+
+`deploy-cli.sh` は `/usr/local/bin/php84cli` を既定とし、環境確認・全 Artisan コマンド・異常終了時の処理・Composer を同じ PHP CLI で実行する。別の CLI 実行ファイルは環境変数 `PHPCLI` に絶対パスを指定できる。PHP と Composer の実行確認は、Git の取得やメンテナンス開始より前に行う。
+
+```sh
+# 事前確認
+bash "$HOME/famie-deploy-cli.sh"
+# 通常更新（実在する取得済みバックアップを指定）
+bash "$HOME/famie-deploy-cli.sh" --apply \
+  --db-backup "$HOME/_db_dump/pgsql.ka2_famie.1790138083.dump"
+```
+
+Composer はサーバーの `alias composer='/usr/local/bin/php84cli ~/bin/composer.phar'` に合わせ、既定で `$HOME/bin/composer.phar` を PHP CLI で直接起動する。alias の読み込みや PATH 上の composer コマンドは不要で、上記の通常実行では追加指定は必要ない。別の場所に配置した場合のみ `COMPOSER_FILE` で実際の PHP ファイルまたは `composer.phar` を指定する。指定先がシェルラッパーの場合は停止する。
+
+```sh
+COMPOSER_FILE="$HOME/bin/composer.phar" bash "$HOME/famie-deploy-cli.sh"
+COMPOSER_FILE="$HOME/bin/composer.phar" bash "$HOME/famie-deploy-cli.sh" \
+  --apply --db-backup "$HOME/_db_dump/pgsql.ka2_famie.1790138083.dump"
+```
+
+手動復旧でも、後述の `php artisan ...` は `/usr/local/bin/php84cli artisan ...` に、`composer install ...` は `/usr/local/bin/php84cli /実際のパス/composer.phar install ...` に置き換える。非対話シェルでは対話シェルの alias に依存しない。
+
+`deploy-cli.sh` の公開資材転送は `rsync -a --chmod=D705,F604` でディレクトリを 705、ファイルを 604 に固定する。バックアップ保護用の `umask 077` のまま Git checkout すると、新規ファイルが 600 となり、通常の `rsync -a` では公開先にもその権限が引き継がれるためである。バックアップ・backend の権限は一括変更しない。本番 `.htaccess` と `api` リンクは転送対象外のまま保持する。
+
+旧スクリプトで配置後に 403 になり、公開先 `index.html` が 600 の場合は、メンテナンスを維持したまま以下で公開資材を再同期する（削除は行わない）。配置済みコミットが対象タグであることを先に確認する。
+
+```sh
+git -C "$HOME/famie" describe --tags --exact-match HEAD
+rsync -a --chmod=D705,F604 --exclude='/.htaccess' --exclude='/api' \
+  "$HOME/famie/frontend/.output/public/" "$HOME/public_html/famie.ka2.org/"
+curl -sS -o /dev/null -w '%{http_code}\n' https://famie.ka2.org/
+curl -sS -o /dev/null -w '%{http_code}\n' https://famie.ka2.org/login/
+```
+
+両方が 200 になったら `/usr/local/bin/php84cli "$HOME/famie/backend/artisan" up` で解除し、空のログイン要求が 422 になることと実アカウントでの動作を確認する。これは配置後の確認失敗からの復旧であり、完了済みの migration・seed を再実行する必要はない。
+
+### PATH 上の PHP が CLI 版の環境
+
 ```sh
 bash "$HOME/famie-deploy.sh" --apply --db-backup '管理画面で取得したバックアップの識別情報'
 ```
@@ -124,6 +164,8 @@ Windows の Git Bash がある場合は、次で構文と誤操作時の停止�
 
 ```powershell
 ./scripts/release/test-guards.ps1 -Bash 'C:/Program Files/Git/bin/bash.exe'
+./scripts/release/test-guards.ps1 -Bash 'C:/Program Files/Git/bin/bash.exe' -DeployScript deploy-cli.sh
+& 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-cli.sh
 ./scripts/release/test-publish.ps1
 ./scripts/release/test-version.ps1
 & 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-version.sh
