@@ -6,5 +6,6 @@
 
 ## リリース手順
 
+- [通常リリースの自動化](./release-script-notes.md)
 - [フロントエンドのリリース手順](./howto_release_frontend.md)
 - [バックエンドのリリース手順](./howto_release_backend.md)

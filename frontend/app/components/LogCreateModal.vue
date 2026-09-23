@@ -91,21 +91,23 @@ const handleSubmit = async () => {
         </div>
 
         <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">実施日</label>
+          <div class="min-w-0">
+            <label for="activity-date" class="block text-xs font-semibold text-slate-600 mb-1">実施日</label>
             <input
+              id="activity-date"
               v-model="form.activity_date"
               type="date"
               required
-              class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="block min-w-0 max-w-full w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">時刻（任意）</label>
+          <div class="min-w-0">
+            <label for="activity-time" class="block text-xs font-semibold text-slate-600 mb-1">時刻（任意）</label>
             <input
+              id="activity-time"
               v-model="form.activity_time"
               type="time"
-              class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="block min-w-0 max-w-full w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
           </div>
         </div>

@@ -209,45 +209,9 @@ Laravel のプロジェクトルートを公開せず、`public` ディレクト
 
 ## 5. 通常リリース
 
-先に CoreServer 管理画面で PostgreSQL のバックアップを作成する。次にSSH接続し、`RELEASE_COMMIT` を対象コミットの完全なハッシュへ置き換えて実行する。
+v0.3.0 以降は [通常リリースの自動化](./release-script-notes.md) を使用する。CoreServer 管理画面でDBバックアップを取得したうえで、タグを指定してフロント・バックを共通のスクリプトで更新する。
 
-```sh
-REPO_DIR="$HOME/famie"
-BACKEND_DIR="$REPO_DIR/backend"
-RELEASE_COMMIT="<RELEASE_COMMIT>"
-
-test -d "$REPO_DIR/.git" || exit 1
-test -f "$BACKEND_DIR/.env" || exit 1
-
-cd "$REPO_DIR" || exit 1
-git status --short
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT" || exit 1
-
-cd "$BACKEND_DIR" || exit 1
-composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-php artisan optimize:clear
-php artisan about --only=environment
-php artisan migrate:status
-php artisan migrate --pretend
-```
-
-`git status --short` にサーバー固有の未コミット変更が出た場合、または environment が `production` でない場合は中断する。`migrate --pretend` の結果も確認する。
-
-確認後、短時間のメンテナンス状態で反映する。
-
-```sh
-cd "$HOME/famie/backend" || exit 1
-php artisan down --retry=60
-php artisan migrate --force
-php artisan db:seed --class=CategorySeeder --force
-php artisan optimize
-php artisan up
-```
-
-途中で失敗した場合も、確認が済んだら必ず `php artisan up` を実行してメンテナンス状態を解除する。
+コード・依存関係の変更前にメンテナンス状態にし、途中で失敗した場合は復旧確認までメンテナンスを維持する。復旧方法も共通手順を参照する。
 
 ## 6. リリース確認
 
@@ -282,25 +246,7 @@ php artisan route:list --path=v1
 
 ## 7. ロールバック
 
-アプリコードだけの障害で、DB変更に後方互換性がある場合は、直前の正常コミットを指定してコードを戻す。
-
-```sh
-REPO_DIR="$HOME/famie"
-BACKEND_DIR="$REPO_DIR/backend"
-ROLLBACK_COMMIT="<LAST_GOOD_COMMIT>"
-
-cd "$REPO_DIR" || exit 1
-git fetch origin
-git checkout --detach "$ROLLBACK_COMMIT"
-
-cd "$BACKEND_DIR" || exit 1
-composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-php artisan optimize:clear
-php artisan optimize
-php artisan up
-```
-
-DB migrationを伴う障害では、原則として `migrate:rollback` を即時実行しない。後方互換の修正 migration を適用するか、事前に取得したDBバックアップをCoreServer管理画面から復元する。復旧後はリポジトリを `main` に戻し、正常なコミットへ揃える。
+[通常リリースの自動化](./release-script-notes.md) の「失敗時の復旧」に従う。DB変更に互換性がある場合のみ旧コードと静的資材へ戻す。非互換の場合は修正 migration または管理画面からのDB復元を検討し、確認後にメンテナンスを解除する。
 
 ## 8. 禁止事項
 

@@ -1,7 +1,7 @@
 {
     "name": "famie-backend",
     "description": "Backend for the Famie project",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "$schema": "https://www.schemastore.org/package.json",
     "private": true,
     "type": "module",

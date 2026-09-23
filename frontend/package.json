@@ -1,7 +1,7 @@
 {
 	"name": "famie-frontend",
 	"description": "Frontend for the Famie project",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"type": "module",
 	"private": true,
 	"scripts": {
@@ -12,7 +12,10 @@
 		"postinstall": "nuxt prepare",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"typecheck": "nuxi typecheck"
+		"typecheck": "nuxi typecheck",
+		"test:e2e": "playwright test",
+		"test:e2e:ui": "playwright test --ui",
+		"test:e2e:install": "playwright install chromium webkit"
 	},
 	"dependencies": {
 		"@tailwindcss/vite": "^4.3.3",
@@ -23,8 +26,9 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.14",
+		"@playwright/test": "^1.63.0",
 		"@vite-pwa/nuxt": "^1.1.1",
 		"typescript": "^5.7.0",
 		"vue-tsc": "^2.2.0"
-  }
+	}
 }

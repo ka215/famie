@@ -42,70 +42,11 @@ curl -I https://famie.ka2.org/
 
 ## 3. ローカルでの生成と検証
 
-PowerShell で実行する。
-
-```powershell
-Set-Location C:\xampp\htdocs\famie\frontend
-pnpm install --frozen-lockfile
-pnpm lint
-pnpm typecheck
-pnpm build
-Test-Path .\.output\public\index.html
-Test-Path .\.output\public\.htaccess
-```
-
-`pnpm build` は `nuxt generate` を実行する。本番 API URL は同一 Origin の `/api/v1` として静的ファイルへ組み込まれる。
-
-生成物の差分を確認し、ソース変更と一緒に commit、push する。
-
-```powershell
-Set-Location C:\xampp\htdocs\famie
-git status --short
-git diff --stat
-git add frontend
-git commit -m "build: generate frontend assets"
-git push origin main
-```
-
-既に生成物を含むリリースコミットを push 済みなら、最後の3コマンドは不要である。
+v0.3.0 以降は [通常リリースの自動化](./release-script-notes.md) に従い、作業ブランチで `scripts/release/prepare.ps1` を実行する。生成物を PR に含め、`dev` → `main` の順にマージする。`main` へ直接 push しない。
 
 ## 4. CoreServer への配置
 
-CoreServer に SSH 接続し、次を実行する。`RELEASE_COMMIT` はリリース対象の完全なコミットハッシュに置き換える。
-
-```sh
-REPO_DIR="$HOME/famie"
-DOCROOT="$HOME/public_html/famie.ka2.org"
-BACKUP_ROOT="$HOME/famie-release-backups/frontend"
-RELEASE_COMMIT="<RELEASE_COMMIT>"
-
-test -d "$REPO_DIR/.git" || exit 1
-test -d "$DOCROOT" || exit 1
-
-cd "$REPO_DIR" || exit 1
-git status --short
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT" || exit 1
-test -f "$REPO_DIR/frontend/.output/public/index.html" || exit 1
-```
-
-`git status --short` にサーバー固有の未コミット変更が出た場合は中断する。`.env` は Git 管理外なので表示されない。
-
-現行ファイルを退避してから同期する。`.htaccess` は本番 IP 制限を保持し、`api` はバックエンドへのリンクを保持するため除外する。
-
-```sh
-RELEASE_ID="$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)"
-BACKUP_DIR="$BACKUP_ROOT/$RELEASE_ID"
-mkdir -p "$BACKUP_DIR"
-rsync -a --exclude='/api' "$DOCROOT/" "$BACKUP_DIR/"
-
-rsync -a --delete \
-  --exclude='/.htaccess' \
-  --exclude='/api' \
-  "$REPO_DIR/frontend/.output/public/" "$DOCROOT/"
-```
+[通常リリースの自動化](./release-script-notes.md) の共通配置スクリプトを使用する。フロントとバックを同じタグのコミットから更新し、`.htaccess` と `api` リンクを保持する。
 
 ## 5. 初回のみ行う Apache 設定
 
@@ -180,22 +121,7 @@ curl -i \
 
 ## 7. ロールバック
 
-配置直前に作成したバックアップディレクトリを指定する。先に絶対パスを表示し、意図したディレクトリであることを確認する。
-
-```sh
-DOCROOT="$HOME/public_html/famie.ka2.org"
-BACKUP_DIR="$HOME/famie-release-backups/frontend/<RELEASE_ID>"
-
-printf '%s\n' "$DOCROOT" "$BACKUP_DIR"
-test -f "$BACKUP_DIR/index.html" || exit 1
-
-rsync -a --delete \
-  --exclude='/.htaccess' \
-  --exclude='/api' \
-  "$BACKUP_DIR/" "$DOCROOT/"
-```
-
-ロールバック後に「6. リリース確認」を再実行する。
+[通常リリースの自動化](./release-script-notes.md) の「失敗時の復旧」に従い、バックエンドのコミットとフロントの資材を同じリリース状態へ戻す。DB変更との互換性を先に確認する。
 
 ## 8. 関連文書
 
