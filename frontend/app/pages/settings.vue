@@ -193,8 +193,7 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2">
-      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ログイン情報</h2>
+    <SettingsCard title="ログイン情報" :initial-open="true">
       <div class="flex justify-between items-center pt-1">
         <div>
           <p class="text-base font-bold text-slate-800">{{ user?.display_name }}</p>
@@ -229,10 +228,9 @@ onMounted(() => {
           {{ profileIsLoading ? '保存中…' : '表示名を保存する' }}
         </button>
       </form>
-    </div>
+    </SettingsCard>
 
-    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">家族メンバー</h2>
+    <SettingsCard title="家族メンバー">
       <div class="divide-y divide-slate-100">
         <div v-for="member in familyMembers" :key="member.id" class="py-2.5 flex justify-between items-center first:pt-0 last:pb-0">
           <div>
@@ -244,11 +242,9 @@ onMounted(() => {
           </span>
         </div>
       </div>
-    </div>
+    </SettingsCard>
 
-    <!-- カテゴリ管理 -->
-    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">カテゴリ</h2>
+    <SettingsCard title="カテゴリ">
       <div class="flex flex-wrap gap-2">
         <span
           v-for="category in categories"
@@ -290,13 +286,9 @@ onMounted(() => {
       <div v-if="categoryErrorMessage" class="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
         {{ categoryErrorMessage }}
       </div>
-    </div>
+    </SettingsCard>
 
-    <div v-if="isParent" class="bg-white p-4 rounded-xl border border-blue-200 shadow-2xs space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-        <h2 class="text-sm font-bold text-slate-800">新しい家族を追加</h2>
-        <span class="text-2xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-medium">管理者機能</span>
-      </div>
+    <SettingsCard v-if="isParent" title="新しい家族を追加" badge="管理者機能" class="border-blue-200">
 
       <div v-if="userSuccessMessage" class="p-3 bg-emerald-50 text-emerald-600 text-xs rounded-lg">
         {{ userSuccessMessage }}
@@ -386,10 +378,9 @@ onMounted(() => {
           {{ userIsLoading ? '作成中...' : 'アカウントを作成する' }}
         </button>
       </form>
-    </div>
+    </SettingsCard>
 
-    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-4">
-      <h2 class="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">パスワードの変更</h2>
+    <SettingsCard title="パスワードの変更">
 
       <div v-if="pwdSuccessMessage" class="p-3 bg-emerald-50 text-emerald-600 text-xs rounded-lg">
         {{ pwdSuccessMessage }}
@@ -443,6 +434,6 @@ onMounted(() => {
           {{ pwdIsLoading ? '更新中...' : 'パスワードを変更する' }}
         </button>
       </form>
-    </div>
+    </SettingsCard>
   </div>
 </template>
