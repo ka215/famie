@@ -4,6 +4,7 @@
 
 ## 共通ルール
 
+- [E2E テスト](knowledge/e2e-test-notes.md)：実行方法、専用DB、対象範囲。
 - [ブランチ運用ルール](decisions/2026-09-23-branch-strategy.md)：作業ブランチ、PR、リリース、緊急修正の運用。
 
 ## 記録の配置

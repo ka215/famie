@@ -57,13 +57,15 @@ const handleLogin = async () => {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">パスワード</label>
-          <input
+          <label for="login-password" class="block text-sm font-medium text-slate-700 mb-1">パスワード</label>
+          <PasswordInput
+            id="login-password"
+            label="パスワード"
             v-model="password"
-            type="password"
+            autocomplete="current-password"
             required
             class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
+          />
         </div>
 
         <button

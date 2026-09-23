@@ -6,6 +6,12 @@ const isProduction = import.meta.env.NODE_ENV === 'production'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
+  nitro: {
+    devProxy:
+      import.meta.env.FAMIE_E2E === '1'
+        ? { '/api/v1': { target: 'http://127.0.0.1:8100/v1', changeOrigin: true } }
+        : {},
+  },
   devtools: { enabled: !isProduction },
 
   // Apache(127.0.0.1経由のProxyPass)から到達できるようIPv4でも待ち受ける
