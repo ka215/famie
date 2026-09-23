@@ -22,11 +22,11 @@ chmod +x "$PHPCLI"
 stage='composer install'
 started=0
 if (trap finish EXIT; exit 7) > "$fixture/preflight.log" 2>&1; then fail 'Failure swallowed'; else result=$?; fi
-[[ $result == 7 && ! -e $FAMIE_TEST_CALLS && ! -d $lock ]] || fail 'Preflight failure affected maintenance or lost exit status'
+[[ $result == 7 && ! -e $FAMIE_TEST_CALLS && ! -d $lock && ! -e $docroot/.maintenance ]] || fail 'Preflight failure affected maintenance or lost exit status'
 mkdir "$lock"
 started=1
 if (trap finish EXIT; exit 9) > "$fixture/failure.log" 2>&1; then fail 'Failure swallowed'; else result=$?; fi
-[[ $result == 9 && ! -d $lock ]] || fail 'Failure lost exit status or lock'
+[[ $result == 9 && ! -d $lock && -f $docroot/.maintenance ]] || fail 'Failure lost exit status, lock or maintenance marker'
 [[ $(cat "$FAMIE_TEST_CALLS") == 'artisan down --retry=60' ]] || fail 'Recovery did not use the selected CLI'
 grep -F 'composer install' "$fixture/failure.log" >/dev/null
 grep -F "$backup/deploy.log" "$fixture/failure.log" >/dev/null
@@ -34,8 +34,18 @@ grep -F 'db-backup-reference' "$fixture/failure.log" >/dev/null
 mkdir "$lock"
 if (export FAMIE_TEST_PHP_STATUS=1; trap finish EXIT; exit 8) > "$fixture/maintenance-failure.log" 2>&1; then fail 'Failure swallowed'; else result=$?; fi
 [[ $result == 8 && ! -d $lock ]] || fail 'Maintenance failure lost original exit status or lock'
-grep -F 'WARNING: could not enable backend maintenance' "$fixture/maintenance-failure.log" >/dev/null
-echo '3 failure/recovery scenarios passed (stub PHP only).'
+grep -F 'WARNING: could not enable maintenance completely' "$fixture/maintenance-failure.log" >/dev/null
+[[ -f $docroot/.maintenance ]] || fail 'PHP failure cleared frontend maintenance'
+disable_maintenance
+[[ ! -e $docroot/.maintenance ]] || fail 'Recovery did not remove maintenance marker'
+mkdir "$lock"
+stage='public HTTP checks'
+if (trap finish EXIT; exit 6) > "$fixture/reopen-failure.log" 2>&1; then fail 'Failure swallowed'; else result=$?; fi
+[[ $result == 6 && -f $docroot/.maintenance && ! -d $lock ]] || fail 'HTTP failure after reopening did not restore maintenance'
+if (export FAMIE_TEST_PHP_STATUS=1; disable_maintenance); then fail 'Failed artisan up was accepted'; fi
+[[ -f $docroot/.maintenance ]] || fail 'Failed artisan up removed frontend maintenance'
+enable_maintenance
+echo '5 failure/recovery scenarios passed (stub PHP only).'
 
 case $(uname -s) in
   MINGW*|MSYS*|CYGWIN*) echo 'SKIP: POSIX permission checks require Linux/CoreServer and real rsync.'; exit 2 ;;
@@ -63,6 +73,7 @@ printf 'backup reference\n' > "$backup/db-backup-reference"
 publish_frontend
 cmp "$source_dir/index.html" "$docroot/index.html"
 [[ ! -e $docroot/stale.js ]] || fail 'Stale asset was not removed'
+[[ -f $docroot/.maintenance ]] || fail 'Publishing cleared maintenance marker'
 for directory in "$docroot" "$docroot/login" "$docroot/_nuxt"; do
   [[ $(mode "$directory") == 705 ]] || fail "Wrong public directory mode: $directory"
 done

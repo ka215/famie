@@ -49,7 +49,7 @@ try {
             Remove-Item -LiteralPath $outputPath -Recurse -Force
         }
         Invoke-Checked pnpm @('build')
-        foreach ($asset in @('index.html', '.htaccess', 'sw.js', 'manifest.webmanifest')) {
+        foreach ($asset in @('index.html', '.htaccess', 'sw.js', 'manifest.webmanifest', 'maintenance.html', 'maintenance.json')) {
             if (-not (Test-Path -LiteralPath (Join-Path $outputPath "public/$asset") -PathType Leaf)) {
                 throw "Missing release asset: $asset"
             }

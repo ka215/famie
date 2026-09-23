@@ -74,8 +74,10 @@ export default defineNuxtConfig({
       installPrompt: true,
     },
     workbox: {
+      globPatterns: ['**/*.{js,css,html,svg}'],
       navigateFallback: '/',
-      navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+      navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/maintenance\.(?:html|json)$/],
+      globIgnores: ['**/maintenance.html', '**/maintenance.json'],
       cleanupOutdatedCaches: true,
       runtimeCaching: [
         {

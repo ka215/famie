@@ -38,8 +38,35 @@ check_environment() {
   "$PHPCLI" -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); if (!$app->environment("production") || config("app.debug")) { fwrite(STDERR, "Expected production with debug disabled\n"); exit(1); }'
 }
 publish_frontend() {
-  rsync -a --chmod=D705,F604 --delete --exclude='/.htaccess' --exclude='/api' \
+  rsync -a --chmod=D705,F604 --delete --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' \
     "$repo/frontend/.output/public/" "$docroot/"
+}
+enable_maintenance() {
+  : > "$docroot/.maintenance" || return 1
+  (cd "$repo/backend" && "$PHPCLI" artisan down --retry=60)
+}
+disable_maintenance() {
+  (cd "$repo/backend" && "$PHPCLI" artisan up) || return 1
+  rm -- "$docroot/.maintenance"
+}
+check_maintenance_setup() {
+  local expected actual asset
+  expected=$(git show "$commit:frontend/.output/public/.htaccess" | sed -n '/^# BEGIN FAMIE MAINTENANCE$/,/^# END FAMIE MAINTENANCE$/p')
+  actual=$(sed -n '/^# BEGIN FAMIE MAINTENANCE$/,/^# END FAMIE MAINTENANCE$/p' "$docroot/.htaccess")
+  [[ -n $expected && $actual == "$expected" ]] || fail 'Install the maintenance block before existing rewrite rules; preserve the production IP restrictions. See the runbook.'
+  for asset in maintenance.html maintenance.json; do
+    git show "$commit:frontend/.output/public/$asset" | cmp - "$docroot/$asset" ||
+      fail "Install the reviewed $asset before deployment. See the runbook."
+  done
+}
+check_maintenance_http() {
+  local status
+  status=$(curl --silent --show-error --max-time 30 -o "$backup/maintenance-check.html" -w '%{http_code}' "$base_url/")
+  [[ $status == 503 ]] || fail "Frontend maintenance check failed: HTTP $status"
+  grep -F 'ただいまメンテナンス中です' "$backup/maintenance-check.html" >/dev/null || fail 'Maintenance page is missing.'
+  status=$(curl --silent --show-error --max-time 30 -o "$backup/maintenance-check.json" -w '%{http_code}' -H 'Accept: application/json' "$base_url/api/v1/status")
+  [[ $status == 503 ]] || fail "API maintenance check failed: HTTP $status"
+  jq -e '.code == "maintenance"' "$backup/maintenance-check.json" >/dev/null
 }
 finish() {
   status=$?
@@ -47,10 +74,10 @@ finish() {
   if ((status != 0)); then
     echo "Deployment failed at: $stage (exit $status). Backup: ${backup:-not created}" >&2
     if ((started)); then
-      if (cd "$repo/backend" && "$PHPCLI" artisan down --retry=60); then
-        echo 'Backend maintenance enabled.' >&2
+      if enable_maintenance; then
+        echo 'Frontend and backend maintenance enabled.' >&2
       else
-        echo 'WARNING: could not enable backend maintenance. Check storage/framework/down before recovery.' >&2
+        echo 'WARNING: could not enable maintenance completely. Check .maintenance and storage/framework/down before recovery.' >&2
       fi
       printf 'Recovery: inspect %s/deploy.log, previous-commit and db-backup-reference.\n' "$backup" >&2
       printf 'Use PHPCLI=%q and COMPOSER_FILE=%q for recovery.\n' "$PHPCLI" "$COMPOSER_FILE" >&2
@@ -88,7 +115,7 @@ while (($#)); do
   esac
 done
 [[ $apply == 0 || -n $db_backup ]] || fail 'Create a DB backup first and pass --db-backup REFERENCE.'
-for tool in git rsync curl jq realpath; do
+for tool in git rsync curl jq realpath sed cmp grep; do
   command -v "$tool" >/dev/null || fail "Missing tool: $tool"
 done
 
@@ -102,6 +129,7 @@ backup_root="$HOME/famie-release-backups/releases"
 [[ -f $docroot/.htaccess && -f $docroot/index.html ]] || fail 'Initial frontend setup is required.'
 [[ -L $docroot/api && $(realpath "$docroot/api") == "$repo/backend/public" ]] || fail 'Unexpected API symlink.'
 [[ ! -f $repo/backend/storage/framework/down ]] || fail 'Backend is already in maintenance mode.'
+[[ ! -e $docroot/.maintenance ]] || fail 'Frontend is already in maintenance mode.'
 cd "$repo"
 [[ -z $(git status --porcelain) ]] || fail 'Repository has uncommitted changes.'
 
@@ -119,10 +147,12 @@ git fetch origin main --tags
 commit=$(git rev-parse --verify 'origin/main^{commit}')
 # Read only from the fetched, fixed commit, never from the old live worktree.
 resolve_release "$commit" "$requested_tag"
-for asset in index.html .htaccess sw.js manifest.webmanifest; do
+for asset in index.html .htaccess sw.js manifest.webmanifest maintenance.html maintenance.json; do
   git cat-file -e "$commit:frontend/.output/public/$asset" || fail "Missing tagged asset: $asset"
 done
 git cat-file -e "$commit:backend/composer.lock"
+stage='maintenance setup validation'
+check_maintenance_setup
 cd "$repo/backend"
 stage='production environment validation'
 check_environment
@@ -144,9 +174,12 @@ printf '%s\n' "$db_backup" > "$backup/db-backup-reference"
 rsync -a --exclude='/api' "$docroot/" "$backup/frontend/"
 
 # Put the live backend into maintenance before replacing its code or dependencies.
+base_url='https://famie.ka2.org'
 stage='enable maintenance'
 started=1
-"$PHPCLI" artisan down --retry=60
+enable_maintenance
+stage='maintenance HTTP checks'
+check_maintenance_http
 stage='checkout release'
 git -C "$repo" checkout --detach "$commit"
 stage='composer install'
@@ -164,11 +197,15 @@ stage='optimize'
 # explicitly, while keeping backups private and the server .htaccess untouched.
 stage='publish frontend'
 publish_frontend
+stage='verify deployment before reopening'
+cmp "$backup/frontend/.htaccess" "$docroot/.htaccess"
+[[ -L $docroot/api && $(realpath "$docroot/api") == "$repo/backend/public" ]] || fail 'API link changed during deployment.'
+check_environment
+check_maintenance_http
 stage='disable maintenance'
-"$PHPCLI" artisan up
+disable_maintenance
 
 stage='public HTTP checks'
-base_url='https://famie.ka2.org'
 for path in / /login/; do
   status=$(curl --silent --show-error --max-time 30 -o /dev/null -w '%{http_code}' "$base_url$path")
   [[ $status == 200 ]] || fail "Frontend check failed: $path HTTP $status"
@@ -178,5 +215,8 @@ status=$(curl --silent --show-error --max-time 30 -o "$backup/api-check.json" -w
   -d '{}' "$base_url/api/v1/auth/login")
 [[ $status == 422 ]] || fail "API check failed: HTTP $status"
 jq -e '.errors.login and .errors.password' "$backup/api-check.json" >/dev/null
+status=$(curl --silent --show-error --max-time 30 -o "$backup/status-check.json" -w '%{http_code}' "$base_url/api/v1/status")
+[[ $status == 200 ]] || fail "Recovery status check failed: HTTP $status"
+jq -e '.status == "ok"' "$backup/status-check.json" >/dev/null
 started=0
 printf 'Released %s (%s)\nBackup and log: %s\n' "$tag" "$commit" "$backup"

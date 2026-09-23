@@ -1,6 +1,9 @@
 export default defineNuxtRouteMiddleware(async (to) => {
   const token = useCookie<string | null>('auth_token')
   const { user, fetchUser } = useAuth()
+  const { isMaintenance } = useMaintenance()
+
+  if (isMaintenance.value) return
 
   if (!token.value && to.path !== '/login') {
     return navigateTo('/login')
@@ -13,6 +16,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
         return navigateTo('/login')
       }
     } catch {
+      if (isMaintenance.value) return
       return abortNavigation(
         createError({
           statusCode: 503,

@@ -27,7 +27,7 @@
 | 11 | カテゴリ管理 | v0.5.0以降の候補 | 未計画 | — |
 | 12 | リリース自動化の基本機能 | v0.3.0 | 公開済み | — |
 | 12-A | デプロイ運用の一本化 | v0.4.0 | 実装・検証完了（未公開） | [#6](https://github.com/ka215/famie/issues/6) |
-| 12-B | メンテナンス表示・運用連動 | v0.4.0 | 要件確定・未着手 | [#7](https://github.com/ka215/famie/issues/7) |
+| 12-B | メンテナンス表示・運用連動 | v0.4.0 | 実装・検証完了（未公開） | [#7](https://github.com/ka215/famie/issues/7) |
 | 13 | Playwrightの最小導入 | v0.3.0 | 導入済み | — |
 | 14 | 設定カード開閉 | v0.4.0 | 要件確定・未着手 | [#9](https://github.com/ka215/famie/issues/9) |
 | 15 | PWA検証手順・限定的な自動テスト | v0.4.0 | 要件確定・未着手 | [#10](https://github.com/ka215/famie/issues/10) |
