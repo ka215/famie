@@ -65,7 +65,7 @@ bash "$DEPLOY" --env staging --ref "$REF" --apply --db-backup "$DB_BACKUP"
 
 バックアップの実在・取得対象・復元可能性は実行者が確認する。パスワードは引数・ログへ記載せず、管理画面や保護された接続設定を使う。既定PHP CLIは `/usr/local/bin/php84cli`、Composerは `~/bin/composer.phar`。
 
-更新順は両環境共通: 対象固定・環境確認 → バックアップ → メンテナンスとHTML/API503確認 → checkout → Composer → キャッシュ解除・環境再確認 → migration → CategorySeeder → optimize → 静的資材配置 → 設定保持・停止確認 → 解除 → HTTP確認。公開権限はrsyncの `-a --chmod=D705,F604` で適用する。`umask 077` 下で `-r --chmod` だけに置き換えない。
+更新順は両環境共通: 対象固定・環境確認 → バックアップ → `.maintenance` 設置・Laravel稼働中の静的HTML/API503確認 → Laravel停止・503再確認 → checkout → Composer → キャッシュ解除・環境再確認 → migration → CategorySeeder → optimize → 静的資材配置 → 設定保持・停止確認 → 解除 → HTTP確認。APIのJSONは静的 `maintenance.json` と完全一致することを確認する。公開権限はrsyncの `-a --chmod=D705,F604` で適用する。`umask 077` 下で `-r --chmod` だけに置き換えない。
 
 HTTP確認は画面200、入力不正ログイン422、status API200に加え、入口JS/CSS・SW・manifestの200も確認する。失敗時はメンテナンスへ戻る。全ログはバックアップの `deploy.log` に直接保存し、終了時に末尾と保存先を表示する。別のSSH接続で `tail -f` できる。環境、配置元、前後コミット、DBバックアップ参照、実行スクリプトも保存する。
 

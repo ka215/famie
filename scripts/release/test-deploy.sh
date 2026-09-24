@@ -10,6 +10,31 @@ docroot="$fixture/public"
 backup="$fixture/backup"
 lock="$fixture/lock"
 mkdir -p "$repo/backend/public" "$docroot" "$backup" "$lock"
+# Validate the actual static body, not just a Laravel-compatible error code.
+printf '%s\n' '{"code":"maintenance","message":"static"}' > "$docroot/maintenance.json"
+base_url=https://staging.invalid
+curl() {
+  local output=''
+  while (($#)); do
+    if [[ $1 == -o ]]; then output=$2; shift; fi
+    shift
+  done
+  case $output in
+    *.html) printf '%s' 'ただいまメンテナンス中です' > "$output" ;;
+    *.json) printf '%s\n' "$FAMIE_TEST_MAINTENANCE_BODY" > "$output" ;;
+  esac
+  printf '503'
+}
+FAMIE_TEST_MAINTENANCE_BODY='{"code":"maintenance","message":"static"}'
+check_maintenance_http
+FAMIE_TEST_MAINTENANCE_BODY='{"message":"Service Unavailable"}'
+if (check_maintenance_http) > "$fixture/old-laravel.log" 2>&1; then fail 'Old Laravel maintenance response accepted'; fi
+grep -F 'missing code: maintenance' "$fixture/old-laravel.log" >/dev/null
+FAMIE_TEST_MAINTENANCE_BODY='{"code":"maintenance","message":"Laravel"}'
+if (check_maintenance_http) > "$fixture/new-laravel.log" 2>&1; then fail 'New Laravel maintenance response accepted'; fi
+grep -F 'static maintenance.json' "$fixture/new-laravel.log" >/dev/null
+unset -f curl
+echo 'Static maintenance response and 2 Laravel rejection cases passed.'
 PHPCLI="$fixture/selected-php"
 COMPOSER_FILE="$fixture/composer.phar"
 export FAMIE_TEST_CALLS="$fixture/php-calls"
