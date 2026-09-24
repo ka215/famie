@@ -74,6 +74,7 @@ export interface CurrentUserResponse {
 }
 
 export interface ApiErrorBody {
+  code?: string
   message?: string
   errors?: Record<string, string[]>
 }

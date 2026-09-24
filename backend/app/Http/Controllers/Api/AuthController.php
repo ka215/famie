@@ -59,4 +59,29 @@ class AuthController extends Controller
             'user' => $request->user()->only(['id', 'username', 'display_name', 'email', 'role']),
         ]);
     }
+
+    public function updateMe(Request $request): JsonResponse
+    {
+        if (array_diff(array_keys($request->all()), ['display_name'])) {
+            throw ValidationException::withMessages([
+                'profile' => ['表示名以外は変更できません。'],
+            ]);
+        }
+
+        $validated = $request->validate([
+            'display_name' => ['required', 'string', 'max:50'],
+        ], [
+            'display_name.required' => '表示名を入力してください。',
+            'display_name.string' => '表示名は文字列で入力してください。',
+            'display_name.max' => '表示名は50文字以内で入力してください。',
+        ]);
+
+        $user = $request->user();
+        $user->display_name = $validated['display_name'];
+        $user->save();
+
+        return response()->json([
+            'user' => $user->only(['id', 'username', 'display_name', 'email', 'role']),
+        ]);
+    }
 }

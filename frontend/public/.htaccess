@@ -1,6 +1,21 @@
 Options -MultiViews
 RewriteEngine On
 
+# BEGIN FAMIE MAINTENANCE
+ErrorDocument 503 /maintenance.html
+<If "%{REQUEST_URI} =~ m#^/api(?:/|$)#">
+    ErrorDocument 503 /maintenance.json
+</If>
+Header always set Cache-Control "no-store, max-age=0" "expr=%{REQUEST_STATUS} == 503"
+Header always set Retry-After "60" "expr=%{REQUEST_STATUS} == 503"
+<FilesMatch "^maintenance\.(html|json)$">
+    Header always set Cache-Control "no-store, max-age=0"
+</FilesMatch>
+RewriteCond %{DOCUMENT_ROOT}/.maintenance -f
+RewriteCond %{REQUEST_URI} !^/maintenance\.(html|json)$
+RewriteRule ^ - [R=503,L]
+# END FAMIE MAINTENANCE
+
 # API は上位の Apache 設定または Laravel 側のルールへ渡す。
 RewriteCond %{REQUEST_URI} ^/api(?:/|$) [NC]
 RewriteRule ^ - [L]

@@ -9,6 +9,7 @@ export const useAuth = () => {
     secure: import.meta.env.PROD,
   })
   const { fetchApi } = useApi()
+  const { isMaintenance } = useMaintenance()
 
   const login = async (loginId: string, password: string) => {
     const res = await fetchApi<LoginResponse>('/auth/login', {
@@ -26,10 +27,14 @@ export const useAuth = () => {
       if (token.value) {
         await fetchApi('/auth/logout', { method: 'POST' })
       }
+    } catch (error: unknown) {
+      if (!isMaintenance.value) throw error
     } finally {
-      token.value = null
-      user.value = null
-      navigateTo('/login')
+      if (!isMaintenance.value) {
+        token.value = null
+        user.value = null
+        navigateTo('/login')
+      }
     }
   }
 
@@ -40,6 +45,7 @@ export const useAuth = () => {
       user.value = res.user
       return res.user
     } catch (error: unknown) {
+      if (isMaintenance.value) throw error
       user.value = null
       const status =
         (error as ApiRequestError).response?.status ?? (error as ApiRequestError).statusCode

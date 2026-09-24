@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { isMaintenance } = useMaintenance()
 useHead({
   link: [{ rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' }],
 })
@@ -7,8 +8,11 @@ useHead({
 <template>
   <div>
     <NuxtRouteAnnouncer />
-    <NuxtLayout>
-      <NuxtPage />
-    </NuxtLayout>
+    <MaintenanceNotice v-if="isMaintenance" />
+    <div v-show="!isMaintenance" :inert="isMaintenance">
+      <NuxtLayout>
+        <NuxtPage />
+      </NuxtLayout>
+    </div>
   </div>
 </template>
