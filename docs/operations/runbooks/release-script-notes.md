@@ -2,6 +2,10 @@
 
 ## 対象と前提
 
+v0.4.0の追加対応から `deploy.sh --env production|staging` で環境を選択する。既定はproduction。ステージングの固定SHA・正式タグ指定、環境一覧、初回Git移行、旧入口刷新のタイミングは[ステージング運用手順](staging-deploy-notes.md)を参照する。
+
+`deploy.sh` と同じ版の `check-deploy-environment.php` を同じディレクトリに設置する。両環境で `.env`・有効な設定・実接続先のDB/スキーマ/ユーザー・URLを照合する。非対話SSHでは `export PATH="$HOME/bin:$PATH"` を明示する。ステージングで正式タグを最終確認してから、再ビルドせず同じタグを本番へ配置する。
+
 v0.3.0 以降の通常更新は、ルートの `version.json` を正本とし、フロント・バック共通のタグを自動決定して行う。[ブランチ運用ルール](../../development/decisions/2026-09-23-branch-strategy.md)に従い、作業ブランチ → `dev` → `main` の PR を経由する。
 
 初回のDB・SSL・Apache・`.env` の設定は既存手順で完了させておく。CoreServer には Bash、Git、PHP CLI、Composer の PHP ファイル（phar）、rsync、curl、jq、realpath が必要。サーバー自身から公開 URL への接続も IP 許可リストに含める。`jq` が未導入の場合は先に用意する。
@@ -138,7 +142,7 @@ PHPCLI=/usr/local/bin/php84cli COMPOSER_FILE="$HOME/bin/composer.phar" \
 ### 旧スクリプトからの移行
 
 1. 実行中のデプロイがないことを確認する。旧 `~/famie-deploy.sh`、`~/famie-deploy-cli.sh` は存在するものだけリポジトリ外へ退避し、自動実行や手元のコマンドでどちらを使っていたか確認する。
-2. レビュー済みの新 `scripts/release/deploy.sh` を一旦 `~/famie-deploy.sh.new` へ転送する。`bash -n "$HOME/famie-deploy.sh.new"` が通ったら `mv "$HOME/famie-deploy.sh.new" "$HOME/famie-deploy.sh"` で切り替える。稼働中リポジトリの更新は不要。
+2. ステージング検証済みの固定コミットから `deploy.sh` と `check-deploy-environment.php` を `~/famie-deploy-tools/<完全SHA>/` へ設置する。構文確認後、標準スクリプトへの `~/famie-deploy.sh.new` シンボリックリンクを作り、`mv -T` で `~/famie-deploy.sh` へ切り替える。リンクの実体と同じ版のPHPを読み込む。稼働中リポジトリの更新は不要。本番入口の刷新はv0.4.0公開直前に行う。
 3. 旧名を残す必要がある場合だけ、新しい互換入口 `scripts/release/deploy-cli.sh` を `~/famie-deploy-cli.sh` に配置する。同じディレクトリの `famie-deploy.sh` を呼ぶだけで、単体では動作しない。旧版の独立した実装を残したまま使い続けない。
 4. `PHPCLI` と `COMPOSER_FILE` を従来の環境に合わせ、`bash "$HOME/famie-deploy.sh"` で事前確認する。旧名を残した場合は `bash "$HOME/famie-deploy-cli.sh" --help` でも標準入口への転送を確認する。
 5. 以降の手順・自動実行は `~/famie-deploy.sh` に統一する。退避した旧版を通常更新には使用しない。

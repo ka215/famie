@@ -47,6 +47,26 @@ if (export FAMIE_TEST_PHP_STATUS=1; disable_maintenance); then fail 'Failed arti
 enable_maintenance
 echo '5 failure/recovery scenarios passed (stub PHP only).'
 
+mkdir -p "$repo/frontend/.output/public"
+printf '<script src="/_nuxt/app.js"></script><link href="/_nuxt/app.css">' > "$repo/frontend/.output/public/index.html"
+base_url=https://staging.invalid
+curl() { printf '%s' "${FAMIE_TEST_HTTP_STATUS:-200}"; }
+check_public_assets
+if (export FAMIE_TEST_HTTP_STATUS=403; check_public_assets) > "$fixture/asset-failure.log" 2>&1; then fail 'Unreadable entry asset accepted'; fi
+grep -F 'Static asset check failed' "$fixture/asset-failure.log" >/dev/null
+unset -f curl
+mkdir "$lock"
+if (
+  exec 3>&1 4>&2
+  exec >> "$backup/deploy.log" 2>&1
+  log_redirected=1
+  trap finish EXIT
+  exit 5
+) > "$fixture/direct-log-failure.log" 2>&1; then fail 'Logged failure swallowed'; else result=$?; fi
+[[ $result == 5 && -f $docroot/.maintenance && ! -d $lock ]] || fail 'Direct log recovery failed'
+grep -F 'Full deployment log:' "$fixture/direct-log-failure.log" >/dev/null
+echo 'Static asset rejection and direct-file failure logging passed.'
+
 case $(uname -s) in
   MINGW*|MSYS*|CYGWIN*) echo 'SKIP: POSIX permission checks require Linux/CoreServer and real rsync.'; exit 2 ;;
 esac

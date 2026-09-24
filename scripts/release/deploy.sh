@@ -35,7 +35,40 @@ resolve_release() {
   [[ $tag_commit == "$commit" ]] || fail 'Release tag must point to the exact origin/main commit.'
 }
 check_environment() {
-  "$PHPCLI" -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); if (!$app->environment("production") || config("app.debug")) { fwrite(STDERR, "Expected production with debug disabled\n"); exit(1); }'
+  "$PHPCLI" "$script_dir/check-deploy-environment.php" "$repo/backend" "$base_url" "$database"
+}
+select_environment() {
+  case $environment in
+    production) app_name=famie; domain=famie.ka2.org; database=ka2_famie ;;
+    staging) app_name=famie-stg; domain=stg-famie.ka2.org; database=ka2_famiestg ;;
+    *) fail 'Environment must be production or staging.' ;;
+  esac
+  repo="$HOME/$app_name"
+  docroot="$HOME/public_html/$domain"
+  base_url="https://$domain"
+  backup_root="$HOME/$app_name-release-backups/releases"
+}
+resolve_staging() {
+  local ref=$1 branch found=0 version_filter metadata
+  commit=$(git rev-parse --verify "$ref^{commit}") || return 1
+  if [[ $ref == v* ]]; then
+    [[ $commit == $(git rev-parse --verify 'origin/main^{commit}') ]] || fail 'Final staging tag must match origin/main.'
+    resolve_release "$commit" "$ref"
+    source_ref=origin/main
+  else
+    [[ $ref == "$commit" ]] || fail 'Staging requires a full commit SHA or release tag.'
+    while IFS= read -r branch; do
+      [[ $branch == refs/remotes/origin/dev || $branch == refs/remotes/origin/feature/* || $branch == refs/remotes/origin/hotfix/* ]] || continue
+      if git merge-base --is-ancestor "$commit" "$branch"; then
+        source_ref=$branch; found=1; break
+      fi
+    done < <(git for-each-ref --format='%(refname)' refs/remotes/origin/dev 'refs/remotes/origin/feature/*' 'refs/remotes/origin/hotfix/*')
+    ((found)) || fail 'Staging commit must belong to fetched dev, feature/* or hotfix/*.'
+    version_filter=$(git show "$commit:scripts/release/version-state.jq") || return 1
+    metadata=$({ git show "$commit:version.json"; git show "$commit:backend/package.json"; git show "$commit:frontend/package.json"; } | jq -ser "$version_filter") || return 1
+    version=$(cut -f2 <<< "$metadata")
+    tag="candidate-$version-${commit:0:12}"
+  fi
 }
 publish_frontend() {
   rsync -a --chmod=D705,F604 --delete --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' \
@@ -68,6 +101,17 @@ check_maintenance_http() {
   [[ $status == 503 ]] || fail "API maintenance check failed: HTTP $status"
   jq -e '.code == "maintenance"' "$backup/maintenance-check.json" >/dev/null
 }
+check_public_assets() {
+  local asset status
+  # Check entry assets too: HTML 200 alone does not catch unreadable JS/CSS.
+  local entries
+  entries=$(grep -oE '/_nuxt/[^" <>]+\.(js|css)' "$repo/frontend/.output/public/index.html" | sort -u)
+  [[ -n $entries ]] || fail 'No entry JS/CSS found in generated index.html.'
+  for asset in $entries /sw.js /manifest.webmanifest; do
+    status=$(curl --silent --show-error --max-time 30 -o /dev/null -w '%{http_code}' "$base_url$asset")
+    [[ $status == 200 ]] || fail "Static asset check failed: $asset HTTP $status"
+  done
+}
 finish() {
   status=$?
   trap - EXIT
@@ -85,16 +129,24 @@ finish() {
     fi
   fi
   rmdir "$lock"
+  if [[ ${log_redirected:-0} == 1 ]]; then
+    exec 1>&3 2>&4
+    tail -n 40 "$backup/deploy.log"
+    printf 'Full deployment log: %s/deploy.log\n' "$backup"
+  fi
   exit "$status"
 }
 usage() {
-  echo 'Usage: bash deploy.sh [vX.Y.Z] [--apply --db-backup BACKUP_REFERENCE]'
+  echo 'Usage: bash deploy.sh [vX.Y.Z] [--env production|staging] [--ref FULL_SHA_OR_TAG] [--apply --db-backup BACKUP_REFERENCE]'
   echo 'Defaults: PHPCLI=/usr/local/bin/php84cli, COMPOSER_FILE=$HOME/bin/composer.phar.'
   echo 'Version is derived from origin/main version.json. An optional tag must match it.'
-  echo 'Default: preflight only. Paths: ~/famie, ~/public_html/famie.ka2.org'
+  echo 'Default: production, preflight only. Staging requires --ref; production rejects --ref.'
+  echo 'Install check-deploy-environment.php beside this script.'
 }
 # Allow the version resolver to be tested against a disposable local Git repository.
 if [[ ${BASH_SOURCE[0]} != "$0" ]]; then return 0; fi
+deployment_script=$(realpath "${BASH_SOURCE[0]}")
+script_dir=$(dirname "$deployment_script")
 if [[ ${1:-} == --help ]]; then usage; exit 0; fi
 requested_tag=''
 if [[ -n ${1:-} && $1 != --* ]]; then
@@ -104,8 +156,17 @@ if [[ -n ${1:-} && $1 != --* ]]; then
 fi
 apply=0
 db_backup=''
+environment=production
+requested_ref=''
+environment_seen=0
 while (($#)); do
   case $1 in
+    --env)
+      (($# >= 2 && environment_seen == 0)) || fail 'Specify --env once with production or staging.'
+      environment=$2; environment_seen=1; shift 2 ;;
+    --ref)
+      (($# >= 2)) && [[ -z $requested_ref ]] || fail 'Specify --ref once with a full SHA or tag.'
+      requested_ref=$2; shift 2 ;;
     --apply) apply=1; shift ;;
     --db-backup)
       (($# >= 2)) || fail 'Missing backup reference'
@@ -114,17 +175,22 @@ while (($#)); do
     *) fail "Unknown argument: $1" ;;
   esac
 done
+select_environment
+if [[ $environment == production ]]; then
+  [[ -z $requested_ref ]] || fail 'Production does not accept --ref.'
+else
+  [[ -z $requested_tag ]] || fail 'Use --ref for staging.'
+  [[ $requested_ref =~ ^([0-9a-f]{40}|v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]] || fail 'Staging requires --ref with a full commit SHA or release tag.'
+fi
 [[ $apply == 0 || -n $db_backup ]] || fail 'Create a DB backup first and pass --db-backup REFERENCE.'
-for tool in git rsync curl jq realpath sed cmp grep; do
+for tool in git rsync curl jq realpath sed cmp grep cut sort tail; do
   command -v "$tool" >/dev/null || fail "Missing tool: $tool"
 done
 
 initialize_cli
+[[ -f $script_dir/check-deploy-environment.php ]] || fail 'Missing check-deploy-environment.php beside deployment script.'
 
-repo=$(realpath "$HOME/famie")
-docroot=$(realpath "$HOME/public_html/famie.ka2.org")
-backup_root="$HOME/famie-release-backups/releases"
-[[ $repo == "$HOME/famie" && $docroot == "$HOME/public_html/famie.ka2.org" ]] || fail 'Unexpected or symlinked deployment path.'
+[[ $(realpath "$repo") == "$repo" && $(realpath "$docroot") == "$docroot" ]] || fail 'Unexpected or symlinked deployment path.'
 [[ -d $repo/.git && -f $repo/backend/.env ]] || fail 'Initial backend setup is required.'
 [[ -f $docroot/.htaccess && -f $docroot/index.html ]] || fail 'Initial frontend setup is required.'
 [[ -L $docroot/api && $(realpath "$docroot/api") == "$repo/backend/public" ]] || fail 'Unexpected API symlink.'
@@ -134,6 +200,7 @@ cd "$repo"
 [[ -z $(git status --porcelain) ]] || fail 'Repository has uncommitted changes.'
 
 mkdir -p "$backup_root"
+[[ $(realpath "$backup_root") == "$backup_root" ]] || fail 'Unexpected or symlinked backup path.'
 lock="$backup_root/.deploy-lock"
 mkdir "$lock" 2>/dev/null || fail 'Another deployment is running (or its lock needs investigation).'
 started=0
@@ -142,11 +209,17 @@ stage='fetch and release validation'
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+trap 'exit 129' HUP
 
-git fetch origin main --tags
-commit=$(git rev-parse --verify 'origin/main^{commit}')
-# Read only from the fetched, fixed commit, never from the old live worktree.
-resolve_release "$commit" "$requested_tag"
+if [[ $environment == production ]]; then
+  git fetch origin '+refs/heads/main:refs/remotes/origin/main' --tags
+  commit=$(git rev-parse --verify 'origin/main^{commit}')
+  resolve_release "$commit" "$requested_tag"
+  source_ref=origin/main
+else
+  git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*' --tags
+  resolve_staging "$requested_ref"
+fi
 for asset in index.html .htaccess sw.js manifest.webmanifest maintenance.html maintenance.json; do
   git cat-file -e "$commit:frontend/.output/public/$asset" || fail "Missing tagged asset: $asset"
 done
@@ -154,9 +227,9 @@ git cat-file -e "$commit:backend/composer.lock"
 stage='maintenance setup validation'
 check_maintenance_setup
 cd "$repo/backend"
-stage='production environment validation'
+stage='deployment environment validation'
 check_environment
-echo "Verified tag: $tag ($commit)"
+printf 'Environment: %s\nRepository: %s\nPublic: %s\nURL: %s\nDatabase/schema: %s\nSource: %s\nVerified release: %s (%s)\n' "$environment" "$repo" "$docroot" "$base_url" "$database" "$source_ref" "$tag" "$commit"
 if ((apply == 0)); then
   echo 'Preflight passed. Application and DB were not changed. Review migrations and create a DB backup before --apply.'
   exit 0
@@ -167,14 +240,21 @@ stage='backup'
 release_id="$(date +%Y%m%d-%H%M%S)-$tag-$$"
 backup="$backup_root/$release_id"
 mkdir "$backup"
-exec > >(tee -a "$backup/deploy.log") 2>&1
+printf 'Deploying %s; log: %s/deploy.log\n' "$environment" "$backup"
+# Write directly: a closed SSH output pipe must not terminate deployment logging.
+exec 3>&1 4>&2
+exec >> "$backup/deploy.log" 2>&1
+log_redirected=1
 printf '%s\n' "$previous" > "$backup/previous-commit"
 printf '%s\n' "$commit" > "$backup/release-commit"
 printf '%s\n' "$db_backup" > "$backup/db-backup-reference"
+printf '%s\n' "$environment" > "$backup/environment"
+printf '%s\n' "$source_ref" > "$backup/source-ref"
+cp "$script_dir/check-deploy-environment.php" "$backup/"
+cp "$deployment_script" "$backup/deploy.sh"
 rsync -a --exclude='/api' "$docroot/" "$backup/frontend/"
 
 # Put the live backend into maintenance before replacing its code or dependencies.
-base_url='https://famie.ka2.org'
 stage='enable maintenance'
 started=1
 enable_maintenance
@@ -218,5 +298,6 @@ jq -e '.errors.login and .errors.password' "$backup/api-check.json" >/dev/null
 status=$(curl --silent --show-error --max-time 30 -o "$backup/status-check.json" -w '%{http_code}' "$base_url/api/v1/status")
 [[ $status == 200 ]] || fail "Recovery status check failed: HTTP $status"
 jq -e '.status == "ok"' "$backup/status-check.json" >/dev/null
+check_public_assets
 started=0
 printf 'Released %s (%s)\nBackup and log: %s\n' "$tag" "$commit" "$backup"

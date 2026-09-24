@@ -7,8 +7,8 @@
 - 専用アプリ: `~/famie-stg/backend`、公開先: `~/public_html/stg-famie.ka2.org/`。
 - PostgreSQLのDB・ユーザー・スキーマは `ka2_famiestg`。`.env` の `DB_SCHEMA=ka2_famiestg` が必要。`public` スキーマには作成権限がない。
 - `.env` は600、APP_KEYはステージング専用。許可IPは本番の既存リストを引き継ぐ。検証端末も許可されたネットワークで接続する。
-- 検証用の親 `parent1` と子 `child1` を使用する。ランダム初期パスワードはサーバーの `~/famie-stg/accounts.txt`（600）で確認し、結果記録・スクリーンショットへ含めない。
-- 本番用 `deploy.sh` は配置先が本番固定のため、この環境では実行しない。DB・公開先・シンボリックリンクがステージングを指すことを確認して操作する。
+- 検証用の親 `parent1` と子 `child1` を使用する。初期パスワード記録はGit管理移行後、`~/famie-stg-release-backups/initial-issue11/original-app/accounts.txt`（private退避領域）で管理する。結果記録・スクリーンショットへ含めない。
+- #11対応後の共通 `deploy.sh` は `--env staging --ref <完全SHAまたは正式タグ>` を明示して使う。省略すると本番が対象になる。[ステージング運用手順](staging-deploy-notes.md)に従い、DB・公開先・シンボリックリンクがステージングを指すことを確認する。
 
 ## 通常利用での実機検証
 
