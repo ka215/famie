@@ -11,9 +11,10 @@ Header always set Retry-After "60" "expr=%{REQUEST_STATUS} == 503"
 <FilesMatch "^maintenance\.(html|json)$">
     Header always set Cache-Control "no-store, max-age=0"
 </FilesMatch>
-RewriteCond %{DOCUMENT_ROOT}/.maintenance -f
-RewriteCond %{REQUEST_URI} !^/maintenance\.(html|json)$
-RewriteRule ^ - [R=503,L]
+# mod_alias applies even when the API has its own mod_rewrite rules.
+<If "-f '%{DOCUMENT_ROOT}/.maintenance' && %{REQUEST_URI} !~ m#^/maintenance\.(html|json)$#">
+    Redirect 503 /
+</If>
 # END FAMIE MAINTENANCE
 
 # API は上位の Apache 設定または Laravel 側のルールへ渡す。

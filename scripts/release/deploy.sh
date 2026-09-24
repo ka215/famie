@@ -99,7 +99,8 @@ check_maintenance_http() {
   grep -F 'ただいまメンテナンス中です' "$backup/maintenance-check.html" >/dev/null || fail 'Maintenance page is missing.'
   status=$(curl --silent --show-error --max-time 30 -o "$backup/maintenance-check.json" -w '%{http_code}' -H 'Accept: application/json' "$base_url/api/v1/status")
   [[ $status == 503 ]] || fail "API maintenance check failed: HTTP $status"
-  jq -e '.code == "maintenance"' "$backup/maintenance-check.json" >/dev/null
+  jq -e '.code == "maintenance"' "$backup/maintenance-check.json" >/dev/null || fail 'API maintenance response is missing code: maintenance.'
+  cmp -s "$docroot/maintenance.json" "$backup/maintenance-check.json" || fail 'API must return the static maintenance.json, not a Laravel response.'
 }
 check_public_assets() {
   local asset status
@@ -255,8 +256,11 @@ cp "$deployment_script" "$backup/deploy.sh"
 rsync -a --exclude='/api' "$docroot/" "$backup/frontend/"
 
 # Put the live backend into maintenance before replacing its code or dependencies.
-stage='enable maintenance'
+stage='static maintenance HTTP checks before artisan down'
 started=1
+: > "$docroot/.maintenance"
+check_maintenance_http
+stage='enable maintenance'
 enable_maintenance
 stage='maintenance HTTP checks'
 check_maintenance_http
