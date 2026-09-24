@@ -79,18 +79,20 @@ DB migration の内容を PR で確認し、CoreServer 管理画面からDBバ�
 
 ## 2-A. v0.4.0 のメンテナンス表示を初回導入
 
-Apache の `mod_rewrite` / `mod_headers` と `AllowOverride FileInfo` が必要。静的な HTML / JSON を Apache が503で返すため、Composer 更新中も Laravel の起動に依存しない。許可IPは既存の Apache 設定を維持する。Laravel のみを停止した場合もAPIは同じ `code: maintenance` の503を返す。
+Apache の `mod_rewrite` / `mod_alias` / `mod_headers` と `AllowOverride FileInfo` が必要。静的な HTML / JSON を Apache が503で返すため、Composer 更新中も Laravel の起動に依存しない。許可IPは既存の Apache 設定を維持する。Laravel のみを停止した場合もAPIは同じ `code: maintenance` の503を返す。
 
 1. レビュー対象の `frontend/public/maintenance.html` と `maintenance.json` を公開先へ転送し、ファイル権限を604にする。初回は稼働中の Git checkout を変更せず、SCP等で個別に転送する。
 2. 本番 `.htaccess` を非公開ディレクトリへバックアップする。`frontend/public/.htaccess` の `# BEGIN FAMIE MAINTENANCE` ～ `# END FAMIE MAINTENANCE` を、既存の `RewriteEngine On` 直後（API除外・静的ファイル除外・SPA書き換えより前）に追加する。既存のIP制限・PHP設定・その他の行は保持し、ファイル全体を上書きしない。`.htaccess` は604を維持する。
 3. `.maintenance` がない状態で通常画面、API、許可外IPの403を確認する。設定に誤りがあればバックアップから `.htaccess` を戻す。
-4. 初回のメンテナンス開始・解除確認は、検証用ホストか合意した停止時間に行う。公開先に空の `.maintenance` を作ると、画面にHTMLの503、`/api/*` にJSONの503を返す。両方に `Cache-Control: no-store`、`Retry-After: 60` が付き、許可外IPは403のままとなる。
+4. 初回のメンテナンス開始・解除確認は、検証用ホストか合意した停止時間に行う。Laravel を稼働させたまま公開先に空の `.maintenance` を作り、画面にHTMLの503、`/api/*` のGET/POSTに静的 `maintenance.json` と完全一致するJSONの503を返すことを確認する。両方に `Cache-Control: no-store`、`Retry-After: 60` が付き、許可外IPは403のままとなる。Laravel の `code: maintenance` だけでは静的遮断の証拠にならない。フラグ削除後の画面・API復帰も確認する。
+
+APIリンク先の `.htaccess` は独自の Rewrite ルールを持つため、親の Rewrite ルールだけではAPIを遮断できない。停止判定には条件付き `Redirect 503 /`（mod_alias）を使う。既に旧管理ブロックを導入している場合は、ブロックを重複追加せず置換し、IP制限などブロック外の設定を保持する。
 
 初期導入後、デプロイの事前確認は対象タグの管理ブロックと専用ページが公開先に設置済みであることを検証する。不足・不一致ならサービスを止めずに終了する。将来専用ページや管理ブロックを変更する場合も、レビュー済みの新しい内容を先に導入する。
 
 ### 開始・解除と失敗時の扱い
 
-- 開始：公開先 `.maintenance` 作成 → 選択したPHP CLIで `artisan down --retry=60` → 公開URLのHTML/API両方の503を確認 → コード・依存関係・DB・静的資材を更新。
+- 開始：公開先 `.maintenance` 作成 → Laravel停止前に静的HTML/APIの503を確認（JSON本文も完全一致）→ 選択したPHP CLIで `artisan down --retry=60` → 公開URLのHTML/API両方の503を再確認 → コード・依存関係・DB・静的資材を更新。
 - 更新中は `.maintenance` を静的資材の同期・削除から除外する。本番 `.htaccess` とAPIリンクも保持する。
 - 解除前：production/debug設定、本番 `.htaccess` の一致、APIリンク、HTML/API両方のメンテナンス応答を確認。
 - 解除（方式A）：`artisan up` → `.maintenance` 削除 → `/` と `/login/` の200、空ログイン要求の422、`/api/v1/status` の200かつ `status: ok` を確認。
