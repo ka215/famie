@@ -44,7 +44,7 @@ function pnpm {
     if ($command -eq 'build') {
         $public = Join-Path $global:famiePublishTestState.fixture 'frontend/.output/public'
         New-Item -ItemType Directory -Force $public | Out-Null
-        foreach ($asset in @('index.html','.htaccess','sw.js','manifest.webmanifest')) {
+        foreach ($asset in @('index.html','.htaccess','sw.js','manifest.webmanifest','maintenance.html','maintenance.json')) {
             New-Item -ItemType File -Path (Join-Path $public $asset) | Out-Null
         }
     }

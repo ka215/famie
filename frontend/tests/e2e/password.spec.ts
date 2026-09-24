@@ -15,6 +15,10 @@ for (const account of ['parent1', 'child1']) {
     await expect(password).toHaveAttribute('type', 'password')
     await page.getByRole('button', { name: 'ログイン', exact: true }).click()
     await page.getByRole('link', { name: '設定', exact: true }).click()
+    await page.locator('summary').filter({ hasText: 'パスワードの変更' }).click()
+    if (account === 'parent1') {
+      await page.locator('summary').filter({ hasText: '新しい家族を追加' }).click()
+    }
 
     const labels = ['現在のパスワード', '新しいパスワード', '新しいパスワード（確認）']
     if (account === 'parent1') labels.push('初期パスワード', '初期パスワード（確認）')

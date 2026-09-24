@@ -2,9 +2,13 @@
 
 ## 対象と前提
 
+v0.4.0の追加対応から `deploy.sh --env production|staging` で環境を選択する。既定はproduction。ステージングの固定SHA・正式タグ指定、環境一覧、初回Git移行、旧入口刷新のタイミングは[ステージング運用手順](staging-deploy-notes.md)を参照する。
+
+`deploy.sh` と同じ版の `check-deploy-environment.php` を同じディレクトリに設置する。両環境で `.env`・有効な設定・実接続先のDB/スキーマ/ユーザー・URLを照合する。非対話SSHでは `export PATH="$HOME/bin:$PATH"` を明示する。ステージングで正式タグを最終確認してから、再ビルドせず同じタグを本番へ配置する。
+
 v0.3.0 以降の通常更新は、ルートの `version.json` を正本とし、フロント・バック共通のタグを自動決定して行う。[ブランチ運用ルール](../../development/decisions/2026-09-23-branch-strategy.md)に従い、作業ブランチ → `dev` → `main` の PR を経由する。
 
-初回のDB・SSL・Apache・`.env` の設定は既存手順で完了させておく。CoreServer には Bash、Git、PHP、Composer、rsync、curl、jq、realpath が必要。サーバー自身から公開 URL への接続も IP 許可リストに含める。`jq` が未導入の場合は先に用意する。
+初回のDB・SSL・Apache・`.env` の設定は既存手順で完了させておく。CoreServer には Bash、Git、PHP CLI、Composer の PHP ファイル（phar）、rsync、curl、jq、realpath が必要。サーバー自身から公開 URL への接続も IP 許可リストに含める。`jq` が未導入の場合は先に用意する。
 
 ## 0. バージョンの管理ルール
 
@@ -73,7 +77,89 @@ bash "$HOME/famie-deploy.sh"
 
 DB migration の内容を PR で確認し、CoreServer 管理画面からDBバックアップを取得する。事前確認はタグの migration を試行するものではない。配置対象のタグ・コミット、バックアップの識別情報を記録する。
 
+## 2-A. v0.4.0 のメンテナンス表示を初回導入
+
+Apache の `mod_rewrite` / `mod_headers` と `AllowOverride FileInfo` が必要。静的な HTML / JSON を Apache が503で返すため、Composer 更新中も Laravel の起動に依存しない。許可IPは既存の Apache 設定を維持する。Laravel のみを停止した場合もAPIは同じ `code: maintenance` の503を返す。
+
+1. レビュー対象の `frontend/public/maintenance.html` と `maintenance.json` を公開先へ転送し、ファイル権限を604にする。初回は稼働中の Git checkout を変更せず、SCP等で個別に転送する。
+2. 本番 `.htaccess` を非公開ディレクトリへバックアップする。`frontend/public/.htaccess` の `# BEGIN FAMIE MAINTENANCE` ～ `# END FAMIE MAINTENANCE` を、既存の `RewriteEngine On` 直後（API除外・静的ファイル除外・SPA書き換えより前）に追加する。既存のIP制限・PHP設定・その他の行は保持し、ファイル全体を上書きしない。`.htaccess` は604を維持する。
+3. `.maintenance` がない状態で通常画面、API、許可外IPの403を確認する。設定に誤りがあればバックアップから `.htaccess` を戻す。
+4. 初回のメンテナンス開始・解除確認は、検証用ホストか合意した停止時間に行う。公開先に空の `.maintenance` を作ると、画面にHTMLの503、`/api/*` にJSONの503を返す。両方に `Cache-Control: no-store`、`Retry-After: 60` が付き、許可外IPは403のままとなる。
+
+初期導入後、デプロイの事前確認は対象タグの管理ブロックと専用ページが公開先に設置済みであることを検証する。不足・不一致ならサービスを止めずに終了する。将来専用ページや管理ブロックを変更する場合も、レビュー済みの新しい内容を先に導入する。
+
+### 開始・解除と失敗時の扱い
+
+- 開始：公開先 `.maintenance` 作成 → 選択したPHP CLIで `artisan down --retry=60` → 公開URLのHTML/API両方の503を確認 → コード・依存関係・DB・静的資材を更新。
+- 更新中は `.maintenance` を静的資材の同期・削除から除外する。本番 `.htaccess` とAPIリンクも保持する。
+- 解除前：production/debug設定、本番 `.htaccess` の一致、APIリンク、HTML/API両方のメンテナンス応答を確認。
+- 解除（方式A）：`artisan up` → `.maintenance` 削除 → `/` と `/login/` の200、空ログイン要求の422、`/api/v1/status` の200かつ `status: ok` を確認。
+- 変更開始後の失敗、解除後のチェック失敗では `.maintenance` を再作成し、`artisan down` を再実行する。PHPが起動できなくても静的な503表示を維持する。復旧は第4節に従う。更新前の検証失敗ではメンテナンスを開始しない。
+
+`GET /api/v1/status` はIP制限内で認証なしに復旧確認するための専用API。画面の再試行はこのGETだけを実行し、成功後に画面を読み込み直す。保存要求は自動再送しない。
+
+### 検証とPWAの確認範囲
+
+```powershell
+# 独立したApacheと一時ドキュメントルート。本番設定には触れない。
+./scripts/release/test-maintenance.ps1
+# 前後の失敗、解除失敗、解除後のHTTP失敗、公開時のフラグ保持
+& 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-deploy.sh
+```
+
+`test-maintenance.ps1` はHTML/APIの503、GET/POST、no-store、IP制限、解除を確認する。`backend/tests/Feature/MaintenanceTest.php` はLaravel側を別途確認する。`frontend/tests/e2e/maintenance.spec.ts` はAPI応答に対する案内・再試行・認証保持・書き込み非再送・通信障害との区別を確認する。
+
+既存E2Eは開発サーバーを使用しService Workerを無効化しているため、PWA検証の代替にはならない。専用HTML/JSONは商用ビルドのプリキャッシュ・ナビゲーションフォールバックから除外する。商用ビルドのHTTPS検証環境で次を別途確認し、端末・OS・実行版・日時・結果をIssueへ記録する。
+
+1. 通常アクセスでService Workerとキャッシュを作成し、キャッシュを消さずにホーム画面から起動する。
+2. メンテナンス開始後、新規アクセスの503と、既に開いている画面の次のAPI操作による案内を確認する。
+3. 再試行でメンテナンス継続を確認する。通信を切ると「通信環境を確認」の案内となることを確認する。
+4. 解除後の再試行で通常画面に戻り、認証が維持され、保存要求が再送されていないことを確認する。
+5. 起動・再読み込みを繰り返し、メンテナンス専用ページがキャッシュに残り続けないことを確認する。
+
+v0.3.0以前の画面自体には専用503を識別するコードがない。旧版を開いたままの端末への遡及適用はできないため、専用案内の受入確認は今回の版を一度読み込んでキャッシュを作成した端末で行い、旧版からの更新経路は#10で別に記録する。
+
 ## 3. 通常更新を実行
+
+### PHP CLI・Composer の指定（全環境共通）
+
+標準入口は `scripts/release/deploy.sh`。既定値は `PHPCLI=/usr/local/bin/php84cli`、`COMPOSER_FILE=$HOME/bin/composer.phar`。環境確認・全 Artisan・Composer・失敗時の処理に同じ PHP CLI を使用する。CGI/FastCGI は受け付けない。PHP CLI の絶対パス・実行可否・SAPI、Composer の PHP ファイル形式・実行可否を、Git 取得やメンテナンス開始より前に検証する。対話シェルの alias は使用しない。
+
+```sh
+# 既定パスで事前確認
+bash "$HOME/famie-deploy.sh"
+# パスが異なる場合（Composer はシェルラッパーではなく PHP ファイルを指定）
+PHPCLI=/absolute/path/to/php COMPOSER_FILE=/absolute/path/to/composer.phar \
+  bash "$HOME/famie-deploy.sh"
+# 同じパス設定で通常更新。取得済みの DB バックアップを指定する。
+PHPCLI=/usr/local/bin/php84cli COMPOSER_FILE="$HOME/bin/composer.phar" \
+  bash "$HOME/famie-deploy.sh" --apply \
+  --db-backup "$HOME/_db_dump/pgsql.ka2_famie.1790138083.dump"
+```
+
+公開資材は `rsync -a --chmod=D705,F604` でディレクトリ705・ファイル604にする。バックアップ保護用の `umask 077` を維持し、backend 全体の権限は変更しない。本番 `.htaccess`（IP制限を含む）と `api` リンクは保持する。
+
+### 旧スクリプトからの移行
+
+1. 実行中のデプロイがないことを確認する。旧 `~/famie-deploy.sh`、`~/famie-deploy-cli.sh` は存在するものだけリポジトリ外へ退避し、自動実行や手元のコマンドでどちらを使っていたか確認する。
+2. ステージング検証済みの固定コミットから `deploy.sh` と `check-deploy-environment.php` を `~/famie-deploy-tools/<完全SHA>/` へ設置する。構文確認後、標準スクリプトへの `~/famie-deploy.sh.new` シンボリックリンクを作り、`mv -T` で `~/famie-deploy.sh` へ切り替える。リンクの実体と同じ版のPHPを読み込む。稼働中リポジトリの更新は不要。本番入口の刷新はv0.4.0公開直前に行う。
+3. 旧名を残す必要がある場合だけ、新しい互換入口 `scripts/release/deploy-cli.sh` を `~/famie-deploy-cli.sh` に配置する。同じディレクトリの `famie-deploy.sh` を呼ぶだけで、単体では動作しない。旧版の独立した実装を残したまま使い続けない。
+4. `PHPCLI` と `COMPOSER_FILE` を従来の環境に合わせ、`bash "$HOME/famie-deploy.sh"` で事前確認する。旧名を残した場合は `bash "$HOME/famie-deploy-cli.sh" --help` でも標準入口への転送を確認する。
+5. 以降の手順・自動実行は `~/famie-deploy.sh` に統一する。退避した旧版を通常更新には使用しない。
+
+旧スクリプトで配置後に 403 になり、公開先 `index.html` が 600 の場合は、メンテナンスを維持したまま以下で公開資材を再同期する（削除は行わない）。配置済みコミットが対象タグであることを先に確認する。v0.4.0の `.maintenance` がある場合は、画面200ではなく503の維持を確認し、第4節の手順で解除する。
+
+```sh
+git -C "$HOME/famie" describe --tags --exact-match HEAD
+rsync -a --chmod=D705,F604 --exclude='/.htaccess' --exclude='/api' \
+  "$HOME/famie/frontend/.output/public/" "$HOME/public_html/famie.ka2.org/"
+curl -sS -o /dev/null -w '%{http_code}\n' https://famie.ka2.org/
+curl -sS -o /dev/null -w '%{http_code}\n' https://famie.ka2.org/login/
+```
+
+旧方式（`.maintenance` 未導入）では、両方が200になったら選択したPHP CLIで `artisan up` を実行する。v0.4.0以降は第4節の順序で解除する。空のログイン要求が422になることと実アカウントでの動作を確認する。これは配置後の確認失敗からの復旧であり、完了済みの migration・seed を再実行する必要はない。
+
+### 更新の処理順
 
 ```sh
 bash "$HOME/famie-deploy.sh" --apply --db-backup '管理画面で取得したバックアップの識別情報'
@@ -83,18 +169,18 @@ bash "$HOME/famie-deploy.sh" --apply --db-backup '管理画面で取得したバ
 
 1. 二重実行をロックし、タグのコミットを固定する。
 2. フロントの現行資材、直前コミット、DBバックアップ識別情報を `~/famie-release-backups/releases/<実行ID>/` へ保存する。
-3. バックエンドをメンテナンス状態にしてからコードをタグのコミットへ切り替える。
+3. フロントとバックエンドをメンテナンス状態にし、両方の503を確認してからコードをタグのコミットへ切り替える。
 4. Composer、キャッシュ更新、migration、`CategorySeeder` を実行する。
 5. `.htaccess` と `api` リンクを保持して静的資材を同期する。
-6. メンテナンスを解除し、画面の HTTP 200 と、空のログイン要求に対する JSON の HTTP 422 を確認する。
+6. 解除前の確認後にメンテナンスを解除し、画面200・空ログイン422・復旧確認APIの200を確認する。失敗したら再度メンテナンスにする。
 
-実行ログはバックアップ内の `deploy.log` に保存する。`UserSeeder`、APP_KEY 再生成、DB自動復元は行わない。サーバーの Git はタグが指すコミットへの detached HEAD となる。以後も `git pull` ではなく本スクリプトで更新する。
+実行ログはバックアップ内の `deploy.log` に保存する。失敗時は処理段階、バックアップ場所、復旧に使う CLI・Composer と手順書を表示する。バックアップ作成前の失敗は端末の標準エラーで確認する。`UserSeeder`、APP_KEY 再生成、DB自動復元は行わない。サーバーの Git はタグが指すコミットへの detached HEAD となる。以後も `git pull` ではなく本スクリプトで更新する。
 
 成功後は実アカウントでログイン・記録登録・閲覧・ログアウト、PWA 更新、許可外IPからの拒否を確認し、`docs/operations/change-log/` にタグ・コミット・結果を記録する。
 
 ## 4. 失敗時の復旧
 
-変更開始後に失敗した場合、スクリプトはバックエンドをメンテナンス状態に保ち、バックアップの場所を表示する。DBの自動ロールバックや、未確認のままの `artisan up` は行わない。
+変更開始後に失敗した場合、スクリプトはフロントとバックエンドをメンテナンス状態に保ち、失敗段階とバックアップの場所を表示する。メンテナンス再設定自体に失敗した場合は警告を出すため、公開先 `.maintenance` と実際の `storage/framework/down` も確認する。DBの自動ロールバックや、未確認のままの `artisan up` は行わない。
 
 まずログと実際の配置状態を確認する。DB変更と旧コードに互換性がある場合は、次を実行する。`BACKUP_DIR` は実行ログに表示された絶対パスへ置き換える。
 
@@ -103,16 +189,22 @@ BACKUP_DIR="$HOME/famie-release-backups/releases/<実行ID>"
 test -f "$BACKUP_DIR/previous-commit" || exit 1
 test -f "$BACKUP_DIR/frontend/index.html" || exit 1
 PREVIOUS_COMMIT=$(cat "$BACKUP_DIR/previous-commit")
+# デプロイで選択した値を使用する（以下は既定値）。
+PHPCLI=/usr/local/bin/php84cli
+COMPOSER_FILE="$HOME/bin/composer.phar"
+: > "$HOME/public_html/famie.ka2.org/.maintenance" || exit 1
 cd "$HOME/famie/backend" || exit 1
-php artisan down --retry=60
+"$PHPCLI" artisan down --retry=60
 git -C "$HOME/famie" checkout --detach "$PREVIOUS_COMMIT" || exit 1
-composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction || exit 1
-php artisan optimize:clear || exit 1
-php artisan optimize || exit 1
-rsync -a --delete --exclude='/.htaccess' --exclude='/api' \
+"$PHPCLI" "$COMPOSER_FILE" install --no-dev --prefer-dist --optimize-autoloader --no-interaction || exit 1
+"$PHPCLI" artisan optimize:clear || exit 1
+"$PHPCLI" artisan optimize || exit 1
+rsync -a --chmod=D705,F604 --delete --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' \
   "$BACKUP_DIR/frontend/" "$HOME/public_html/famie.ka2.org/" || exit 1
-php artisan up
+# ここでは解除しない。配置・DB・APIリンク・503の確認後、下記の順で解除する。
 ```
+
+復旧配置の確認後、`"$PHPCLI" artisan up` が成功したら公開先の `.maintenance` を削除し、通常更新と同じHTTPチェックを行う。失敗したら先に `.maintenance` を作り直し、`"$PHPCLI" artisan down --retry=60` を実行する。v0.3.0へ戻した場合は復旧確認APIがないため、画面200・空ログイン422・実アカウントの確認を用いる。
 
 DB非互換の場合は修正 migration または管理画面からのDB復元が必要。旧コードだけへ戻さず、復旧方針を決めてから実行する。復旧後に通常と同じ動作確認を行う。
 
@@ -124,6 +216,9 @@ Windows の Git Bash がある場合は、次で構文と誤操作時の停止�
 
 ```powershell
 ./scripts/release/test-guards.ps1 -Bash 'C:/Program Files/Git/bin/bash.exe'
+./scripts/release/test-guards.ps1 -Bash 'C:/Program Files/Git/bin/bash.exe' -DeployScript deploy-cli.sh
+& 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-cli.sh
+& 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-deploy.sh
 ./scripts/release/test-publish.ps1
 ./scripts/release/test-version.ps1
 & 'C:/Program Files/Git/bin/bash.exe' scripts/release/test-version.sh
@@ -132,3 +227,15 @@ Windows の Git Bash がある場合は、次で構文と誤操作時の停止�
 `test-publish.ps1` は Git / gh / pnpm をスタブ化し、成功・既存PR再利用・commit失敗・push失敗・main拒否・バージョンからの名前生成の6ケースを検証する。実際のコミット・push・PRは作成しない。`test-version.ps1` は専用フィクスチャで更新・再実行・不正値を検証する。`test-version.sh` は `.temp/` の使い捨て Git リポジトリで古い作業ツリー、タグ未作成、タグのコミット不一致などを検証する。本体のブランチ・タグや公開環境は変更しない。
 
 ローカルで準備スクリプト、E2E、ビルド、配置スクリプトの構文と引数による停止を確認する。CoreServer での適用・復旧は本番実行前に検証が必要。iPhone 実機確認も別途行う。
+
+### POSIX 権限の確認（#6 の完了に必須）
+
+`test-deploy.sh` は本番へ接続せず、一時ディレクトリ内で標準スクリプトの公開処理を実行する。PHP はスタブを使い、事前失敗・変更開始後の失敗・メンテナンス再設定失敗・解除後のHTTP失敗・解除失敗の5ケースも確認する。Windows Git Bash ではこの5ケースの後、権限検証をスキップして終了コード2を返す。これは検証完了を意味しない。
+
+Linux / CoreServer の POSIX ファイルシステム上で、レビュー対象の `deploy.sh` と `test-deploy.sh` を専用ディレクトリに転送し、実行する。Bash・rsync・GNU stat が必要。アプリ配置・DB・本番ドキュメントルートには触れず、一時ディレクトリは結果確認用に残す。
+
+```sh
+bash /path/to/verification/test-deploy.sh
+```
+
+終了コード0と `PASS: POSIX public modes 705/604...` を確認する。公開権限・バックアップの保護・backendの権限・本番相当の `.htaccess` とIP制限・APIリンクの保持・古い資材の削除を検証する。実行環境、日時、出力を Issue #6 に記録する。本番での配置結果とは別に扱う。
