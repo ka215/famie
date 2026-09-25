@@ -258,24 +258,25 @@ onMounted(() => {
       </div>
 
       <form v-if="isParent" class="flex items-end space-x-2 pt-2 border-t border-slate-100" @submit.prevent="handleAddCategory">
-        <div class="flex-1">
-          <label class="block text-xs font-semibold text-slate-600 mb-1">新しいカテゴリ名</label>
+        <div class="min-w-0 flex-1">
+          <label for="category-name" class="block text-xs font-semibold text-slate-600 mb-1">新しいカテゴリ名</label>
           <input
+            id="category-name"
             v-model="categoryForm.name"
             type="text"
             required
             placeholder="例: 読書"
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="h-11 w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">色</label>
-          <input v-model="categoryForm.color_code" type="color" class="h-9 w-12 rounded-lg border border-slate-300">
+          <label for="category-color" class="block text-xs font-semibold text-slate-600 mb-1">色</label>
+          <input id="category-color" v-model="categoryForm.color_code" type="color" class="block h-11 w-12 rounded-lg border border-slate-300">
         </div>
         <button
           type="submit"
           :disabled="categoryIsLoading"
-          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+          class="h-11 shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
         >
           追加
         </button>

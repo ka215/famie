@@ -1,5 +1,48 @@
 import { expect, test } from '@playwright/test'
 
+test('カテゴリ追加欄が320px幅で整列し、親だけが追加できる', async ({ page, context }) => {
+  await page.setViewportSize({ width: 320, height: 844 })
+  let role = 'parent'
+  let saved: unknown
+  await context.addCookies([{ name: 'auth_token', value: 'mobile-test', url: 'http://127.0.0.1' }])
+  await page.route('**/v1/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/auth/me'))
+      return route.fulfill({
+        json: { user: { id: 1, username: 'owner', display_name: '自分', role } },
+      })
+    if (path.endsWith('/categories') && route.request().method() === 'POST') {
+      saved = route.request().postDataJSON()
+      return route.fulfill({ json: {}, status: 201 })
+    }
+    return route.fulfill({ json: [] })
+  })
+  await page.goto('/settings')
+  await page.getByText('カテゴリ', { exact: true }).click()
+  const name = page.getByLabel('新しいカテゴリ名')
+  const color = page.getByLabel('色', { exact: true })
+  const add = page.getByRole('button', { name: '追加', exact: true })
+  await expect(name).toBeVisible()
+  const boxes = await Promise.all([name.boundingBox(), color.boundingBox(), add.boundingBox()])
+  for (const box of boxes) {
+    expect(box).not.toBeNull()
+    if (!box) throw new Error('カテゴリ追加欄を表示できません')
+    expect(box.height).toBe(44)
+    expect(box.y).toBe(boxes[0]?.y)
+    expect(box.x + box.width).toBeLessThanOrEqual(320)
+  }
+  await name.fill('読書')
+  await color.fill('#123456')
+  await add.click()
+  await expect(page.getByText('「読書」を追加しました。')).toBeVisible()
+  expect(saved).toEqual({ name: '読書', color_code: '#123456' })
+  role = 'child'
+  await page.reload()
+  await page.getByText('カテゴリ', { exact: true }).click()
+  await expect(name).toHaveCount(0)
+  await expect(add).toHaveCount(0)
+})
+
 test('スマホの入力欄は16px以上で、日時フィルターと登録フォームが横にはみ出さない', async ({
   page,
   context,
