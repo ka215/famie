@@ -1,5 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
+import { version } from './package.json'
 
 const isProduction = import.meta.env.NODE_ENV === 'production'
 
@@ -50,6 +51,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
+      appVersion: version,
       // 静的生成時に値が組み込まれる。本番は同一 Origin の API を使用する。
       apiEndpoint: isProduction
         ? '/api/v1'
@@ -66,6 +68,8 @@ export default defineNuxtConfig({
       enabled: false,
     },
     manifest: {
+      start_url: '/',
+      scope: '/',
       name: 'Famie',
       short_name: 'ファミー',
       description: '家族のデイリーアクティビティ記録アプリ',

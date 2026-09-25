@@ -4,6 +4,7 @@ import type { CreateUserForm, PasswordForm } from '#shared/types/forms'
 import { type ProfileForm, profileSchema } from '#shared/utils/profileSchema'
 
 const { user, isParent } = useAuth()
+const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
 
 const profileForm = ref<ProfileForm>({ display_name: user.value?.display_name ?? '' })
@@ -434,6 +435,12 @@ onMounted(() => {
           {{ pwdIsLoading ? '更新中...' : 'パスワードを変更する' }}
         </button>
       </form>
+    </SettingsCard>
+    <SettingsCard title="アプリについて">
+      <dl class="text-sm text-slate-600">
+        <div class="flex justify-between gap-4"><dt>バージョン</dt><dd>{{ publicConfig.appVersion }}</dd></div>
+      </dl>
+      <p class="text-center text-xs text-slate-500">© MAGIC METHODS</p>
     </SettingsCard>
   </div>
 </template>
