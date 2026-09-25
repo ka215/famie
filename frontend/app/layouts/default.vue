@@ -3,7 +3,7 @@ import settingsIcon from '~/assets/icons/cog-outline.svg'
 import timelineIcon from '~/assets/icons/timeline.svg'
 import trophyIcon from '~/assets/icons/trophy.svg'
 
-const { user, logout } = useAuth()
+const { user } = useAuth()
 const route = useRoute()
 const iconStyles = {
   timeline: { maskImage: `url("${timelineIcon}")` },
@@ -18,9 +18,6 @@ const iconStyles = {
       <h1 class="text-lg font-bold text-slate-800">Famie</h1>
       <div class="flex items-center space-x-3 text-sm">
         <span class="text-slate-600 font-medium">{{ user?.display_name }} さん</span>
-        <button class="text-slate-400 hover:text-red-500 text-xs" @click="logout">
-          ログアウト
-        </button>
       </div>
     </header>
 

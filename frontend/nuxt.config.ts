@@ -7,6 +7,8 @@ const isProduction = import.meta.env.NODE_ENV === 'production'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
+  // 起動中の開発サーバーとE2Eの生成物・ロックを分離する。
+  buildDir: import.meta.env.FAMIE_E2E === '1' ? '.cache/nuxt-e2e' : '.nuxt',
   app: {
     head: {
       link: [{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }],

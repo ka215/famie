@@ -3,7 +3,7 @@ import type { ApiRequestError, Category, CurrentUserResponse, User } from '#shar
 import type { CreateUserForm, PasswordForm } from '#shared/types/forms'
 import { type ProfileForm, profileSchema } from '#shared/utils/profileSchema'
 
-const { user, isParent } = useAuth()
+const { user, isParent, logout } = useAuth()
 const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
 
@@ -229,6 +229,11 @@ onMounted(() => {
           {{ profileIsLoading ? '保存中…' : '表示名を保存する' }}
         </button>
       </form>
+      <div class="pt-3 border-t border-slate-100">
+        <button type="button" class="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50" @click="logout">
+          ログアウト
+        </button>
+      </div>
     </SettingsCard>
 
     <SettingsCard title="家族メンバー">

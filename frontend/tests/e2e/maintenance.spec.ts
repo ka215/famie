@@ -46,7 +46,7 @@ test('認証確認の通信断では再試行しても保護画面へ進まず�
   )
   await page.unroute('**/api/v1/auth/me')
   await page.getByRole('button', { name: '再試行', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ログアウト' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'アクティビティを記録する' })).toBeVisible()
 })
 
 test('未ログイン起動の通信断はログイン画面を開かず、復帰後の停止を検知する', async ({ page }) => {
@@ -103,7 +103,7 @@ async function login(page: Page) {
   await page.getByPlaceholder('例: parent1').fill('parent1')
   await page.getByLabel('パスワード', { exact: true }).fill('Famie-E2E-only-123!')
   await page.getByRole('button', { name: 'ログイン', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ログアウト' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'アクティビティを記録する' })).toBeVisible()
 }
 
 test('起動時の503で認証を維持し、再試行で復旧する', async ({ page, context }) => {
@@ -120,7 +120,7 @@ test('起動時の503で認証を維持し、再試行で復旧する', async ({
   await expect(page.getByRole('main').getByRole('status')).toContainText('まだメンテナンス中です')
   await page.unroute('**/api/v1/**')
   await page.getByRole('button', { name: '再試行', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ログアウト' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'アクティビティを記録する' })).toBeVisible()
   expect((await context.cookies()).find((cookie) => cookie.name === 'auth_token')?.value).toBe(
     token
   )
@@ -146,7 +146,7 @@ test('保存時の503を案内し、復旧しても書き込みを自動再送�
     page.getByText('保存操作は自動で再送されません。再開後に記録を確認してください。')
   ).toBeVisible()
   await page.getByRole('button', { name: '再試行', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ログアウト' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'アクティビティを記録する' })).toBeVisible()
   expect(writes).toBe(1)
   await expect(page.getByText('メンテナンス中の未保存記録', { exact: true })).toHaveCount(0)
 })
@@ -155,6 +155,7 @@ test('ログアウト時の503でも認証情報を消さない', async ({ page,
   await login(page)
   const token = (await context.cookies()).find((cookie) => cookie.name === 'auth_token')?.value
   await page.route('**/api/v1/auth/logout', (route) => route.fulfill(maintenance))
+  await page.getByRole('link', { name: '設定', exact: true }).click()
   await page.getByRole('button', { name: 'ログアウト' }).click()
   await expect(page.getByRole('heading', { name: 'ただいまメンテナンス中です' })).toBeVisible()
   expect((await context.cookies()).find((cookie) => cookie.name === 'auth_token')?.value).toBe(

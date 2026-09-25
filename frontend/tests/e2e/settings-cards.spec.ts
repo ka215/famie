@@ -14,6 +14,8 @@ for (const account of ['parent1', 'child1']) {
     const loginCard = card('ログイン情報')
     const passwordCard = card('パスワードの変更')
     await expect(loginCard).toHaveJSProperty('open', true)
+    await expect(loginCard.getByRole('button', { name: 'ログアウト', exact: true })).toBeVisible()
+    await expect(page.locator('header').getByRole('button', { name: 'ログアウト' })).toHaveCount(0)
     for (const title of ['家族メンバー', 'カテゴリ', 'パスワードの変更']) {
       await expect(card(title)).toHaveJSProperty('open', false)
     }
