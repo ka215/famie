@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+/* 小さい入力文字によるiPhoneのフォーカス時拡大を避ける。手動ズームは制限しない。 */
+@media (max-width: 767px) {
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="color"],
+    [type="range"],
+    [type="hidden"],
+    [type="button"],
+    [type="submit"]
+  ),
+  select,
+  textarea {
+    font-size: 16px;
+    min-width: 0;
+    max-width: 100%;
+  }
+}

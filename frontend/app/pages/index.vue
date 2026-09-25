@@ -135,11 +135,11 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="filterPeriod === 'custom'" class="flex items-center space-x-2 pt-2 border-t">
-        <input v-model="filterFrom" type="date" class="px-2 py-1 border text-xs rounded-lg w-full">
+      <div v-if="filterPeriod === 'custom'" class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-2 border-t">
+        <input v-model="filterFrom" aria-label="開始日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border text-xs rounded-lg w-full">
         <span class="text-slate-400 text-xs">〜</span>
-        <input v-model="filterTo" type="date" class="px-2 py-1 border text-xs rounded-lg w-full">
-        <button class="px-3 py-1 bg-slate-800 text-white text-xs rounded-lg shrink-0" @click="fetchLogs(1)">
+        <input v-model="filterTo" aria-label="終了日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border text-xs rounded-lg w-full">
+        <button class="col-span-3 justify-self-end px-3 py-1 bg-slate-800 text-white text-xs rounded-lg" @click="fetchLogs(1)">
           適用
         </button>
       </div>
