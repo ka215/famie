@@ -134,13 +134,13 @@ onMounted(loadLog)
       </div>
 
       <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">実施日</label>
-          <input v-model="form.activity_date" type="date" required :disabled="!canEdit" class="w-full px-3 py-2 rounded-lg border border-slate-300 disabled:bg-slate-100">
+        <div class="min-w-0">
+          <label for="edit-activity-date" class="block text-xs font-semibold text-slate-600 mb-1">実施日</label>
+          <input id="edit-activity-date" v-model="form.activity_date" type="date" required :disabled="!canEdit" class="block min-w-0 max-w-full w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 bg-white disabled:bg-slate-100">
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">実施時刻</label>
-          <input v-model="form.activity_time" type="time" :disabled="!canEdit" class="w-full px-3 py-2 rounded-lg border border-slate-300 disabled:bg-slate-100">
+        <div class="min-w-0">
+          <label for="edit-activity-time" class="block text-xs font-semibold text-slate-600 mb-1">実施時刻</label>
+          <input id="edit-activity-time" v-model="form.activity_time" type="time" :disabled="!canEdit" class="block min-w-0 max-w-full w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 bg-white disabled:bg-slate-100">
         </div>
       </div>
 
