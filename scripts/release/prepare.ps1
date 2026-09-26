@@ -55,6 +55,19 @@ try {
                 throw "Missing release asset: $asset"
             }
         }
+        $publicPath = Join-Path $outputPath 'public'
+        foreach ($htmlFile in Get-ChildItem -LiteralPath $publicPath -Filter '*.html' -File -Recurse) {
+            $html = Get-Content -LiteralPath $htmlFile.FullName -Raw
+            if ($html -match '/_nuxt/@vite/client|/_nuxt/[A-Za-z]:[/\\]') {
+                throw "Development asset reference found in release HTML: $($htmlFile.FullName)"
+            }
+            foreach ($match in [regex]::Matches($html, '(?:src|href)="(/_nuxt/[^"?#]+\.(?:js|css))"')) {
+                $relativeAsset = $match.Groups[1].Value.TrimStart('/').Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+                if (-not (Test-Path -LiteralPath (Join-Path $publicPath $relativeAsset) -PathType Leaf)) {
+                    throw "Missing referenced release asset: $($match.Groups[1].Value) in $($htmlFile.FullName)"
+                }
+            }
+        }
     } finally { Pop-Location }
 
     $verified = Get-ReleaseVersionState -Root $repoRoot
