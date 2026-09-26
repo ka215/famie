@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { ApiRequestError, Category } from '#shared/types/api'
-import type { ActivityLogForm } from '#shared/types/forms'
+import { type ActivityLogForm, activityLogSchema } from '#shared/utils/activityLogSchema'
+import closeIcon from '~/assets/icons/close.svg'
+
+const closeIconStyle = { maskImage: `url("${closeIcon}")` }
 
 const props = defineProps<{
   isOpen: boolean
@@ -35,18 +38,20 @@ watch(
 )
 
 const handleSubmit = async () => {
-  if (!form.value.category_id || !form.value.content) {
-    errorMessage.value = 'カテゴリと活動内容を入力してください。'
+  if (isLoading.value) return
+  errorMessage.value = ''
+  const result = activityLogSchema.safeParse(form.value)
+  if (!result.success) {
+    errorMessage.value = result.error.issues[0]?.message ?? '入力内容を確認してください。'
     return
   }
 
   isLoading.value = true
-  errorMessage.value = ''
 
   try {
     await fetchApi('/logs', {
       method: 'POST',
-      body: form.value,
+      body: result.data,
     })
 
     form.value.content = ''
@@ -56,7 +61,8 @@ const handleSubmit = async () => {
     emit('close')
   } catch (err: unknown) {
     const e = err as ApiRequestError
-    errorMessage.value = e.data?.message || '登録に失敗しました。'
+    errorMessage.value =
+      Object.values(e.data?.errors ?? {}).flat()[0] || e.data?.message || '登録に失敗しました。'
   } finally {
     isLoading.value = false
   }
@@ -66,18 +72,18 @@ const handleSubmit = async () => {
 <template>
   <div v-if="isOpen" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
     <div class="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-      <div class="flex justify-between items-center border-b pb-3">
+      <div class="flex justify-between items-center border-b border-slate-200 pb-3">
         <h2 class="text-lg font-bold text-slate-800">アクティビティを記録</h2>
-        <button class="text-slate-400 hover:text-slate-600 text-xl font-bold" @click="emit('close')">
-          &times;
+        <button type="button" aria-label="閉じる" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600" @click="emit('close')">
+          <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="closeIconStyle" />
         </button>
       </div>
 
-      <div v-if="errorMessage" class="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
+      <div v-if="errorMessage" role="alert" class="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
         {{ errorMessage }}
       </div>
 
-      <form class="space-y-4" @submit.prevent="handleSubmit">
+      <form class="space-y-4" novalidate @submit.prevent="handleSubmit">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">カテゴリ</label>
           <select
@@ -117,7 +123,6 @@ const handleSubmit = async () => {
           <textarea
             v-model="form.content"
             required
-            maxlength="1000"
             rows="3"
             placeholder="例: 算数のドリルを2ページ進めた"
             class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -129,7 +134,6 @@ const handleSubmit = async () => {
           <input
             v-model="form.note"
             type="text"
-            maxlength="1000"
             placeholder="例: つまずいた箇所あり"
             class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >

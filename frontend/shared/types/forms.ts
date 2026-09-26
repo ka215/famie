@@ -1,13 +1,5 @@
 import type { UserRole } from './api'
 
-export interface ActivityLogForm {
-  category_id: number | null
-  activity_date: string
-  activity_time: string
-  content: string
-  note: string
-}
-
 export interface CreateUserForm {
   username: string
   display_name: string
