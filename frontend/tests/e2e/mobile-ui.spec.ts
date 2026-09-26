@@ -92,6 +92,22 @@ test('スマホの入力欄は16px以上で、日時フィルターと登録フ�
   await context.addCookies([{ name: 'auth_token', value: 'mobile-test', url: 'http://127.0.0.1' }])
   await page.goto('/settings')
   await expect(page.getByLabel('自分の表示名')).toBeVisible()
+  const overscrollBehavior = await page.evaluate(() =>
+    CSS.supports('overscroll-behavior-y', 'none')
+      ? [
+          getComputedStyle(document.documentElement).overscrollBehaviorY,
+          getComputedStyle(document.body).overscrollBehaviorY,
+        ]
+      : null
+  )
+  if (overscrollBehavior) expect(overscrollBehavior).toEqual(['none', 'none'])
+  await page.locator('details').evaluateAll((cards) => {
+    for (const card of cards) card.setAttribute('open', '')
+  })
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  const footerBox = await page.getByRole('navigation', { name: 'メインメニュー' }).boundingBox()
+  expect(footerBox).not.toBeNull()
+  expect(Math.round((footerBox?.y ?? 0) + (footerBox?.height ?? 0))).toBe(844)
   await checkFields()
   await page.goto('/logs/1')
   await expect(page.getByLabel('実施日', { exact: true })).toBeVisible()
