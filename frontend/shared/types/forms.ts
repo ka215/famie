@@ -15,4 +15,4 @@ export interface PasswordForm {
   new_password_confirmation: string
 }
 
-export type FilterPeriod = 'this_week' | 'this_month' | 'custom'
+export type FilterPeriod = 'this_week' | 'month' | 'custom'

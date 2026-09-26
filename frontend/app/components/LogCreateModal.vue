@@ -8,12 +8,19 @@ const closeIconStyle = { maskImage: `url("${closeIcon}")` }
 const props = defineProps<{
   isOpen: boolean
   categories: Category[]
+  initialDate?: string
 }>()
 
 const emit = defineEmits(['close', 'created'])
 const { fetchApi } = useApi()
 
-const today = new Date().toISOString().slice(0, 10)
+const localToday = () => {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+const today = localToday()
 const currentTime = new Date().toTimeString().slice(0, 5)
 
 const form = ref<ActivityLogForm>({
@@ -26,6 +33,16 @@ const form = ref<ActivityLogForm>({
 
 const isLoading = ref(false)
 const errorMessage = ref('')
+
+watch(
+  () => props.isOpen,
+  (isOpen) => {
+    if (isOpen) {
+      form.value.activity_date = props.initialDate || localToday()
+      errorMessage.value = ''
+    }
+  }
+)
 
 watch(
   () => props.categories,
