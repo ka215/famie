@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import type { ActivityLog, Category, PaginatedResponse, User } from '#shared/types/api'
 import type { FilterPeriod } from '#shared/types/forms'
+import {
+  countActivitiesByDate,
+  formatLocalDate,
+  getCalendarDisplayLocale,
+  getFirstDayOfWeek,
+  getMonthRange,
+  getPreferredLocale,
+  getWeekRange,
+  parseLocalDate,
+} from '#shared/utils/calendar'
 import plusIcon from '~/assets/icons/plus.svg'
 import editIcon from '~/assets/icons/square-edit-outline.svg'
 
@@ -18,6 +28,16 @@ const errorMessage = ref('')
 const currentPage = ref(1)
 const lastPage = ref(1)
 const total = ref(0)
+const locale = ref('ja-JP')
+const firstDayOfWeek = ref(0)
+const calendarYear = ref(new Date().getFullYear())
+const calendarMonth = ref(new Date().getMonth())
+const activityCounts = ref<Record<string, number>>({})
+const isCalendarLoading = ref(false)
+const selectedDate = ref<string | null>(null)
+const isDayView = ref(false)
+let logRequestId = 0
+let calendarRequestId = 0
 
 const filterPeriod = ref<FilterPeriod>('this_week')
 const filterFrom = ref('')
@@ -29,46 +49,77 @@ const filterCategoryId = ref<string>('')
 const setPeriodRange = () => {
   const now = new Date()
   if (filterPeriod.value === 'this_week') {
-    const day = now.getDay() || 7
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - day + 1)
-    const sunday = new Date(monday)
-    sunday.setDate(monday.getDate() + 6)
-    filterFrom.value = monday.toISOString().slice(0, 10)
-    filterTo.value = sunday.toISOString().slice(0, 10)
-  } else if (filterPeriod.value === 'this_month') {
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    filterFrom.value = firstDay.toISOString().slice(0, 10)
-    filterTo.value = lastDay.toISOString().slice(0, 10)
+    const range = getWeekRange(now, firstDayOfWeek.value)
+    filterFrom.value = range.from
+    filterTo.value = range.to
   }
 }
 
-const fetchLogs = async (page = 1) => {
-  if (filterFrom.value && filterTo.value && filterFrom.value > filterTo.value) {
+const appendFilters = (params: URLSearchParams) => {
+  if (filterUserId.value) params.set('user_id', filterUserId.value)
+  if (filterCategoryId.value) params.set('category_id', filterCategoryId.value)
+}
+
+const fetchLogs = async (page = 1, day = selectedDate.value) => {
+  const from = day || filterFrom.value
+  const to = day || filterTo.value
+  if (from && to && from > to) {
     errorMessage.value = '開始日は終了日以前の日付を指定してください。'
     return
   }
 
+  const requestId = ++logRequestId
   isLoading.value = true
   errorMessage.value = ''
   try {
     const params = new URLSearchParams()
-    if (filterFrom.value) params.append('from', filterFrom.value)
-    if (filterTo.value) params.append('to', filterTo.value)
-    if (filterUserId.value) params.append('user_id', filterUserId.value)
-    if (filterCategoryId.value) params.append('category_id', filterCategoryId.value)
-    params.append('page', String(page))
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    appendFilters(params)
+    params.set('page', String(page))
 
     const res = await fetchApi<PaginatedResponse<ActivityLog>>(`/logs?${params.toString()}`)
+    if (requestId !== logRequestId) return
     logs.value = res.data
     currentPage.value = res.current_page
     lastPage.value = res.last_page
     total.value = res.total
   } catch {
+    if (requestId !== logRequestId) return
     errorMessage.value = '記録の取得に失敗しました。通信環境を確認してください。'
   } finally {
-    isLoading.value = false
+    if (requestId === logRequestId) isLoading.value = false
+  }
+}
+
+const fetchMonthCounts = async () => {
+  const requestId = ++calendarRequestId
+  isCalendarLoading.value = true
+  activityCounts.value = {}
+  errorMessage.value = ''
+  const range = getMonthRange(calendarYear.value, calendarMonth.value)
+
+  try {
+    const fetchPage = async (page: number) => {
+      const params = new URLSearchParams({ from: range.from, to: range.to, page: String(page) })
+      appendFilters(params)
+      return await fetchApi<PaginatedResponse<ActivityLog>>(`/logs?${params.toString()}`)
+    }
+
+    const firstPage = await fetchPage(1)
+    const remainingPages = Array.from(
+      { length: Math.max(0, firstPage.last_page - 1) },
+      (_, index) => index + 2
+    )
+    const remaining = await Promise.all(remainingPages.map(fetchPage))
+    if (requestId !== calendarRequestId) return
+    const monthLogs = [firstPage, ...remaining].flatMap((response) => response.data)
+    activityCounts.value = countActivitiesByDate(monthLogs.map((log) => log.activity_date))
+  } catch {
+    if (requestId !== calendarRequestId) return
+    errorMessage.value = '月の記録件数の取得に失敗しました。もう一度操作してください。'
+  } finally {
+    if (requestId === calendarRequestId) isCalendarLoading.value = false
   }
 }
 
@@ -88,18 +139,97 @@ const fetchMembers = async () => {
   }
 }
 
-watch(filterPeriod, () => {
-  if (filterPeriod.value !== 'custom') {
+const selectPeriod = (period: FilterPeriod) => {
+  filterPeriod.value = period
+  selectedDate.value = null
+  isDayView.value = false
+  if (period === 'month') {
+    logRequestId++
+    isLoading.value = false
+    fetchMonthCounts()
+  } else {
+    calendarRequestId++
+    isCalendarLoading.value = false
+  }
+  if (period === 'this_week') {
     setPeriodRange()
     fetchLogs(1)
   }
-})
+}
+
+const moveCalendarMonth = (offset: number) => {
+  const target = new Date(calendarYear.value, calendarMonth.value + offset, 1, 12)
+  calendarYear.value = target.getFullYear()
+  calendarMonth.value = target.getMonth()
+  selectedDate.value = null
+  isDayView.value = false
+  fetchMonthCounts()
+}
+
+const showCurrentMonth = () => {
+  const now = new Date()
+  calendarYear.value = now.getFullYear()
+  calendarMonth.value = now.getMonth()
+  selectedDate.value = null
+  isDayView.value = false
+  fetchMonthCounts()
+}
+
+const selectCalendarDate = (date: string, inCurrentMonth: boolean) => {
+  if (!inCurrentMonth) {
+    const target = parseLocalDate(date)
+    calendarYear.value = target.getFullYear()
+    calendarMonth.value = target.getMonth()
+    selectedDate.value = null
+    isDayView.value = false
+    fetchMonthCounts()
+    return
+  }
+  selectedDate.value = date
+  isDayView.value = true
+  fetchLogs(1, date)
+}
+
+const returnToCalendar = () => {
+  isDayView.value = false
+}
+
+const selectedDateLabel = computed(() =>
+  selectedDate.value
+    ? new Intl.DateTimeFormat(getCalendarDisplayLocale(locale.value), {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'short',
+      }).format(parseLocalDate(selectedDate.value))
+    : ''
+)
+
+const modalInitialDate = computed(() =>
+  isDayView.value && selectedDate.value ? selectedDate.value : formatLocalDate(new Date())
+)
+
+const refreshCurrentView = async () => {
+  if (filterPeriod.value === 'month') {
+    await fetchMonthCounts()
+    if (isDayView.value && selectedDate.value) await fetchLogs(1, selectedDate.value)
+  } else {
+    await fetchLogs(1, null)
+  }
+}
 
 watch([filterUserId, filterCategoryId], () => {
-  fetchLogs(1)
+  if (filterPeriod.value === 'month') {
+    fetchMonthCounts()
+    if (isDayView.value && selectedDate.value) fetchLogs(1, selectedDate.value)
+  } else {
+    fetchLogs(1, null)
+  }
 })
 
 onMounted(async () => {
+  locale.value = getPreferredLocale(navigator.languages, navigator.language)
+  firstDayOfWeek.value = getFirstDayOfWeek(locale.value)
   setPeriodRange()
   await Promise.all([fetchCategories(), fetchMembers(), fetchLogs()])
 })
@@ -116,19 +246,19 @@ onMounted(async () => {
         <div class="flex space-x-1 bg-slate-100 p-1 rounded-lg">
           <button
             :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'this_week' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600']"
-            @click="filterPeriod = 'this_week'"
+            @click="selectPeriod('this_week')"
           >
             今週
           </button>
           <button
-            :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'this_month' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600']"
-            @click="filterPeriod = 'this_month'"
+            :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'month' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600']"
+            @click="selectPeriod('month')"
           >
-            今月
+            月表示
           </button>
           <button
             :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'custom' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600']"
-            @click="filterPeriod = 'custom'"
+            @click="selectPeriod('custom')"
           >
             指定
           </button>
@@ -174,7 +304,35 @@ onMounted(async () => {
       <span>アクティビティを記録する</span>
     </button>
 
-    <div v-if="isLoading" class="text-center py-8 text-slate-400 text-sm">
+    <div v-if="filterPeriod === 'month' && !isDayView" class="rounded-xl border border-slate-200 bg-white p-3">
+      <MonthCalendar
+        :year="calendarYear"
+        :month="calendarMonth"
+        :locale="locale"
+        :first-day="firstDayOfWeek"
+        :counts="activityCounts"
+        :is-loading="isCalendarLoading"
+        :selected-date="selectedDate"
+        @previous="moveCalendarMonth(-1)"
+        @next="moveCalendarMonth(1)"
+        @current="showCurrentMonth"
+        @select="selectCalendarDate"
+      />
+    </div>
+
+    <div v-if="filterPeriod === 'month' && isDayView" class="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+      <div>
+        <p class="text-2xs font-semibold text-blue-600">指定日のアクティビティ</p>
+        <h2 class="text-sm font-bold text-slate-800">{{ selectedDateLabel }}</h2>
+      </div>
+      <button type="button" class="shrink-0 rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700" @click="returnToCalendar">
+        カレンダーに戻る
+      </button>
+    </div>
+
+    <div v-if="filterPeriod === 'month' && !isDayView" />
+
+    <div v-else-if="isLoading" class="text-center py-8 text-slate-400 text-sm">
       読み込み中...
     </div>
 
@@ -245,8 +403,9 @@ onMounted(async () => {
     <LogCreateModal
       :is-open="isModalOpen"
       :categories="categories"
+      :initial-date="modalInitialDate"
       @close="isModalOpen = false"
-      @created="fetchLogs(1)"
+      @created="refreshCurrentView"
     />
   </div>
 </template>
