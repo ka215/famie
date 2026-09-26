@@ -1,11 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
+import { version } from './package.json'
 
 const isProduction = import.meta.env.NODE_ENV === 'production'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
+  // 起動中の開発サーバーとE2Eの生成物・ロックを分離する。
+  buildDir: import.meta.env.FAMIE_E2E === '1' ? '.cache/nuxt-e2e' : '.nuxt',
   app: {
     head: {
       link: [{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }],
@@ -50,6 +53,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
+      appVersion: version,
       // 静的生成時に値が組み込まれる。本番は同一 Origin の API を使用する。
       apiEndpoint: isProduction
         ? '/api/v1'
@@ -66,6 +70,8 @@ export default defineNuxtConfig({
       enabled: false,
     },
     manifest: {
+      start_url: '/',
+      scope: '/',
       name: 'Famie',
       short_name: 'ファミー',
       description: '家族のデイリーアクティビティ記録アプリ',

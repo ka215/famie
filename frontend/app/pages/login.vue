@@ -33,7 +33,7 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+  <div class="min-h-screen bg-slate-100 flex flex-col items-center gap-4 px-4 py-8">
     <div class="w-full max-w-sm bg-white rounded-2xl shadow-md p-6 space-y-6">
       <div class="text-center space-y-1">
         <h1 class="text-2xl font-bold text-slate-800">Famie</h1>
@@ -78,5 +78,6 @@ const handleLogin = async () => {
         </button>
       </form>
     </div>
+    <HomeInstallGuide class="w-full max-w-sm" />
   </div>
 </template>

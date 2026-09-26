@@ -5,7 +5,7 @@ test('ログインして記録を登録し、再読み込み後も一覧で確�
   await page.getByPlaceholder('例: parent1').fill('parent1')
   await page.locator('input[type="password"]').fill('Famie-E2E-only-123!')
   await page.getByRole('button', { name: 'ログイン', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ログアウト' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'アクティビティを記録する' })).toBeVisible()
   await page.getByRole('button', { name: 'アクティビティを記録する' }).click()
   await page.locator('form select').selectOption({ label: '勉強・宿題' })
 
@@ -29,6 +29,7 @@ test('ログインして記録を登録し、再読み込み後も一覧で確�
   await expect(page.getByText(content, { exact: true })).toBeVisible()
   await page.reload()
   await expect(page.getByText(content, { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: '設定', exact: true }).click()
   await page.getByRole('button', { name: 'ログアウト' }).click()
   await expect(page.getByRole('button', { name: 'ログイン', exact: true })).toBeVisible()
 })

@@ -3,7 +3,8 @@ import type { ApiRequestError, Category, CurrentUserResponse, User } from '#shar
 import type { CreateUserForm, PasswordForm } from '#shared/types/forms'
 import { type ProfileForm, profileSchema } from '#shared/utils/profileSchema'
 
-const { user, isParent } = useAuth()
+const { user, isParent, logout } = useAuth()
+const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
 
 const profileForm = ref<ProfileForm>({ display_name: user.value?.display_name ?? '' })
@@ -228,6 +229,11 @@ onMounted(() => {
           {{ profileIsLoading ? '保存中…' : '表示名を保存する' }}
         </button>
       </form>
+      <div class="pt-3 border-t border-slate-100">
+        <button type="button" class="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50" @click="logout">
+          ログアウト
+        </button>
+      </div>
     </SettingsCard>
 
     <SettingsCard title="家族メンバー">
@@ -257,24 +263,25 @@ onMounted(() => {
       </div>
 
       <form v-if="isParent" class="flex items-end space-x-2 pt-2 border-t border-slate-100" @submit.prevent="handleAddCategory">
-        <div class="flex-1">
-          <label class="block text-xs font-semibold text-slate-600 mb-1">新しいカテゴリ名</label>
+        <div class="min-w-0 flex-1">
+          <label for="category-name" class="block text-xs font-semibold text-slate-600 mb-1">新しいカテゴリ名</label>
           <input
+            id="category-name"
             v-model="categoryForm.name"
             type="text"
             required
             placeholder="例: 読書"
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="h-11 w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">色</label>
-          <input v-model="categoryForm.color_code" type="color" class="h-9 w-12 rounded-lg border border-slate-300">
+          <label for="category-color" class="block text-xs font-semibold text-slate-600 mb-1">色</label>
+          <input id="category-color" v-model="categoryForm.color_code" type="color" class="block h-11 w-12 rounded-lg border border-slate-300">
         </div>
         <button
           type="submit"
           :disabled="categoryIsLoading"
-          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+          class="h-11 shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
         >
           追加
         </button>
@@ -434,6 +441,12 @@ onMounted(() => {
           {{ pwdIsLoading ? '更新中...' : 'パスワードを変更する' }}
         </button>
       </form>
+    </SettingsCard>
+    <SettingsCard title="アプリについて">
+      <dl class="text-sm text-slate-600">
+        <div class="flex justify-between gap-4"><dt>バージョン</dt><dd>{{ publicConfig.appVersion }}</dd></div>
+      </dl>
+      <p class="text-center text-xs text-slate-500">© MAGIC METHODS</p>
     </SettingsCard>
   </div>
 </template>

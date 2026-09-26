@@ -24,19 +24,11 @@ class ActivityLogPolicy
 
     public function update(User $user, ActivityLog $activityLog): bool
     {
-        if ($user->isParent()) {
-            return true;
-        }
-
         return $user->id === $activityLog->user_id;
     }
 
     public function delete(User $user, ActivityLog $activityLog): bool
     {
-        if ($user->isParent()) {
-            return true;
-        }
-
         return $user->id === $activityLog->user_id;
     }
 }

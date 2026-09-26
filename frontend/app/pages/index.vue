@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import type { ActivityLog, Category, PaginatedResponse, User } from '#shared/types/api'
 import type { FilterPeriod } from '#shared/types/forms'
+import plusIcon from '~/assets/icons/plus.svg'
+import editIcon from '~/assets/icons/square-edit-outline.svg'
 
 const { fetchApi } = useApi()
 const { user } = useAuth()
+const editIconStyle = { maskImage: `url("${editIcon}")` }
+const plusIconStyle = { maskImage: `url("${plusIcon}")` }
 
 const logs = ref<ActivityLog[]>([])
 const categories = ref<Category[]>([])
@@ -131,11 +135,11 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="filterPeriod === 'custom'" class="flex items-center space-x-2 pt-2 border-t">
-        <input v-model="filterFrom" type="date" class="px-2 py-1 border text-xs rounded-lg w-full">
+      <div v-if="filterPeriod === 'custom'" class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-2 border-t">
+        <input v-model="filterFrom" aria-label="開始日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border text-xs rounded-lg w-full">
         <span class="text-slate-400 text-xs">〜</span>
-        <input v-model="filterTo" type="date" class="px-2 py-1 border text-xs rounded-lg w-full">
-        <button class="px-3 py-1 bg-slate-800 text-white text-xs rounded-lg shrink-0" @click="fetchLogs(1)">
+        <input v-model="filterTo" aria-label="終了日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border text-xs rounded-lg w-full">
+        <button class="col-span-3 justify-self-end px-3 py-1 bg-slate-800 text-white text-xs rounded-lg" @click="fetchLogs(1)">
           適用
         </button>
       </div>
@@ -166,7 +170,7 @@ onMounted(async () => {
       class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md flex items-center justify-center space-x-2 transition"
       @click="isModalOpen = true"
     >
-      <span class="text-lg font-bold">+</span>
+      <span aria-hidden="true" class="h-5 w-5 shrink-0 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="plusIconStyle" />
       <span>アクティビティを記録する</span>
     </button>
 
@@ -179,14 +183,14 @@ onMounted(async () => {
     </div>
 
     <div v-else class="space-y-3">
-      <NuxtLink
+      <article
         v-for="log in logs"
         :key="log.id"
-        :to="`/logs/${log.id}`"
-        class="block bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2 relative hover:border-blue-300 transition"
+        class="block bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2 relative transition"
+        :class="log.user_id === user?.id ? 'hover:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500' : ''"
       >
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
+        <div class="flex flex-wrap gap-2 items-center justify-between">
+          <div class="flex flex-wrap gap-2 items-center">
             <span
               class="px-2 py-0.5 text-xs font-semibold text-white rounded-full"
               :style="{ backgroundColor: log.category?.color_code || '#3B82F6' }"
@@ -196,7 +200,7 @@ onMounted(async () => {
             <span class="text-xs font-bold text-slate-700">{{ log.user?.display_name }}</span>
           </div>
 
-          <span class="text-xs text-slate-400">
+          <span class="ml-auto text-xs text-slate-400 whitespace-nowrap">
             {{ log.activity_date }} {{ log.activity_time ? log.activity_time.slice(0, 5) : '' }}
           </span>
         </div>
@@ -208,7 +212,12 @@ onMounted(async () => {
         <p v-if="log.note" class="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
           メモ: {{ log.note }}
         </p>
-      </NuxtLink>
+        <div v-if="log.user_id === user?.id" class="flex justify-end">
+          <NuxtLink :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 bg-blue-50">
+            <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="editIconStyle" />
+          </NuxtLink>
+        </div>
+      </article>
 
       <div v-if="lastPage > 1" class="flex items-center justify-between pt-2">
         <button
@@ -241,3 +250,12 @@ onMounted(async () => {
     />
   </div>
 </template>
+
+<style scoped>
+.edit-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+}
+</style>
