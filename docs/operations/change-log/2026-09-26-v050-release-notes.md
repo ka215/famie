@@ -17,6 +17,8 @@
 
 本番では正式タグの生成物を再ビルドせず配置した。migrationは追加されておらず、`Nothing to migrate`、`CategorySeeder`、キャッシュ生成、メンテナンス解除まで正常終了した。配置後にタグとGit SHAの一致、作業ツリーのクリーン状態、停止フラグとデプロイロックの不在、APIリンク、画面・ログイン・status API・Service Worker・manifest・全入口JS/CSSの200応答、不正ログインの422応答を確認した。
 
+本番環境でのiPhone実機確認に合格し、v0.5.0のリリース完了を確定した。Android実機確認は合意どおり省略した。
+
 ## バックアップと証跡
 
 DBバックアップはSSH経由のcustom形式で取得した。権限600、非空、`pg_restore --list`で`users`と`activity_logs`の収録を確認した。復元テストは未実施。
