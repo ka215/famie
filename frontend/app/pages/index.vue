@@ -47,9 +47,9 @@ const filterUserId = ref<string>(user.value ? String(user.value.id) : '')
 const filterCategoryId = ref<string>('')
 
 const setPeriodRange = () => {
-  const now = new Date()
   if (filterPeriod.value === 'this_week') {
-    const range = getWeekRange(now, firstDayOfWeek.value)
+    const target = selectedDate.value ? parseLocalDate(selectedDate.value) : new Date()
+    const range = getWeekRange(target, firstDayOfWeek.value)
     filterFrom.value = range.from
     filterTo.value = range.to
   }
@@ -60,9 +60,15 @@ const appendFilters = (params: URLSearchParams) => {
   if (filterCategoryId.value) params.set('category_id', filterCategoryId.value)
 }
 
-const fetchLogs = async (page = 1, day = selectedDate.value) => {
-  const from = day || filterFrom.value
-  const to = day || filterTo.value
+const fetchLogs = async (page = 1, day?: string | null) => {
+  const activeDay =
+    day === undefined
+      ? filterPeriod.value === 'this_week' || isDayView.value
+        ? selectedDate.value
+        : null
+      : day
+  const from = activeDay || filterFrom.value
+  const to = activeDay || filterTo.value
   if (from && to && from > to) {
     errorMessage.value = '開始日は終了日以前の日付を指定してください。'
     return
@@ -141,9 +147,9 @@ const fetchMembers = async () => {
 
 const selectPeriod = (period: FilterPeriod) => {
   filterPeriod.value = period
-  selectedDate.value = null
   isDayView.value = false
   if (period === 'month') {
+    selectedDate.value = null
     logRequestId++
     isLoading.value = false
     fetchMonthCounts()
@@ -152,9 +158,24 @@ const selectPeriod = (period: FilterPeriod) => {
     isCalendarLoading.value = false
   }
   if (period === 'this_week') {
+    selectedDate.value = formatLocalDate(new Date())
     setPeriodRange()
     fetchLogs(1)
+  } else if (period === 'custom') {
+    selectedDate.value = null
   }
+}
+
+const selectWeekDate = (date: string) => {
+  selectedDate.value = date
+  setPeriodRange()
+  fetchLogs(1)
+}
+
+const moveWeek = (offset: number) => {
+  const target = selectedDate.value ? parseLocalDate(selectedDate.value) : new Date()
+  target.setDate(target.getDate() + offset * 7)
+  selectWeekDate(formatLocalDate(target))
 }
 
 const moveCalendarMonth = (offset: number) => {
@@ -205,8 +226,23 @@ const selectedDateLabel = computed(() =>
     : ''
 )
 
+const weekDateLabel = computed(() => {
+  if (!selectedDate.value) return { date: '', weekday: '' }
+  const date = parseLocalDate(selectedDate.value)
+  const displayLocale = getCalendarDisplayLocale(locale.value)
+  return {
+    date: new Intl.DateTimeFormat(displayLocale, {
+      month: 'numeric',
+      day: 'numeric',
+    }).format(date),
+    weekday: new Intl.DateTimeFormat(displayLocale, { weekday: 'long' }).format(date),
+  }
+})
+
 const modalInitialDate = computed(() =>
-  isDayView.value && selectedDate.value ? selectedDate.value : formatLocalDate(new Date())
+  (filterPeriod.value === 'this_week' || isDayView.value) && selectedDate.value
+    ? selectedDate.value
+    : formatLocalDate(new Date())
 )
 
 const refreshCurrentView = async () => {
@@ -214,7 +250,7 @@ const refreshCurrentView = async () => {
     await fetchMonthCounts()
     if (isDayView.value && selectedDate.value) await fetchLogs(1, selectedDate.value)
   } else {
-    await fetchLogs(1, null)
+    await fetchLogs(1)
   }
 }
 
@@ -223,13 +259,14 @@ watch([filterUserId, filterCategoryId], () => {
     fetchMonthCounts()
     if (isDayView.value && selectedDate.value) fetchLogs(1, selectedDate.value)
   } else {
-    fetchLogs(1, null)
+    fetchLogs(1)
   }
 })
 
 onMounted(async () => {
   locale.value = getPreferredLocale(navigator.languages, navigator.language)
   firstDayOfWeek.value = getFirstDayOfWeek(locale.value)
+  selectedDate.value = formatLocalDate(new Date())
   setPeriodRange()
   await Promise.all([fetchCategories(), fetchMembers(), fetchLogs()])
 })
@@ -304,6 +341,16 @@ onMounted(async () => {
       <span>アクティビティを記録する</span>
     </button>
 
+    <WeekCalendar
+      v-if="filterPeriod === 'this_week' && selectedDate"
+      :selected-date="selectedDate"
+      :locale="locale"
+      :first-day="firstDayOfWeek"
+      @previous="moveWeek(-1)"
+      @next="moveWeek(1)"
+      @select="selectWeekDate"
+    />
+
     <div v-if="filterPeriod === 'month' && !isDayView" class="rounded-xl border border-slate-200 bg-white p-3">
       <MonthCalendar
         :year="calendarYear"
@@ -330,73 +377,83 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div v-if="filterPeriod === 'month' && !isDayView" />
+    <div
+      v-if="filterPeriod !== 'month' || isDayView"
+      :class="filterPeriod === 'this_week' ? 'grid grid-cols-[3.25rem_minmax(0,1fr)] items-start gap-3' : ''"
+    >
+      <div v-if="filterPeriod === 'this_week'" class="pt-2 text-center" aria-live="polite">
+        <p class="text-sm font-bold leading-tight text-slate-700">{{ weekDateLabel.date }}</p>
+        <p class="mt-1 text-xs text-slate-500">{{ weekDateLabel.weekday }}</p>
+      </div>
 
-    <div v-else-if="isLoading" class="text-center py-8 text-slate-400 text-sm">
-      読み込み中...
-    </div>
+      <div class="min-w-0">
+        <div v-if="isLoading" class="text-center py-8 text-slate-400 text-sm">
+          読み込み中...
+        </div>
 
-    <div v-else-if="logs.length === 0" class="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300 p-6">
-      <p class="text-slate-500 text-sm">該当する記録がありません。</p>
-    </div>
+        <div v-else-if="logs.length === 0" class="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300 p-6">
+          <p class="text-slate-500 text-sm">該当する記録がありません。</p>
+        </div>
 
-    <div v-else class="space-y-3">
-      <article
-        v-for="log in logs"
-        :key="log.id"
-        class="block bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2 relative transition"
-        :class="log.user_id === user?.id ? 'hover:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500' : ''"
-      >
-        <div class="flex flex-wrap gap-2 items-center justify-between">
-          <div class="flex flex-wrap gap-2 items-center">
-            <span
-              class="px-2 py-0.5 text-xs font-semibold text-white rounded-full"
-              :style="{ backgroundColor: log.category?.color_code || '#3B82F6' }"
+        <div v-else class="space-y-3">
+          <article
+            v-for="log in logs"
+            :key="log.id"
+            class="block bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2 relative transition"
+            :class="log.user_id === user?.id ? 'hover:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500' : ''"
+          >
+            <div class="flex flex-wrap gap-2 items-center justify-between">
+              <div class="flex flex-wrap gap-2 items-center">
+                <span
+                  class="px-2 py-0.5 text-xs font-semibold text-white rounded-full"
+                  :style="{ backgroundColor: log.category?.color_code || '#3B82F6' }"
+                >
+                  {{ log.category?.name }}
+                </span>
+                <span class="text-xs font-bold text-slate-700">{{ log.user?.display_name }}</span>
+              </div>
+
+              <span class="ml-auto text-xs text-slate-400 whitespace-nowrap">
+                {{ log.activity_date }} {{ log.activity_time ? log.activity_time.slice(0, 5) : '' }}
+              </span>
+            </div>
+
+            <p class="text-sm text-slate-800 whitespace-pre-wrap font-normal">
+              {{ log.content }}
+            </p>
+
+            <p v-if="log.note" class="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
+              メモ: {{ log.note }}
+            </p>
+            <div v-if="log.user_id === user?.id" class="flex justify-end">
+              <NuxtLink :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 bg-blue-50">
+                <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="editIconStyle" />
+              </NuxtLink>
+            </div>
+          </article>
+
+          <div v-if="lastPage > 1" class="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              :disabled="currentPage <= 1 || isLoading"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white disabled:opacity-40"
+              @click="fetchLogs(currentPage - 1)"
             >
-              {{ log.category?.name }}
+              前へ
+            </button>
+            <span class="text-xs text-slate-500">
+              {{ currentPage }} / {{ lastPage }} ページ（全 {{ total }} 件）
             </span>
-            <span class="text-xs font-bold text-slate-700">{{ log.user?.display_name }}</span>
+            <button
+              type="button"
+              :disabled="currentPage >= lastPage || isLoading"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white disabled:opacity-40"
+              @click="fetchLogs(currentPage + 1)"
+            >
+              次へ
+            </button>
           </div>
-
-          <span class="ml-auto text-xs text-slate-400 whitespace-nowrap">
-            {{ log.activity_date }} {{ log.activity_time ? log.activity_time.slice(0, 5) : '' }}
-          </span>
         </div>
-
-        <p class="text-sm text-slate-800 whitespace-pre-wrap font-normal">
-          {{ log.content }}
-        </p>
-
-        <p v-if="log.note" class="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
-          メモ: {{ log.note }}
-        </p>
-        <div v-if="log.user_id === user?.id" class="flex justify-end">
-          <NuxtLink :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 bg-blue-50">
-            <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="editIconStyle" />
-          </NuxtLink>
-        </div>
-      </article>
-
-      <div v-if="lastPage > 1" class="flex items-center justify-between pt-2">
-        <button
-          type="button"
-          :disabled="currentPage <= 1 || isLoading"
-          class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white disabled:opacity-40"
-          @click="fetchLogs(currentPage - 1)"
-        >
-          前へ
-        </button>
-        <span class="text-xs text-slate-500">
-          {{ currentPage }} / {{ lastPage }} ページ（全 {{ total }} 件）
-        </span>
-        <button
-          type="button"
-          :disabled="currentPage >= lastPage || isLoading"
-          class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white disabled:opacity-40"
-          @click="fetchLogs(currentPage + 1)"
-        >
-          次へ
-        </button>
       </div>
     </div>
 

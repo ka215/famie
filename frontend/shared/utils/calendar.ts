@@ -8,6 +8,12 @@ export interface WeekInfoLike {
   firstDay: number
 }
 
+export interface WeekDay {
+  date: string
+  day: number
+  dayOfWeek: number
+}
+
 const dateParts = (value: string) => value.split('-').map(Number)
 
 export const formatLocalDate = (date: Date): string => {
@@ -53,6 +59,21 @@ export const getWeekRange = (date: Date, firstDay: number): { from: string; to: 
   const to = new Date(from)
   to.setDate(from.getDate() + 6)
   return { from: formatLocalDate(from), to: formatLocalDate(to) }
+}
+
+export const buildWeekDays = (date: Date, firstDay: number): WeekDay[] => {
+  const { from } = getWeekRange(date, firstDay)
+  const start = parseLocalDate(from)
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const current = new Date(start)
+    current.setDate(start.getDate() + index)
+    return {
+      date: formatLocalDate(current),
+      day: current.getDate(),
+      dayOfWeek: current.getDay(),
+    }
+  })
 }
 
 export const getMonthRange = (year: number, month: number): { from: string; to: string } => ({
