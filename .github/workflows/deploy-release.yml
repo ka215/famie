@@ -35,7 +35,7 @@ concurrency:
 jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64, famie-release]
     timeout-minutes: 30
     environment: ${{ inputs.environment }}
     env:
@@ -66,11 +66,14 @@ jobs:
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           set -Eeuo pipefail
-          install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_release"
-          chmod 600 "$HOME/.ssh/id_release"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh_dir="$RUNNER_TEMP/famie-ssh"
+          install -d -m 700 "$ssh_dir"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/id_release"
+          chmod 600 "$ssh_dir/id_release"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          chmod 600 "$ssh_dir/known_hosts"
+          echo "ssh_key=$ssh_dir/id_release" >> "$GITHUB_ENV"
+          echo "known_hosts=$ssh_dir/known_hosts" >> "$GITHUB_ENV"
       - name: Upload artifact and deployment tools
         shell: bash
         env:
@@ -79,8 +82,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           remote="release-v${{ inputs.version }}-${GITHUB_RUN_ID}"
-          ssh -i "$HOME/.ssh/id_release" "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 700 \"\$HOME/famie-release-incoming/$remote\""
-          scp -i "$HOME/.ssh/id_release" "$archive" "$checksum" scripts/release/server/*.sh scripts/release/check-deploy-environment.php \
+          ssh -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 700 \"\$HOME/famie-release-incoming/$remote\""
+          scp -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$archive" "$checksum" scripts/release/server/*.sh scripts/release/check-deploy-environment.php \
             "$DEPLOY_USER@$DEPLOY_HOST:famie-release-incoming/$remote/"
           echo "remote=$remote" >> "$GITHUB_ENV"
       - name: Deploy on CoreServer
@@ -92,7 +95,7 @@ jobs:
           set -Eeuo pipefail
           apply=()
           if [[ '${{ inputs.apply }}' == true ]]; then apply=(--apply); fi
-          ssh -i "$HOME/.ssh/id_release" "$DEPLOY_USER@$DEPLOY_HOST" \
+          ssh -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$DEPLOY_USER@$DEPLOY_HOST" \
             "export PATH=\"\$HOME/bin:\$PATH\"; chmod 700 \"\$HOME/famie-release-incoming/$remote\"/*.sh; \"\$HOME/famie-release-incoming/$remote/deploy-artifact.sh\" --env '${{ inputs.environment }}' --bundle \"\$HOME/famie-release-incoming/$remote/$(basename "$archive")\" --checksum \"\$HOME/famie-release-incoming/$remote/$(basename "$checksum")\" ${apply[*]}"
       - name: Install browser dependencies
         if: inputs.apply
@@ -112,7 +115,7 @@ jobs:
           RELEASE_BASE_URL: ${{ env.RELEASE_BASE_URL }}
         run: |
           pnpm install --frozen-lockfile
-          pnpm exec playwright install --with-deps chromium webkit
+          pnpm exec playwright install chromium webkit
           pnpm test:release
       - name: Upload deployment smoke report on failure
         if: failure() && inputs.apply

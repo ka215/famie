@@ -34,7 +34,7 @@ concurrency:
 jobs:
   rollback:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64, famie-release]
     timeout-minutes: 30
     environment: ${{ inputs.environment }}
     steps:
@@ -57,11 +57,14 @@ jobs:
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           set -Eeuo pipefail
-          install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_release"
-          chmod 600 "$HOME/.ssh/id_release"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh_dir="$RUNNER_TEMP/famie-ssh"
+          install -d -m 700 "$ssh_dir"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/id_release"
+          chmod 600 "$ssh_dir/id_release"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          chmod 600 "$ssh_dir/known_hosts"
+          echo "ssh_key=$ssh_dir/id_release" >> "$GITHUB_ENV"
+          echo "known_hosts=$ssh_dir/known_hosts" >> "$GITHUB_ENV"
       - name: Upload rollback artifact and tools
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -69,8 +72,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           remote="rollback-v${{ inputs.to_version }}-${GITHUB_RUN_ID}"
-          ssh -i "$HOME/.ssh/id_release" "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 700 \"\$HOME/famie-release-incoming/$remote\""
-          scp -i "$HOME/.ssh/id_release" "$archive" "$checksum" scripts/release/server/*.sh scripts/release/check-deploy-environment.php "$DEPLOY_USER@$DEPLOY_HOST:famie-release-incoming/$remote/"
+          ssh -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 700 \"\$HOME/famie-release-incoming/$remote\""
+          scp -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$archive" "$checksum" scripts/release/server/*.sh scripts/release/check-deploy-environment.php "$DEPLOY_USER@$DEPLOY_HOST:famie-release-incoming/$remote/"
           echo "remote=$remote" >> "$GITHUB_ENV"
       - name: Run rollback
         env:
@@ -87,5 +90,5 @@ jobs:
             args+=(--restore-db "$restore")
           fi
           printf -v remote_args ' %q' "${args[@]}"
-          ssh -i "$HOME/.ssh/id_release" "$DEPLOY_USER@$DEPLOY_HOST" \
+          ssh -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$DEPLOY_USER@$DEPLOY_HOST" \
             "export PATH=\"\$HOME/bin:\$PATH\"; chmod 700 \"\$HOME/famie-release-incoming/$remote\"/*.sh; \"\$HOME/famie-release-incoming/$remote/deploy-artifact.sh\" --env '${{ inputs.environment }}' --bundle \"\$HOME/famie-release-incoming/$remote/$(basename "$archive")\" --checksum \"\$HOME/famie-release-incoming/$remote/$(basename "$checksum")\" $remote_args"
