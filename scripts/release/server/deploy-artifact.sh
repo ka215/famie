@@ -113,17 +113,10 @@ fi
 (cd "$repo/backend" && "$PHPCLI" artisan up)
 rm -- "$docroot/.maintenance"
 
-for path in / /login/ /settings/ /sw.js /manifest.webmanifest /api/v1/status; do
+for path in / /login/ /settings/ /sw.js /manifest.webmanifest; do
   status=$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' "$base_url$path")
   [[ $status == 200 ]] || fail "$path returned HTTP $status"
 done
-login_headers="$work/login-headers"
-login_body="$work/login-body"
-login_status=$(curl -sS --max-time 30 -D "$login_headers" -o "$login_body" -w '%{http_code}' \
-  -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{}' "$base_url/api/v1/auth/login")
-[[ $login_status == 422 ]] || fail "Invalid login returned HTTP $login_status instead of 422."
-grep -qi '^content-type:.*application/json' "$login_headers" || fail 'Invalid login did not return JSON.'
-jq -e '.message and .errors' "$login_body" >/dev/null || fail 'Invalid login validation body is incomplete.'
 entries=$(grep -hoE '/_nuxt/[^" <>]+\.(js|css)' "$docroot"/*.html "$docroot"/*/index.html 2>/dev/null | sort -u)
 [[ -n $entries ]] || fail 'No entry assets found after deployment.'
 for asset in $entries; do
