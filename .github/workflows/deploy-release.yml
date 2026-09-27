@@ -67,11 +67,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           ssh_dir="$RUNNER_TEMP/famie-ssh"
-          install -d -m 700 "$ssh_dir"
+          mkdir -p "$ssh_dir"
           printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/id_release"
-          chmod 600 "$ssh_dir/id_release"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
-          chmod 600 "$ssh_dir/known_hosts"
           echo "ssh_key=$ssh_dir/id_release" >> "$GITHUB_ENV"
           echo "known_hosts=$ssh_dir/known_hosts" >> "$GITHUB_ENV"
       - name: Upload artifact and deployment tools
