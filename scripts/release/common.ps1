@@ -89,3 +89,22 @@ function Assert-CleanWorktree {
     if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Git worktree.' }
     if ($changes) { throw "Worktree must be clean before applying release operations.`n$changes" }
 }
+
+function Wait-PullRequestChecks {
+    param([Parameter(Mandatory)][string]$PullRequest)
+    for ($attempt = 1; $attempt -le 24; $attempt++) {
+        $output = & gh pr checks $PullRequest --watch --fail-fast 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $output | Write-Host
+            return
+        }
+        $message = $output -join "`n"
+        if ($message -match 'no checks reported') {
+            Write-Host "Waiting for PR checks to register ($attempt/24)..."
+            Start-Sleep -Seconds 5
+            continue
+        }
+        throw "PR checks failed for #$PullRequest.`n$message"
+    }
+    throw "Timed out waiting for PR checks to register for #$PullRequest."
+}

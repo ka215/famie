@@ -54,7 +54,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Cannot create main-to-dev sync PR.' }
         $syncPr = & gh pr view $syncUrl --json number --jq '.number'
     }
-    Invoke-ReleaseCommand gh @('pr', 'checks', "$syncPr", '--watch', '--fail-fast')
+    Wait-PullRequestChecks -PullRequest "$syncPr"
     Invoke-ReleaseCommand gh @('pr', 'merge', "$syncPr", '--merge', '--delete-branch=false')
     Invoke-ReleaseCommand git @('fetch', 'origin', 'dev')
 
@@ -89,7 +89,7 @@ $([DateTime]::Now.ToString('yyyy-MM-dd')) JST、$tagを商用環境へ公開し�
     $recordUrl = & gh pr create --base dev --head $recordBranch --title "docs: record $tag release completion" --body "Record the completed release and advance version state."
     if ($LASTEXITCODE -ne 0) { throw 'Cannot create release record PR.' }
     $recordPr = & gh pr view $recordUrl --json number --jq '.number'
-    Invoke-ReleaseCommand gh @('pr', 'checks', "$recordPr", '--watch', '--fail-fast')
+    Wait-PullRequestChecks -PullRequest "$recordPr"
     Invoke-ReleaseCommand gh @('pr', 'merge', "$recordPr", '--merge', '--delete-branch')
 
     $sourceBranch = Get-ReleaseSessionValue -Path $session -Filter '.branch'

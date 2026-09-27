@@ -50,7 +50,7 @@ try {
                 $pr = & gh pr view $url --json number --jq '.number'
             }
             Update-ReleaseSession -Path $session -Filter '.state="production_pr_created" | .production_pr=($pr|tonumber)' -JqArguments @('--arg', 'pr', "$pr")
-            Invoke-ReleaseCommand gh @('pr', 'checks', "$pr", '--watch', '--fail-fast')
+            Wait-PullRequestChecks -PullRequest "$pr"
             Invoke-ReleaseCommand gh @('pr', 'merge', "$pr", '--merge', '--delete-branch=false')
             Invoke-ReleaseCommand git @('fetch', 'origin', 'main')
             $mainCommit = & git rev-parse origin/main
