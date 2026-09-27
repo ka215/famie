@@ -92,35 +92,24 @@ test('スマホの入力欄は16px以上で、日時フィルターと登録フ�
   await context.addCookies([{ name: 'auth_token', value: 'mobile-test', url: 'http://127.0.0.1' }])
   await page.goto('/settings')
   await expect(page.getByLabel('自分の表示名')).toBeVisible()
-  const overscrollBehavior = await page.evaluate(() =>
+  const scrollArea = page.locator('.app-scroll-area')
+  const overscrollBehavior = await scrollArea.evaluate((element) =>
     CSS.supports('overscroll-behavior-y', 'none')
-      ? [
-          getComputedStyle(document.documentElement).overscrollBehaviorY,
-          getComputedStyle(document.body).overscrollBehaviorY,
-        ]
+      ? getComputedStyle(element).overscrollBehaviorY
       : null
   )
-  if (overscrollBehavior) expect(overscrollBehavior).toEqual(['none', 'none'])
+  if (overscrollBehavior) expect(overscrollBehavior).toBe('none')
   await page.locator('details').evaluateAll((cards) => {
     for (const card of cards) card.setAttribute('open', '')
   })
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await scrollArea.evaluate((element) => element.scrollTo(0, element.scrollHeight))
   const footerBox = await page.getByRole('navigation', { name: 'メインメニュー' }).boundingBox()
   expect(footerBox).not.toBeNull()
   expect(Math.round((footerBox?.y ?? 0) + (footerBox?.height ?? 0))).toBe(844)
-  const footerCover = await page
-    .getByRole('navigation', { name: 'メインメニュー' })
-    .evaluate((element) => {
-      const style = getComputedStyle(element, '::after')
-      return {
-        height: Number.parseFloat(style.height),
-        backgroundColor: style.backgroundColor,
-        pointerEvents: style.pointerEvents,
-      }
-    })
-  expect(footerCover.height).toBeGreaterThanOrEqual(200)
-  expect(footerCover.backgroundColor).toBe('rgb(255, 255, 255)')
-  expect(footerCover.pointerEvents).toBe('none')
+  await expect(page.getByRole('navigation', { name: 'メインメニュー' })).toHaveCSS(
+    'position',
+    'static'
+  )
   await checkFields()
   await page.goto('/logs/1')
   await expect(page.getByLabel('実施日', { exact: true })).toBeVisible()
