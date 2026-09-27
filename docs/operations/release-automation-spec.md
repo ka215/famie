@@ -115,7 +115,7 @@ PRおよび候補生成時に次を実行する。
   "release_version": "0.7.0",
   "source_commit": "full commit sha",
   "source_tree": "git tree sha",
-  "artifact_sha256": "sha256",
+  "payload_sha256": "sha256",
   "workflow_run_id": 123456789,
   "created_at": "2026-09-27T00:00:00Z",
   "frontend_version": "0.7.0",
