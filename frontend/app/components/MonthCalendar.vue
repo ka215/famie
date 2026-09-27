@@ -131,9 +131,7 @@ const accessibleLabel = (date: string) => {
       </button>
     </div>
 
-    <p v-if="isLoading" class="text-center text-xs text-slate-500" role="status">
-      月の記録を読み込み中...
-    </p>
+    <LoadingIndicator v-if="isLoading" label="月の記録を読み込み中..." />
   </section>
 </template>
 

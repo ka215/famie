@@ -40,9 +40,19 @@ try {
     $tag = "v$Version"
     $releaseExists = & gh release view $tag --json tagName --jq '.tagName' 2>$null
     if (-not $releaseExists) {
-        $artifactDirectory = Join-Path $root ".release/artifacts/v$Version"
+        $artifactManifest = Get-ReleaseSessionValue -Path $session -Filter '.artifact_manifest'
+        if (-not $artifactManifest -or -not (Test-Path -LiteralPath $artifactManifest -PathType Leaf)) {
+            throw 'The release session artifact manifest is not available locally.'
+        }
+        $artifactDirectory = Split-Path -Parent $artifactManifest
         $assets = Get-ChildItem -LiteralPath $artifactDirectory -File -Recurse | Where-Object { $_.Name -match '\.(tar\.gz|sha256|manifest\.json)$' }
         if (-not $assets) { throw 'Release assets are not available locally.' }
+        $checksumFile = $assets | Where-Object { $_.Name -like '*.tar.gz.sha256' } | Select-Object -First 1
+        $expectedArtifactSha = Get-ReleaseSessionValue -Path $session -Filter '.artifact_sha256'
+        $actualArtifactSha = if ($checksumFile) { ((Get-Content -LiteralPath $checksumFile.FullName -Raw) -split '\s+')[0] } else { $null }
+        if (-not $actualArtifactSha -or $actualArtifactSha -ne $expectedArtifactSha) {
+            throw 'Release asset checksum does not match the release session.'
+        }
         $arguments = @('release', 'create', $tag, '--verify-tag', '--title', $tag, '--notes', "Immutable release artifact for $tag.")
         $arguments += $assets.FullName
         Invoke-ReleaseCommand gh $arguments

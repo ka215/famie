@@ -17,7 +17,8 @@ docs/
 ├── basic_design.md             # 正式: 基本設計書
 ├── reference/                  # 旧資料・実装例などの参照資料
 ├── development/                # 開発時に蓄積する判断・知見・障害対応
-└── operations/                 # 本番運用で管理する手順・変更・バックアップ
+├── operations/                 # 本番運用で管理する手順・変更・バックアップ
+└── issues/                     # 課題一覧とバージョン別の詳細要件
 ```
 
 ## 利用ルール
@@ -27,3 +28,5 @@ docs/
 - 再利用できる調査結果や実装パターンは `development/knowledge/` に記録する。
 - 発生した不具合の原因・対処・再発防止は `development/troubleshooting/` に記録する。
 - 本番作業の手順は `operations/runbooks/`、実施履歴は `operations/change-log/`、バックアップ運用は `operations/backup/` に記録する。
+- 通常リリースの操作は[リリース自動化 運用手順](operations/runbooks/release-script-notes.md)を入口とする。
+- 課題の最新状態は`issues/summary.md`、確定した版別要件は`issues/vX.Y.Z.md`を参照する。

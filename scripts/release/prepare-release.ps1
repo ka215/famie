@@ -80,7 +80,8 @@ try {
     $runId = & gh run list --workflow release-ci.yml --branch $base --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId'
     if ($LASTEXITCODE -ne 0 -or -not $runId) { throw 'Cannot locate release artifact workflow run.' }
     Invoke-ReleaseCommand gh @('run', 'watch', "$runId", '--exit-status')
-    $artifactDirectory = Join-Path $root ".release/artifacts/v$Version"
+    # Keep each candidate isolated so a resumed release cannot validate an older manifest.
+    $artifactDirectory = Join-Path $root ".release/artifacts/v$Version/$runId"
     [System.IO.Directory]::CreateDirectory($artifactDirectory) | Out-Null
     Invoke-ReleaseCommand gh @('run', 'download', "$runId", '--dir', $artifactDirectory)
     $manifest = Get-ChildItem -LiteralPath $artifactDirectory -Filter '*.manifest.json' -File -Recurse | Select-Object -First 1

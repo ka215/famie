@@ -11,9 +11,35 @@ const profileForm = ref<ProfileForm>({ display_name: user.value?.display_name ??
 const profileIsLoading = ref(false)
 const profileSuccessMessage = ref('')
 const profileErrorMessage = ref('')
+const savedDisplayName = ref(user.value?.display_name ?? '')
+const parsedProfile = computed(() => profileSchema.safeParse(profileForm.value))
+const profileValidationMessage = computed(() => {
+  if (profileForm.value.display_name === savedDisplayName.value || parsedProfile.value.success) {
+    return ''
+  }
+  return parsedProfile.value.error.issues[0]?.message ?? '表示名を確認してください。'
+})
+const displayedProfileError = computed(
+  () => profileErrorMessage.value || profileValidationMessage.value
+)
+const canSaveProfile = computed(
+  () =>
+    !profileIsLoading.value &&
+    parsedProfile.value.success &&
+    parsedProfile.value.data.display_name !== savedDisplayName.value
+)
+
+watch(
+  () => profileForm.value.display_name,
+  (displayName) => {
+    if (displayName === savedDisplayName.value) return
+    profileErrorMessage.value = ''
+    profileSuccessMessage.value = ''
+  }
+)
 
 const handleProfileSave = async () => {
-  if (profileIsLoading.value) return
+  if (!canSaveProfile.value) return
   profileSuccessMessage.value = ''
   profileErrorMessage.value = ''
   const result = profileSchema.safeParse(profileForm.value)
@@ -30,6 +56,7 @@ const handleProfileSave = async () => {
     })
     user.value = response.user
     profileForm.value.display_name = response.user.display_name
+    savedDisplayName.value = response.user.display_name
     familyMembers.value = familyMembers.value.map((member) =>
       member.id === response.user.id
         ? { ...member, display_name: response.user.display_name }
@@ -212,24 +239,30 @@ onMounted(() => {
       <form class="space-y-3 pt-3" novalidate @submit.prevent="handleProfileSave">
         <div>
           <label for="display-name" class="block text-xs font-semibold text-slate-600 mb-1">自分の表示名</label>
-          <input
-            id="display-name"
-            v-model="profileForm.display_name"
-            type="text"
-            autocomplete="nickname"
-            :aria-invalid="!!profileErrorMessage"
-            aria-describedby="display-name-help display-name-error"
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          <div class="flex w-full">
+            <input
+              id="display-name"
+              v-model="profileForm.display_name"
+              type="text"
+              autocomplete="nickname"
+              :aria-invalid="!!displayedProfileError"
+              aria-describedby="display-name-help display-name-error"
+              class="min-w-0 flex-1 rounded-l-lg border border-r-0 border-slate-300 px-3 py-2 text-sm focus:relative focus:z-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+            <button
+              type="submit"
+              :disabled="!canSaveProfile"
+              class="shrink-0 rounded-r-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {{ profileIsLoading ? '変更中…' : '変更' }}
+            </button>
+          </div>
           <p id="display-name-help" class="mt-1 text-xs text-slate-500">50文字以内。前後の空白は取り除きます。</p>
         </div>
-        <p id="display-name-error" role="alert" class="text-xs text-red-600">{{ profileErrorMessage }}</p>
+        <p id="display-name-error" role="alert" class="text-xs text-red-600">{{ displayedProfileError }}</p>
         <p v-if="profileSuccessMessage" role="status" class="text-xs text-emerald-600">{{ profileSuccessMessage }}</p>
-        <button type="submit" :disabled="profileIsLoading" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50">
-          {{ profileIsLoading ? '保存中…' : '表示名を保存する' }}
-        </button>
       </form>
-      <div class="pt-3 border-t border-slate-100">
+      <div class="flex justify-end pt-3 border-t border-slate-100">
         <button type="button" class="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50" @click="logout">
           ログアウト
         </button>

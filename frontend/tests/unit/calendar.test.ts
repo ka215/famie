@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   buildCalendarCells,
+  buildWeekDays,
   countActivitiesByDate,
   formatLocalDate,
   getCalendarDisplayLocale,
@@ -49,6 +50,29 @@ test('今週の範囲はロケールの週開始曜日に従う', () => {
   const wednesday = new Date(2026, 8, 30, 12)
   assert.deepEqual(getWeekRange(wednesday, 0), { from: '2026-09-27', to: '2026-10-03' })
   assert.deepEqual(getWeekRange(wednesday, 1), { from: '2026-09-28', to: '2026-10-04' })
+})
+
+test('週表示は選択日を含む7日をロケールの週開始曜日から生成する', () => {
+  const selected = new Date(2026, 9, 1, 12)
+  const sundayFirst = buildWeekDays(selected, 0)
+  assert.deepEqual(
+    sundayFirst.map(({ date }) => date),
+    [
+      '2026-09-27',
+      '2026-09-28',
+      '2026-09-29',
+      '2026-09-30',
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-03',
+    ]
+  )
+  assert.equal(sundayFirst[0]?.dayOfWeek, 0)
+  assert.equal(sundayFirst[6]?.dayOfWeek, 6)
+
+  const mondayFirst = buildWeekDays(selected, 1)
+  assert.equal(mondayFirst[0]?.date, '2026-09-28')
+  assert.equal(mondayFirst[6]?.date, '2026-10-04')
 })
 
 test('月範囲とローカル日付を月境界・うるう年でも正しく生成する', () => {

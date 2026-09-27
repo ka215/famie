@@ -90,6 +90,14 @@ function Assert-CleanWorktree {
     if ($changes) { throw "Worktree must be clean before applying release operations.`n$changes" }
 }
 
+function Assert-ReleaseRunnerOnline {
+    $online = & gh api 'repos/{owner}/{repo}/actions/runners' --jq '[.runners[] | select(.status == "online" and any(.labels[]; .name == "famie-release"))] | length'
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the self-hosted release runner.' }
+    if ([int]$online -lt 1) {
+        throw 'The self-hosted runner with label famie-release is offline. Start it with Git Bash available in PATH, verify it is online, and rerun this command.'
+    }
+}
+
 function Wait-PullRequestChecks {
     param([Parameter(Mandatory)][string]$PullRequest)
     for ($attempt = 1; $attempt -le 24; $attempt++) {

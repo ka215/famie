@@ -8,7 +8,7 @@
 - PostgreSQLのDB・ユーザー・スキーマは `ka2_famiestg`。`.env` の `DB_SCHEMA=ka2_famiestg` が必要。`public` スキーマには作成権限がない。
 - `.env` は600、APP_KEYはステージング専用。許可IPは本番の既存リストを引き継ぐ。検証端末も許可されたネットワークで接続する。
 - 検証用の親 `parent1` と子 `child1` を使用する。初期パスワード記録はGit管理移行後、`~/famie-stg-release-backups/initial-issue11/original-app/accounts.txt`（private退避領域）で管理する。結果記録・スクリーンショットへ含めない。
-- #11対応後の共通 `deploy.sh` は `--env staging --ref <完全SHAまたは正式タグ>` を明示して使う。省略すると本番が対象になる。[ステージング運用手順](staging-deploy-notes.md)に従い、DB・公開先・シンボリックリンクがステージングを指すことを確認する。
+- v0.7.0以降の配置は、Release CIが生成した固定成果物を[リリース自動化 運用手順](release-script-notes.md)と[ステージング運用手順](staging-deploy-notes.md)に従って行う。ローカル生成物や旧`deploy.sh --ref`を通常配置には使用しない。
 
 ## 通常利用での実機検証
 

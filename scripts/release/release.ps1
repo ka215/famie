@@ -72,6 +72,7 @@ try {
         $workflowRef = 'main'
     }
 
+    Assert-ReleaseRunnerOnline
     Invoke-ReleaseCommand gh @('workflow', 'run', 'deploy-release.yml', '--ref', $workflowRef, '-f', "version=$Version", '-f', "environment=$Environment", '-f', "artifact_run_id=$runId", '-f', "apply=$($Apply.ToString().ToLowerInvariant())")
     Start-Sleep -Seconds 3
     $deployRun = & gh run list --workflow deploy-release.yml --branch $workflowRef --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId'

@@ -1,3 +1,5 @@
+> **旧資料:** この文書は旧Nginx構成を前提とする参考資料であり、現行のリリースや環境構築には使用しない。現行運用は[リリース自動化 運用手順](../../operations/runbooks/release-script-notes.md)と[フロントエンド](../../operations/runbooks/howto_release_frontend.md)・[バックエンド](../../operations/runbooks/howto_release_backend.md)の初期構築手順を参照する。
+
 Laravelにおける**IP制限ミドルウェアの実装コード**と、コアサーバーVPS（Ubuntu / Debian想定）での**本番デプロイ・Nginx・SSL（Let's Encrypt）設定手順**を作成いたしました。
 
 自宅からのアクセスのみを通過させ、Nuxt 4 と Laravel API を同一VPS上で連携させる安全かつシンプルな本番構成となっています。
