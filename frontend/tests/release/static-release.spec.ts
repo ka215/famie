@@ -34,3 +34,23 @@ for (const path of ['/login', '/']) {
     expect(consoleFailures).toEqual([])
   })
 }
+
+test('remote API responds through the public access path', async ({ request }) => {
+  test.skip(!process.env.RELEASE_BASE_URL, 'Only applicable to a deployed release')
+
+  const statusResponse = await request.get('/api/v1/status', {
+    headers: { Accept: 'application/json' },
+  })
+  expect(statusResponse.status()).toBe(200)
+  expect(await statusResponse.json()).toMatchObject({ status: 'ok' })
+
+  const loginResponse = await request.post('/api/v1/auth/login', {
+    data: {},
+    headers: { Accept: 'application/json' },
+  })
+  expect(loginResponse.status()).toBe(422)
+  expect(await loginResponse.json()).toMatchObject({
+    message: expect.any(String),
+    errors: expect.any(Object),
+  })
+})
