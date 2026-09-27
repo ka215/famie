@@ -45,6 +45,8 @@ Get-CimInstance Win32_Process |
 
 `Verify downloaded artifact`で`bash: command not found`となった場合は、サーバー転送前の失敗である。上記PATHでrunnerを再起動し、同じリリーススクリプトを再実行する。workflowが実行中の間はrunnerを停止しない。
 
+配置workflowでは、Git for Windowsの空白を含む`tar.exe`パスによるキャッシュ復元警告を避けるため、`setup-node`のpnpmキャッシュを使用しない。配置のたびに固定lockfileから依存関係を確認し、頻度の低い配置処理では速度より再現性を優先する。Release CIはGitHub-hosted runner上で従来どおりキャッシュを利用できる。
+
 ```powershell
 pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging
 pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging -Apply
