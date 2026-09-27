@@ -96,7 +96,7 @@ printf '%s\n' "$db_backup" > "$release_dir/db-backup-reference"
 started=1
 : > "$docroot/.maintenance"
 (cd "$repo/backend" && "$PHPCLI" artisan down --retry=60)
-rsync -a --delete --exclude='/.env' --exclude='/storage' --exclude='/vendor' "$work/payload/backend/" "$repo/backend/"
+rsync -a --chmod=D705,F604 --delete --exclude='/.env' --exclude='/storage' --exclude='/vendor' "$work/payload/backend/" "$repo/backend/"
 (cd "$repo/backend" && "$PHPCLI" "$COMPOSER_FILE" install --no-dev --prefer-dist --optimize-autoloader --no-interaction)
 (cd "$repo/backend" && "$PHPCLI" artisan optimize:clear)
 (cd "$repo/backend" && "$PHPCLI" artisan migrate:status --no-interaction) > "$release_dir/migration-status-before.txt"
