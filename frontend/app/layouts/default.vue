@@ -13,19 +13,21 @@ const iconStyles = {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 pb-[calc(5rem+env(safe-area-inset-bottom))]">
-    <header class="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
+  <div class="app-shell bg-slate-50">
+    <header class="shrink-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
       <h1 class="text-lg font-bold text-slate-800">Famie</h1>
       <div class="flex items-center space-x-3 text-sm">
         <span class="text-slate-600 font-medium">{{ user?.display_name }} さん</span>
       </div>
     </header>
 
-    <main class="max-w-md mx-auto p-4">
-      <slot />
-    </main>
+    <div class="app-scroll-area">
+      <main class="max-w-md mx-auto p-4">
+        <slot />
+      </main>
+    </div>
 
-    <nav aria-label="メインメニュー" class="fixed-footer fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 pb-[env(safe-area-inset-bottom)] z-10">
+    <nav aria-label="メインメニュー" class="shrink-0 bg-white border-t border-slate-200 px-4 pb-[env(safe-area-inset-bottom)] z-10">
       <div class="grid grid-cols-3 max-w-md mx-auto">
       <NuxtLink to="/" :aria-current="route.path === '/' || route.path.startsWith('/logs/') ? 'page' : undefined" class="footer-item" :class="route.path === '/' || route.path.startsWith('/logs/') ? 'text-blue-600' : 'text-slate-500'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.timeline" />
@@ -45,15 +47,21 @@ const iconStyles = {
 </template>
 
 <style scoped>
-.fixed-footer::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  height: max(200px, env(safe-area-inset-bottom));
-  background-color: inherit;
-  pointer-events: none;
+.app-shell {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-scroll-area {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .footer-item {
