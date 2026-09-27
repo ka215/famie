@@ -7,11 +7,11 @@
 通常の操作は[リリース自動化 運用手順](./release-script-notes.md)に従う。
 
 ```powershell
-pwsh scripts/release/release.ps1 -Version 0.7.0 -Environment staging
-pwsh scripts/release/release.ps1 -Version 0.7.0 -Environment staging -Apply
+pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging
+pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging -Apply
 ```
 
-配置workflowは次を自動確認する。
+配置workflowは次を自動確認する。CoreServer上では成果物、環境、DB、バックアップ、配置後の静的資産を検査し、self-hosted runnerからは公開URLのHTTP、API、ブラウザ動作を検査する。APIは接続元IP制限のためCoreServer自身から確認しない。
 
 - 配布アーカイブとpayloadのSHA256、manifestの版・source tree
 - 配置先URL、Laravel設定、接続中DB・schema・DB user
@@ -23,7 +23,7 @@ pwsh scripts/release/release.ps1 -Version 0.7.0 -Environment staging -Apply
 自動検査後、iPhone等の実機で対象機能とPWA更新を確認し、次のコマンドで合格を記録する。
 
 ```powershell
-pwsh scripts/release/release.ps1 -Version 0.7.0 -Environment staging -ConfirmStaging -Apply
+pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging -ConfirmStaging -Apply
 ```
 
 ## 環境の固定値
@@ -40,7 +40,11 @@ pwsh scripts/release/release.ps1 -Version 0.7.0 -Environment staging -ConfirmSta
 
 ## 排他・失敗時
 
-GitHub Actionsのenvironment別concurrencyにより同時配置を防ぐ。配置開始後に失敗した場合はmaintenance状態を維持し、workflow logとサーバーのrelease backupを確認する。復旧には `rollback.ps1` を使用し、migrationを含む場合はDB互換性を確認する。
+GitHub Actionsのenvironment別concurrencyにより同時配置を防ぐ。
+
+- CoreServer上の配置処理が途中で失敗した場合はmaintenance状態を維持する。workflow logとサーバーのrelease backupを確認し、`rollback.ps1`で復旧する。migrationを含む場合はDB互換性を確認する。
+- CoreServer上の配置とmaintenance解除が成功した後、self-hosted runnerの公開URL検査だけが失敗した場合、サイトは通常稼働状態である。workflow logとスモークテスト成果物を確認し、必要に応じて切り戻す。maintenance状態と決めつけない。
+- 実機確認に失敗した場合は合格を記録せず、商用配置へ進まない。修正は新しい候補成果物として準備し直す。
 
 ## 関連文書
 

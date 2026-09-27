@@ -18,11 +18,11 @@ Apacheは `/api` を `backend/public` のマウントパスとして取り除い
 
 ## 2. 前提条件
 
-- CoreServer 上の `~/famie` にリポジトリが clone 済みである。
+- CoreServer 上の `~/famie` が配置先として初期化済みで、`.env`とstorageを保持できる。
 - SSH の PHP CLI 8.4.17 で `pdo_pgsql` が有効であることを確認済みである。
 - Composer 2.8.10 を SSH から実行できることを確認済みである。
 - rsync 3.1.3 が利用でき、シンボリックリンクを扱えることを確認済みである。
-- CoreServer 管理画面で PostgreSQL のバックアップを取得できる。
+- `pg_dump`と`pg_restore`をリリーススクリプトから実行できる。
 - 許可する接続元 IP アドレスが確定している。
 
 初回作業前に実行環境を確認する。
@@ -89,7 +89,7 @@ DB_USERNAME=ka2_famie
 DB_PASSWORD=<CORESERVER_DB_PASSWORD>
 DB_SCHEMA=ka2_famie
 
-ALLOWED_IPS=202.172.28.141,202.172.30.215,106.152.55.116,153.124.191.230
+ALLOWED_IPS=<ALLOWED_IP_ADDRESS_1>,<ALLOWED_IP_ADDRESS_2>
 CORS_ALLOWED_ORIGINS=https://famie.ka2.org
 
 SESSION_DRIVER=database
@@ -209,7 +209,7 @@ Laravel のプロジェクトルートを公開せず、`public` ディレクト
 
 ## 5. 通常リリース
 
-v0.3.0 以降は [通常リリースの自動化](./release-script-notes.md) を使用する。CoreServer 管理画面でDBバックアップを取得したうえで、タグを指定してフロント・バックを共通のスクリプトで更新する。
+v0.7.0以降は[通常リリースの自動化](./release-script-notes.md)を使用する。Release CIが生成した同一成果物をステージングと商用へ配置し、DBバックアップ、migration、フロント・バックの更新、配置後検査をworkflowで実行する。通常リリース前に管理画面で別途DBバックアップを取得したり、サーバー上でGitのタグをcheckoutしたりしない。
 
 コード・依存関係の変更前にメンテナンス状態にし、途中で失敗した場合は復旧確認までメンテナンスを維持する。復旧方法も共通手順を参照する。
 
@@ -246,7 +246,7 @@ php artisan route:list --path=v1
 
 ## 7. ロールバック
 
-[通常リリースの自動化](./release-script-notes.md) の「失敗時の復旧」に従う。DB変更に互換性がある場合のみ旧コードと静的資材へ戻す。非互換の場合は修正 migration または管理画面からのDB復元を検討し、確認後にメンテナンスを解除する。
+[通常リリースの自動化](./release-script-notes.md)の「切り戻し」に従う。DB変更に互換性がある場合はアプリだけを戻す。DB復元が必要な場合は、対象バックアップの絶対パスを明示して切り戻しworkflowを実行する。
 
 ## 8. 禁止事項
 
