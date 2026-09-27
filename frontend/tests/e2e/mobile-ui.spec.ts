@@ -108,6 +108,19 @@ test('スマホの入力欄は16px以上で、日時フィルターと登録フ�
   const footerBox = await page.getByRole('navigation', { name: 'メインメニュー' }).boundingBox()
   expect(footerBox).not.toBeNull()
   expect(Math.round((footerBox?.y ?? 0) + (footerBox?.height ?? 0))).toBe(844)
+  const footerCover = await page
+    .getByRole('navigation', { name: 'メインメニュー' })
+    .evaluate((element) => {
+      const style = getComputedStyle(element, '::after')
+      return {
+        height: Number.parseFloat(style.height),
+        backgroundColor: style.backgroundColor,
+        pointerEvents: style.pointerEvents,
+      }
+    })
+  expect(footerCover.height).toBeGreaterThanOrEqual(200)
+  expect(footerCover.backgroundColor).toBe('rgb(255, 255, 255)')
+  expect(footerCover.pointerEvents).toBe('none')
   await checkFields()
   await page.goto('/logs/1')
   await expect(page.getByLabel('実施日', { exact: true })).toBeVisible()

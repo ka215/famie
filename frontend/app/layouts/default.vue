@@ -25,7 +25,7 @@ const iconStyles = {
       <slot />
     </main>
 
-    <nav aria-label="メインメニュー" class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 pb-[env(safe-area-inset-bottom)] z-10">
+    <nav aria-label="メインメニュー" class="fixed-footer fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 pb-[env(safe-area-inset-bottom)] z-10">
       <div class="grid grid-cols-3 max-w-md mx-auto">
       <NuxtLink to="/" :aria-current="route.path === '/' || route.path.startsWith('/logs/') ? 'page' : undefined" class="footer-item" :class="route.path === '/' || route.path.startsWith('/logs/') ? 'text-blue-600' : 'text-slate-500'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.timeline" />
@@ -45,6 +45,17 @@ const iconStyles = {
 </template>
 
 <style scoped>
+.fixed-footer::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: max(200px, env(safe-area-inset-bottom));
+  background-color: inherit;
+  pointer-events: none;
+}
+
 .footer-item {
   display: flex;
   min-height: 64px;

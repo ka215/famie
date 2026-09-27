@@ -302,10 +302,10 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="filterPeriod === 'custom'" class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-2 border-t">
-        <input v-model="filterFrom" aria-label="開始日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border text-xs rounded-lg w-full">
+      <div v-if="filterPeriod === 'custom'" class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-2 border-t border-slate-100">
+        <input v-model="filterFrom" aria-label="開始日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
         <span class="text-slate-400 text-xs">〜</span>
-        <input v-model="filterTo" aria-label="終了日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border text-xs rounded-lg w-full">
+        <input v-model="filterTo" aria-label="終了日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
         <button class="col-span-3 justify-self-end px-3 py-1 bg-slate-800 text-white text-xs rounded-lg" @click="fetchLogs(1)">
           適用
         </button>
@@ -387,9 +387,7 @@ onMounted(async () => {
       </div>
 
       <div class="min-w-0">
-        <div v-if="isLoading" class="text-center py-8 text-slate-400 text-sm">
-          読み込み中...
-        </div>
+        <LoadingIndicator v-if="isLoading" class="py-4" />
 
         <div v-else-if="logs.length === 0" class="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300 p-6">
           <p class="text-slate-500 text-sm">該当する記録がありません。</p>

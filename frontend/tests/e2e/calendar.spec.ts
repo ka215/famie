@@ -47,7 +47,12 @@ test('週の日付選択、月別件数、指定日表示、登録日の引き�
     const currentPage = Number(url.searchParams.get('page') ?? '1')
     requestedRanges.push(`${from}:${to}`)
 
+    if (from === nextWeekDate && to === nextWeekDate) {
+      await new Promise((resolve) => setTimeout(resolve, 400))
+    }
+
     if (from === monthFrom && to === monthTo) {
+      if (currentPage === 1) await new Promise((resolve) => setTimeout(resolve, 400))
       requestedPages.push(currentPage)
       const data =
         currentPage === 1 ? Array.from({ length: 50 }, (_, i) => makeLog(i + 1)) : [makeLog(51)]
@@ -72,6 +77,7 @@ test('週の日付選択、月別件数、指定日表示、登録日の引き�
     'true'
   )
   await weekCalendar.getByRole('button', { name: '次週' }).click()
+  await expect(page.getByRole('status').filter({ hasText: '読み込み中...' })).toBeVisible()
   await expect.poll(() => requestedRanges).toContain(`${nextWeekDate}:${nextWeekDate}`)
   await page.getByRole('button', { name: 'アクティビティを記録する' }).click()
   await expect(page.getByLabel('実施日', { exact: true })).toHaveValue(nextWeekDate)
@@ -85,6 +91,9 @@ test('週の日付選択、月別件数、指定日表示、登録日の引き�
   await page.getByRole('button', { name: '月表示' }).click()
   const calendar = page.getByRole('region', { name: '月間カレンダー' })
   await expect(calendar).toBeVisible()
+  await expect(
+    page.getByRole('status').filter({ hasText: '月の記録を読み込み中...' })
+  ).toBeVisible()
   await expect(calendar.getByRole('heading')).toHaveText(`${month + 1}月`)
   await expect(calendar.locator('.grid-cols-7').first().locator('span')).toHaveText([
     '日',
