@@ -1,0 +1,87 @@
+name: Rollback Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options: [staging, production]
+      to_version:
+        description: Published target version (X.Y.Z)
+        required: true
+        type: string
+      restore_database:
+        description: Server-side DB backup path; empty keeps the current DB
+        required: false
+        type: string
+      apply:
+        description: Apply rollback; false performs preflight
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download published release artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          mkdir release-dist
+          gh release download "v${{ inputs.to_version }}" --dir release-dist --pattern 'famie-v${{ inputs.to_version }}-*'
+          archive=$(find release-dist -type f -name '*.tar.gz' ! -name '*.sha256' -print -quit)
+          [[ -n "$archive" && -f "$archive.sha256" ]]
+          (cd release-dist && sha256sum --check "$(basename "$archive").sha256")
+          echo "archive=$archive" >> "$GITHUB_ENV"
+          echo "checksum=$archive.sha256" >> "$GITHUB_ENV"
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_release"
+          chmod 600 "$HOME/.ssh/id_release"
+          ssh-keyscan -H "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts"
+      - name: Upload rollback artifact and tools
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -Eeuo pipefail
+          remote="rollback-v${{ inputs.to_version }}-${GITHUB_RUN_ID}"
+          ssh -i "$HOME/.ssh/id_release" "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 700 \"\$HOME/famie-release-incoming/$remote\""
+          scp -i "$HOME/.ssh/id_release" "$archive" "$checksum" scripts/release/server/*.sh scripts/release/check-deploy-environment.php "$DEPLOY_USER@$DEPLOY_HOST:famie-release-incoming/$remote/"
+          echo "remote=$remote" >> "$GITHUB_ENV"
+      - name: Run rollback
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          RESTORE_DATABASE: ${{ inputs.restore_database }}
+        run: |
+          set -Eeuo pipefail
+          args=(--rollback)
+          if [[ '${{ inputs.apply }}' == true ]]; then args+=(--apply); fi
+          restore=$RESTORE_DATABASE
+          if [[ -n "$restore" ]]; then
+            [[ "$restore" =~ ^/virtual/ka2/_db_dump/[A-Za-z0-9_.-]+\.dump$ && "$restore" != *..* ]]
+            args+=(--restore-db "$restore")
+          fi
+          printf -v remote_args ' %q' "${args[@]}"
+          ssh -i "$HOME/.ssh/id_release" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "export PATH=\"\$HOME/bin:\$PATH\"; chmod 700 \"\$HOME/famie-release-incoming/$remote\"/*.sh; \"\$HOME/famie-release-incoming/$remote/deploy-artifact.sh\" --env '${{ inputs.environment }}' --bundle \"\$HOME/famie-release-incoming/$remote/$(basename "$archive")\" --checksum \"\$HOME/famie-release-incoming/$remote/$(basename "$checksum")\" $remote_args"

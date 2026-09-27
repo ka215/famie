@@ -4,11 +4,16 @@ def stable_version:
 def parts: split(".") | map(tonumber);
 if length != 3 then error("Expected version.json and two package files") else . end
 | .[0] as $release | .[1].version as $backend | .[2].version as $frontend
-| if (($release.current | stable_version) and ($release.next | stable_version)) | not
-  then error("current and next must be stable X.Y.Z versions without leading zeroes")
+| if ($release.current | stable_version) | not
+  then error("current must be a stable X.Y.Z version without leading zeroes")
+  elif $backend != $frontend then error("Backend and frontend versions differ")
+  elif $release.next == null then
+    if $backend == $release.current then [$release.current, "", "current"]
+    else error("Packages must equal current when next is null") end
+  elif ($release.next | stable_version) | not
+  then error("next must be null or a stable X.Y.Z version without leading zeroes")
   elif ($release.next | parts) <= ($release.current | parts)
   then error("next must be greater than current")
-  elif $backend != $frontend then error("Backend and frontend versions differ")
   elif $backend == $release.current then [$release.current, $release.next, "current"]
   elif $backend == $release.next then [$release.current, $release.next, "next"]
   else error("Package versions must both equal current or both equal next") end

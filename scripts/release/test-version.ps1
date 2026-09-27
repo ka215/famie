@@ -22,6 +22,14 @@ Set-ReleasePackageVersions $fixture '0.3.0'
 if ((Get-FileHash (Join-Path $fixture 'frontend/package.json')).Hash -ne $hash) { throw 'Retry changed file' }
 Write-Fixture '0.9.0' '0.10.0' '0.9.0' '0.9.0'
 Get-ReleaseVersionState $fixture | Out-Null
+$json = & jq -n '{current:"0.10.0",next:null}'
+[System.IO.File]::WriteAllText((Join-Path $fixture 'version.json'), ($json -join "`n"))
+foreach ($area in @('backend','frontend')) {
+    $json = & jq -n '{version:"0.10.0",private:true}'
+    [System.IO.File]::WriteAllText((Join-Path $fixture "$area/package.json"), ($json -join "`n"))
+}
+$completed = Get-ReleaseVersionState $fixture
+if ($completed.State -ne 'current' -or $completed.Next -ne '') { throw 'Completed release state failed' }
 foreach ($case in @(
     @('0.2.0','0.3.0','0.2.0','0.3.0'),
     @('0.2.0','0.2.0','0.2.0','0.2.0'),
@@ -35,4 +43,4 @@ foreach ($case in @(
     try { Get-ReleaseVersionState $fixture 2>$null | Out-Null } catch { $caught = $true }
     if (-not $caught) { throw "Invalid versions accepted: $case" }
 }
-Write-Host 'Version tests passed: initial state, update, retry, numeric ordering, 6 invalid cases.'
+Write-Host 'Version tests passed: initial state, update, retry, completed state, numeric ordering, 6 invalid cases.'

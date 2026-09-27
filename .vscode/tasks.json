@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "main / dev ブランチの最新化",
+      "type": "shell",
+      "command": "git switch main && git pull --ff-only origin main && git switch dev && git pull --ff-only origin dev",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    }
+  ]
+}

@@ -2,23 +2,23 @@
 
 ## 1. 目的と構成
 
-Nuxt SPA をローカルで静的生成し、Git リポジトリ経由で CoreServer に配置する。CoreServer では Node.js を起動せず、Apache が静的ファイルを配信する。
+Nuxt SPA をGitHub Actionsで静的生成し、検証済み成果物をCoreServerへ配置する。CoreServerではNode.jsを起動せず、Apacheが静的ファイルを配信する。
 
 | 項目 | 値 |
 | --- | --- |
 | 公開 URL | `https://famie.ka2.org` |
 | サーバー上のリポジトリ | `~/famie` |
-| 静的生成物 | `~/famie/frontend/.output/public/` |
+| 静的生成物 | GitHub Actionsのリリース成果物内 `frontend/public/` |
 | ドキュメントルート | `~/public_html/famie.ka2.org/` |
 | API 公開パス | `~/public_html/famie.ka2.org/api` → `~/famie/backend/public` |
 
-`.output/public` は Git 管理する。リリース対象コミットには、対象ソースから生成した最新の静的ファイルも含める。
+`frontend/.output` はGit管理しない。CIが対象コミットから一度だけ生成し、SHA256で固定した成果物をステージングと商用で共用する。
 
 ## 2. 前提条件
 
 - バックエンドの依存関係、`.env`、DB migration の初回設定が完了している。
 - CoreServer 上の `~/famie` にリポジトリが clone 済みである。
-- ローカル環境で Node.js、pnpm、Git を利用できる。
+- ローカル環境でPowerShell、Node.js、pnpm、Git、GitHub CLI、jqを利用できる。
 - リリース対象コミットが `main` に push 済みである。
 - `famie.ka2.org` のAレコードがCoreServerのIPアドレスを向いている。
 - CoreServerのサイト設定で `famie.ka2.org` の無料SSLが有効であり、同FQDNをSANに含む証明書が配信されている。
@@ -42,11 +42,11 @@ curl -I https://famie.ka2.org/
 
 ## 3. ローカルでの生成と検証
 
-v0.3.0 以降は [通常リリースの自動化](./release-script-notes.md) に従い、作業ブランチで `scripts/release/prepare.ps1` を実行する。生成物を PR に含め、`dev` → `main` の順にマージする。`main` へ直接 push しない。
+[通常リリースの自動化](./release-script-notes.md)に従い、作業ブランチで `prepare-release.ps1` を実行する。ローカル検証後にPRを `dev` へマージし、CIで成果物を生成する。`main`へ直接pushしない。
 
 ## 4. CoreServer への配置
 
-[通常リリースの自動化](./release-script-notes.md) の共通配置スクリプトを使用する。フロントとバックを同じタグのコミットから更新し、`.htaccess` と `api` リンクを保持する。
+[通常リリースの自動化](./release-script-notes.md)の配置workflowを使用する。フロントとバックを同一成果物から更新し、`.htaccess`と`api`リンクを保持する。
 
 ## 5. 初回のみ行う Apache 設定
 

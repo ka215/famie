@@ -1,0 +1,124 @@
+name: Release CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable release version (X.Y.Z)
+        required: true
+        type: string
+      build_artifact:
+        description: Build and retain a release candidate artifact
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      DEBUG: ''
+      NUXT_DEBUG_PERF: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:2.8.10
+          coverage: none
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Install backend dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+      - name: Lint frontend
+        working-directory: frontend
+        run: pnpm lint
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: pnpm typecheck
+      - name: Unit tests
+        working-directory: frontend
+        run: pnpm test:unit
+      - name: Backend tests
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+          composer test
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Application E2E
+        working-directory: frontend
+        run: pnpm test:e2e
+      - name: Clean release build
+        working-directory: frontend
+        run: |
+          pnpm exec nuxi cleanup
+          pnpm build
+      - name: Verify generated assets
+        run: node scripts/release/verify-static-assets.mjs frontend/.output/public
+      - name: Release browser smoke test
+        working-directory: frontend
+        run: pnpm test:release
+      - name: Upload Playwright reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-${{ github.run_id }}
+          path: |
+            frontend/playwright-report
+            frontend/playwright-release-report
+            frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Resolve candidate version
+        id: version
+        if: github.event_name == 'workflow_dispatch' && inputs.build_artifact
+        shell: bash
+        run: |
+          [[ '${{ inputs.version }}' =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          metadata=$(jq -ser -f scripts/release/version-state.jq version.json backend/package.json frontend/package.json)
+          IFS=$'\t' read -r current next state <<< "$metadata"
+          [[ "$next" == '${{ inputs.version }}' && "$state" == next ]]
+          echo "value=$next" >> "$GITHUB_OUTPUT"
+      - name: Create release artifact
+        id: artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.build_artifact
+        shell: bash
+        run: |
+          scripts/release/create-artifact.sh '${{ inputs.version }}' release-dist
+          echo "name=$(cat release-dist/artifact-name.txt)" >> "$GITHUB_OUTPUT"
+      - name: Upload release artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.build_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: release-dist/
+          if-no-files-found: error
+          retention-days: 30
