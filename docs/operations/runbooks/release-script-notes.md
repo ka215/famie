@@ -15,7 +15,7 @@ pwsh scripts/release/prepare-release.ps1 -Version X.Y.Z
 pwsh scripts/release/prepare-release.ps1 -Version X.Y.Z -Apply
 ```
 
-適用時はpackage版更新、Lint・型検査・単体テスト、コミットとpush、`dev`向けPRの検査・マージ、Release CIの起動を順に行う。CIはNuxtを一度だけ生成し、静的参照検査とブラウザスモークを通した成果物を作る。セッションと成果物は `.release/` に保存され、Git管理しない。中断後は同じコマンドに `-Resume` を付ける。
+適用時はpackage版更新、Lint・型検査・単体テスト、コミットとpush、`dev`向けPRの検査・マージ、Release CIの起動を順に行う。CIはNuxtを一度だけ生成し、静的参照検査とブラウザスモークを通した成果物を作る。セッションと成果物は `.release/` に保存され、成果物は候補workflow runごとのディレクトリへ分離し、Git管理しない。中断後は同じコマンドに `-Resume` を付ける。
 
 ## 2. ステージング配置と確認
 
