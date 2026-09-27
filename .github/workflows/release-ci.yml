@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: 24.19.0
           cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+          cache-dependency-path: frontend/pnpm-lock.yaml
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'

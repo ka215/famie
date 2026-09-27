@@ -100,7 +100,7 @@ jobs:
         with:
           node-version: 24.19.0
           cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+          cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Run remote browser smoke test
         if: inputs.apply
         working-directory: frontend
