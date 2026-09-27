@@ -104,7 +104,7 @@ rsync -a --delete --exclude='/.env' --exclude='/storage' --exclude='/vendor' "$w
 (cd "$repo/backend" && "$PHPCLI" artisan db:seed --class=CategorySeeder --force --no-interaction)
 (cd "$repo/backend" && "$PHPCLI" artisan optimize)
 "$PHPCLI" "$guard" "$repo/backend" "$base_url" "$database"
-rsync -a --delete --chmod=D705,F604 --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' "$work/payload/frontend/public/" "$docroot/"
+rsync -a --omit-dir-times --delete --chmod=D705,F604 --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' "$work/payload/frontend/public/" "$docroot/"
 [[ -L $docroot/api && $(realpath "$docroot/api") == "$repo/backend/public" ]] || fail 'API link changed.'
 if [[ -n $restore_db ]]; then
   "$(dirname "$0")/restore-database.sh" "$repo/backend" "$restore_db"
@@ -128,7 +128,7 @@ for asset in $entries; do
   [[ $asset == *.js && $content_type == *javascript* || $asset == *.css && $content_type == *text/css* ]] || fail "$asset has invalid Content-Type:$content_type"
   ! grep -qi '<!doctype html' "$body" || fail "$asset returned HTML fallback."
 done
-frontend_drift=$(rsync -ani --checksum --delete --chmod=D705,F604 --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' "$work/payload/frontend/public/" "$docroot/")
+frontend_drift=$(rsync -ani --omit-dir-times --checksum --delete --chmod=D705,F604 --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' "$work/payload/frontend/public/" "$docroot/")
 [[ -z $frontend_drift ]] || fail 'Deployed frontend differs from the verified payload.'
 cp "$work/manifest.json" "$release_dir/deployed-manifest.json"
 cp "$work/manifest.json" "$root/current-manifest.json"
