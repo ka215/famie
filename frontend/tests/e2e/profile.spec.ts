@@ -8,22 +8,25 @@ for (const account of ['parent1', 'child1']) {
     await page.getByRole('button', { name: 'ログイン', exact: true }).click()
     await page.getByRole('link', { name: '設定', exact: true }).click()
     const input = page.getByLabel('自分の表示名', { exact: true })
-    const save = page.getByRole('button', { name: '表示名を保存する' })
+    const save = page.getByRole('button', { name: '変更', exact: true })
+    await expect(save).toBeDisabled()
     let sent = 0
     page.on('request', (request) => {
       if (request.url().endsWith('/auth/me') && request.method() === 'PATCH') sent++
     })
     for (const invalid of ['', ' \u3000 ', 'あ'.repeat(51), '😀'.repeat(51)]) {
       await input.fill(invalid)
-      await save.click()
+      await expect(save).toBeDisabled()
       await expect(page.locator('#display-name-error')).toHaveText(
         invalid.trim() ? '表示名は50文字以内で入力してください。' : '表示名を入力してください。'
       )
     }
     expect(sent).toBe(0)
     await input.fill('😀'.repeat(50))
+    await expect(save).toBeEnabled()
     await save.click()
     await expect(page.getByText('表示名を変更しました。', { exact: true })).toBeVisible()
+    await expect(save).toBeDisabled()
     await expect(page.locator('header')).toContainText('😀'.repeat(50))
     const name = `${account}の新しい名前`
     await input.fill(`　${name}  `)

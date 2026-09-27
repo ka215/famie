@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('ロケール週範囲、月別件数、指定日表示、登録日の引き継ぎ', async ({ page, context }) => {
+test('週の日付選択、月別件数、指定日表示、登録日の引き継ぎ', async ({ page, context }) => {
   const owner = { id: 1, username: 'owner', display_name: '自分', role: 'parent' }
   const category = { id: 1, name: '家事', color_code: '#10B981' }
   const now = new Date()
@@ -12,12 +12,11 @@ test('ロケール週範囲、月別件数、指定日表示、登録日の引�
   const monthEnd = new Date(year, month + 1, 0, 12)
   const monthFrom = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(monthStart)
   const monthTo = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(monthEnd)
-  const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)
-  sunday.setDate(sunday.getDate() - sunday.getDay())
-  const saturday = new Date(sunday)
-  saturday.setDate(sunday.getDate() + 6)
-  const weekFrom = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(sunday)
-  const weekTo = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(saturday)
+  const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(now)
+  const nextWeekDateObject = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12)
+  const nextWeekDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(
+    nextWeekDateObject
+  )
   const requestedPages: number[] = []
   const requestedRanges: string[] = []
 
@@ -48,7 +47,12 @@ test('ロケール週範囲、月別件数、指定日表示、登録日の引�
     const currentPage = Number(url.searchParams.get('page') ?? '1')
     requestedRanges.push(`${from}:${to}`)
 
+    if (from === nextWeekDate && to === nextWeekDate) {
+      await new Promise((resolve) => setTimeout(resolve, 400))
+    }
+
     if (from === monthFrom && to === monthTo) {
+      if (currentPage === 1) await new Promise((resolve) => setTimeout(resolve, 400))
       requestedPages.push(currentPage)
       const data =
         currentPage === 1 ? Array.from({ length: 50 }, (_, i) => makeLog(i + 1)) : [makeLog(51)]
@@ -65,11 +69,31 @@ test('ロケール週範囲、月別件数、指定日表示、登録日の引�
   })
 
   await page.goto('/')
-  await expect.poll(() => requestedRanges).toContain(`${weekFrom}:${weekTo}`)
+  await expect.poll(() => requestedRanges).toContain(`${today}:${today}`)
+  const weekCalendar = page.getByRole('region', { name: '週カレンダー' })
+  await expect(weekCalendar).toBeVisible()
+  await expect(weekCalendar.locator('[aria-current="date"]')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await weekCalendar.getByRole('button', { name: '次週' }).click()
+  await expect(page.getByRole('status').filter({ hasText: '読み込み中...' })).toBeVisible()
+  await expect.poll(() => requestedRanges).toContain(`${nextWeekDate}:${nextWeekDate}`)
+  await page.getByRole('button', { name: 'アクティビティを記録する' }).click()
+  await expect(page.getByLabel('実施日', { exact: true })).toHaveValue(nextWeekDate)
+  await page.getByRole('button', { name: '閉じる' }).click()
+  await page.getByRole('button', { name: '今週' }).click()
+  await expect(weekCalendar.locator('[aria-current="date"]')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
 
   await page.getByRole('button', { name: '月表示' }).click()
   const calendar = page.getByRole('region', { name: '月間カレンダー' })
   await expect(calendar).toBeVisible()
+  await expect(
+    page.getByRole('status').filter({ hasText: '月の記録を読み込み中...' })
+  ).toBeVisible()
   await expect(calendar.getByRole('heading')).toHaveText(`${month + 1}月`)
   await expect(calendar.locator('.grid-cols-7').first().locator('span')).toHaveText([
     '日',
