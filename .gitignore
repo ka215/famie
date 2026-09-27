@@ -1,2 +1,6 @@
 .tools/
 .temp/
+.release/
+frontend/.output/
+frontend/playwright-release-report/
+frontend/test-results/

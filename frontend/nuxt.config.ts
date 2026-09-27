@@ -7,6 +7,8 @@ const isProduction = import.meta.env.NODE_ENV === 'production'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
+  // ビルド端末の DEBUG 環境変数を本番バンドルへ持ち込まない。
+  debug: isProduction ? false : undefined,
   // 起動中の開発サーバーとE2Eの生成物・ロックを分離する。
   buildDir: import.meta.env.FAMIE_E2E === '1' ? '.cache/nuxt-e2e' : '.nuxt',
   app: {

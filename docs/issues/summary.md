@@ -11,6 +11,8 @@
 | v0.4.1 | 公開・本番実機確認済み | [公開記録](../operations/change-log/2026-09-24-v041-release-notes.md) |
 | v0.5.0 | 公開・本番iPhone実機確認済み（Android実機確認省略） | [詳細要件・公開記録](v0.5.0.md) |
 | v0.6.0 | 公開済み（ステージングiPhone実機確認済み） | [詳細要件・公開記録](v0.6.0.md) |
+| v0.6.1 | v0.6.0静的資産の緊急修正版を公開済み | [障害・公開記録](../operations/change-log/2026-09-26-v061-release-notes.md) |
+| v0.7.0 | リリース運用安定化の仕様確定・実装前 | [詳細要件](v0.7.0.md)・[自動化仕様](../operations/release-automation-spec.md) |
 | 後続版 | 未計画・延期課題あり | [課題原案・延期事項](backlog.md) |
 
 ## 課題
@@ -34,6 +36,7 @@
 | 12-A | デプロイ運用の一本化 | v0.4.0 | v0.4.1で公開済み | [#6](https://github.com/ka215/famie/issues/6) |
 | 12-B | メンテナンス表示・運用連動 | v0.4.0 | v0.4.1で公開済み | [#7](https://github.com/ka215/famie/issues/7) |
 | 12-C | ステージング運用・環境切り替え | v0.4.0 | v0.4.1で公開済み | [#11](https://github.com/ka215/famie/issues/11) |
+| 12-D | リリース運用の再設計・3段階自動化・切り戻し | v0.7.0 | 仕様確定・未着手 | — |
 | 13 | Playwrightの最小導入 | v0.3.0 | 導入済み | — |
 | 14 | 設定カード開閉 | v0.4.0 | v0.4.1で公開済み | [#9](https://github.com/ka215/famie/issues/9) |
 | 15 | PWA検証手順・限定的な自動テスト | v0.4.0 | v0.4.1で公開済み | [#10](https://github.com/ka215/famie/issues/10) |

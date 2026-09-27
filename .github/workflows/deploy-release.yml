@@ -1,0 +1,128 @@
+name: Deploy Release Artifact
+
+on:
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable release version (X.Y.Z)
+        required: true
+        type: string
+      environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options: [staging, production]
+      artifact_run_id:
+        description: Release CI workflow run containing the immutable artifact
+        required: true
+        type: string
+      apply:
+        description: Apply changes; false performs preflight only
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, Windows, X64, famie-release]
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    env:
+      RELEASE_BASE_URL: ${{ inputs.environment == 'production' && 'https://famie.ka2.org' || 'https://stg-famie.ka2.org' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download immutable release artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+          path: release-dist
+      - name: Verify downloaded artifact
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          archive=$(find release-dist -type f -name 'famie-v${{ inputs.version }}-*.tar.gz' ! -name '*.sha256' -print -quit)
+          [[ -n "$archive" && -f "$archive.sha256" ]]
+          (cd "$(dirname "$archive")" && sha256sum --check "$(basename "$archive").sha256")
+          manifest=$(find release-dist -type f -name 'famie-v${{ inputs.version }}-*.manifest.json' -print -quit)
+          [[ $(jq -r '.release_version' "$manifest") == '${{ inputs.version }}' ]]
+          echo "archive=$archive" >> "$GITHUB_ENV"
+          echo "checksum=$archive.sha256" >> "$GITHUB_ENV"
+      - name: Configure SSH
+        shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          ssh_dir="$RUNNER_TEMP/famie-ssh"
+          mkdir -p "$ssh_dir"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/id_release"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          echo "ssh_key=$ssh_dir/id_release" >> "$GITHUB_ENV"
+          echo "known_hosts=$ssh_dir/known_hosts" >> "$GITHUB_ENV"
+      - name: Upload artifact and deployment tools
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -Eeuo pipefail
+          remote="release-v${{ inputs.version }}-${GITHUB_RUN_ID}"
+          ssh -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 700 \"\$HOME/famie-release-incoming/$remote\""
+          scp -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$archive" "$checksum" scripts/release/server/*.sh scripts/release/check-deploy-environment.php \
+            "$DEPLOY_USER@$DEPLOY_HOST:famie-release-incoming/$remote/"
+          echo "remote=$remote" >> "$GITHUB_ENV"
+      - name: Deploy on CoreServer
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -Eeuo pipefail
+          apply=()
+          if [[ '${{ inputs.apply }}' == true ]]; then apply=(--apply); fi
+          ssh -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "export PATH=\"\$HOME/bin:\$PATH\"; chmod 700 \"\$HOME/famie-release-incoming/$remote\"/*.sh; \"\$HOME/famie-release-incoming/$remote/deploy-artifact.sh\" --env '${{ inputs.environment }}' --bundle \"\$HOME/famie-release-incoming/$remote/$(basename "$archive")\" --checksum \"\$HOME/famie-release-incoming/$remote/$(basename "$checksum")\" ${apply[*]}"
+      - name: Install browser dependencies
+        if: inputs.apply
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+      - uses: actions/setup-node@v4
+        if: inputs.apply
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Run remote browser smoke test
+        if: inputs.apply
+        working-directory: frontend
+        shell: bash
+        env:
+          RELEASE_BASE_URL: ${{ env.RELEASE_BASE_URL }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install chromium webkit
+          pnpm test:release
+      - name: Upload deployment smoke report on failure
+        if: failure() && inputs.apply
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-smoke-${{ inputs.environment }}-${{ github.run_id }}
+          path: |
+            frontend/playwright-release-report
+            frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 30
