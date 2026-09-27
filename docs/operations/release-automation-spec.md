@@ -103,7 +103,16 @@ PRおよび候補生成時に次を実行する。
 - `DEBUG`、`NUXT_DEBUG_PERF`、開発用API URLを除外する。
 - Nuxt設定でも本番の`debug: false`を明示する。
 
-### 6.3 成果物
+### 6.3 配置runner
+
+- Release CIはGitHub-hosted Linux runnerで実行し、配置・切り戻しworkflowはこのPCのself-hosted Windows runnerで実行する。
+- self-hosted runnerは`self-hosted`、`Windows`、`X64`、`famie-release`の各ラベルを持つものを使用する。
+- GitHub Actionsからoffline runnerを起動することはできない。運用者は配置・切り戻しのdispatch前に起動し、workflow完了後に停止する。
+- runner起動時の`PATH`にはGit Bashの`bin`を含め、workflowが使用する`bash`、`ssh`、`scp`、`sha256sum`を解決可能にする。
+- ローカルの配置・切り戻しスクリプトは、dispatch前に対象ラベルのonline runnerが存在することを検査し、offlineの場合は待機workflowを作らず停止する。
+- 具体的な起動、確認、停止、障害復旧は[リリース自動化 運用手順](./runbooks/release-script-notes.md)を正本とする。
+
+### 6.4 成果物
 
 単一のリリースアーカイブに、フロントエンド静的資材、バックエンド配置対象、固定された依存関係または再現可能なlockfile、migration、manifest、ファイルチェックサム一覧を含める。
 

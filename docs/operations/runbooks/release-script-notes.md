@@ -19,6 +19,32 @@ pwsh scripts/release/prepare-release.ps1 -Version X.Y.Z -Apply
 
 ## 2. ステージング配置と確認
 
+配置・切り戻しworkflowは、このPCのself-hosted runner（`famie-release-ka2-pc`）で実行する。GitHub Actionsは停止中のrunner自身を起動できないため、`release.ps1`または`rollback.ps1`を実行する前にrunnerを起動する。Release CIによる成果物生成には不要である。
+
+runnerが使用するworkflowには`bash`、`ssh`、`scp`、`sha256sum`が必要なため、起動プロセスの`PATH`へGit Bashを明示してから起動する。
+
+```powershell
+$runnerRoot = 'C:\actions-runner-famie'
+$runnerPath = "C:\Program Files\Git\bin;$env:PATH"
+Start-Process -FilePath (Join-Path $runnerRoot 'run.cmd') -WorkingDirectory $runnerRoot -WindowStyle Hidden -Environment @{ PATH = $runnerPath }
+```
+
+GitHub上でonlineになったことを確認する。配置・切り戻しスクリプトもdispatch前に`famie-release`ラベルのonline runnerを検査し、offlineなら即時停止する。
+
+```powershell
+gh api 'repos/{owner}/{repo}/actions/runners' --jq '.runners[] | select(.name == "famie-release-ka2-pc") | {status,busy,labels:[.labels[].name]}'
+```
+
+workflow完了後は、実行中でないことを確認してrunnerを停止する。実機確認中は停止したままでよい。次の商用配置時に同じ手順で起動する。
+
+```powershell
+Get-CimInstance Win32_Process |
+  Where-Object { $_.Name -match '^Runner\.(Listener|Worker)\.exe$' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+```
+
+`Verify downloaded artifact`で`bash: command not found`となった場合は、サーバー転送前の失敗である。上記PATHでrunnerを再起動し、同じリリーススクリプトを再実行する。workflowが実行中の間はrunnerを停止しない。
+
 ```powershell
 pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging
 pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging -Apply

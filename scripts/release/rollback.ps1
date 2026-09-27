@@ -21,6 +21,7 @@ try {
     Write-Host "Rollback to: $tag"
     Write-Host "Database:   $(if ($RestoreDatabase) { $RestoreDatabase } else { 'unchanged' })"
     Write-Host "Mode:       $(if ($Apply) { 'apply' } else { 'dry-run' })"
+    Assert-ReleaseRunnerOnline
     Invoke-ReleaseCommand gh @('workflow', 'run', 'rollback-release.yml', '--ref', 'main', '-f', "environment=$Environment", '-f', "to_version=$ToVersion", '-f', "restore_database=$RestoreDatabase", '-f', "apply=$($Apply.ToString().ToLowerInvariant())")
     Start-Sleep -Seconds 3
     $run = & gh run list --workflow rollback-release.yml --branch main --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId'
