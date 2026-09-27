@@ -83,7 +83,7 @@ try {
     @"
 # $tag リリース記録
 
-$([DateTime]::Now.ToString('yyyy-MM-dd')) JST、$tagを商用環境へ公開した。
+$([DateTime]::Now.ToString('yyyy-MM-dd')) JST、${tag}を商用環境へ公開した。
 
 - main SHA: ``$mainCommit``
 - 成果物SHA256: ``$artifactSha``
