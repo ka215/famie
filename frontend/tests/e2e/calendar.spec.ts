@@ -4,19 +4,14 @@ test('週の日付選択、月別件数、指定日表示、登録日の引き�
   const owner = { id: 1, username: 'owner', display_name: '自分', role: 'parent' }
   const category = { id: 1, name: '家事', color_code: '#10B981' }
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-  const selected = new Date(year, month, 15, 12)
-  const selectedDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(selected)
-  const monthStart = new Date(year, month, 1, 12)
-  const monthEnd = new Date(year, month + 1, 0, 12)
-  const monthFrom = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(monthStart)
-  const monthTo = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(monthEnd)
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(now)
-  const nextWeekDateObject = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12)
-  const nextWeekDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(
-    nextWeekDateObject
-  )
+  const [year, monthNumber, day] = today.split('-').map(Number) as [number, number, number]
+  const month = monthNumber - 1
+  const selectedDate = `${year}-${String(monthNumber).padStart(2, '0')}-15`
+  const selected = new Date(`${selectedDate}T12:00:00+09:00`)
+  const monthFrom = `${year}-${String(monthNumber).padStart(2, '0')}-01`
+  const monthTo = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10)
+  const nextWeekDate = new Date(Date.UTC(year, month, day + 7)).toISOString().slice(0, 10)
   const requestedPages: number[] = []
   const requestedRanges: string[] = []
 
