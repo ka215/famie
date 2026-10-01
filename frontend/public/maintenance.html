@@ -13,6 +13,14 @@
       .brand { color: #2563eb; font-weight: bold; }
       button { margin-top: 16px; border: 0; border-radius: 8px; padding: 12px 24px; background: #2563eb; color: white; font: inherit; cursor: pointer; }
       button:disabled { opacity: .5; }
+      :root { color-scheme: light; }
+      @media (prefers-color-scheme: dark) {
+        :root { color-scheme: dark; }
+        body { background: #020617; color: #cbd5e1; }
+        main { background: #1e293b; border-color: #334155; }
+        h1 { color: #f1f5f9; }
+        .brand { color: #93c5fd; }
+      }
     </style>
   </head>
   <body>

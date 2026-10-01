@@ -50,17 +50,17 @@ const weekdays = computed(() => {
 })
 
 const weekdayTextClass = (day: number) => {
-  if (day === 0) return 'text-red-600'
-  if (day === 6) return 'text-blue-600'
-  return 'text-slate-500'
+  if (day === 0) return 'text-red-600 dark:text-red-300'
+  if (day === 6) return 'text-blue-600 dark:text-blue-300'
+  return 'text-slate-500 dark:text-slate-400'
 }
 
 const calendarTileClass = (date: string, hasActivities: boolean) => {
-  if (hasActivities) return 'border-amber-300 bg-amber-100'
+  if (hasActivities) return 'border-amber-300 dark:border-amber-600 bg-amber-100 dark:bg-amber-950'
   const day = parseLocalDate(date).getDay()
-  if (day === 0) return 'border-red-100 bg-red-50'
-  if (day === 6) return 'border-blue-100 bg-blue-50'
-  return 'border-slate-200 bg-white'
+  if (day === 0) return 'border-red-100 dark:border-red-800 bg-red-50 dark:bg-red-950'
+  if (day === 6) return 'border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-950'
+  return 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
 }
 
 const accessibleLabel = (date: string) => {
@@ -82,8 +82,8 @@ const accessibleLabel = (date: string) => {
         <span aria-hidden="true" class="calendar-nav-icon" :style="arrowLeftStyle" />
       </button>
       <div class="text-center">
-        <h2 class="text-base font-bold text-slate-800" aria-live="polite">{{ monthLabel }}</h2>
-        <button type="button" class="text-xs font-medium text-blue-600" @click="emit('current')">
+        <h2 class="text-base font-bold text-slate-800 dark:text-slate-100" aria-live="polite">{{ monthLabel }}</h2>
+        <button type="button" class="text-xs font-medium text-blue-600 dark:text-blue-300" @click="emit('current')">
           今月へ戻る
         </button>
       </div>
@@ -114,9 +114,9 @@ const accessibleLabel = (date: string) => {
         class="relative flex aspect-square min-w-0 flex-col items-center justify-center rounded-lg border text-sm transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
         :class="[
           calendarTileClass(cell.date, Boolean(counts[cell.date])),
-          cell.inCurrentMonth ? 'text-slate-700' : 'text-slate-400 opacity-60',
+          cell.inCurrentMonth ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-400 opacity-60',
           cell.date === today ? 'ring-2 ring-violet-500' : '',
-          cell.date === selectedDate ? 'border-blue-500 ring-2 ring-blue-400 text-blue-800' : '',
+          cell.date === selectedDate ? 'border-blue-500 ring-2 ring-blue-400 text-blue-800 dark:text-blue-200' : '',
         ]"
         @click="emit('select', cell.date, cell.inCurrentMonth)"
       >
@@ -155,5 +155,13 @@ const accessibleLabel = (date: string) => {
   mask-position: center;
   mask-repeat: no-repeat;
   mask-size: contain;
+}
+
+@media (prefers-color-scheme: dark) {
+  .calendar-nav-button {
+    border-color: var(--color-slate-600);
+    background: var(--color-slate-800);
+    color: var(--color-slate-200);
+  }
 }
 </style>

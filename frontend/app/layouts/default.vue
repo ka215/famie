@@ -13,11 +13,11 @@ const iconStyles = {
 </script>
 
 <template>
-  <div class="app-shell bg-slate-50">
-    <header class="shrink-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
-      <h1 class="text-lg font-bold text-slate-800">Famie</h1>
+  <div class="app-shell bg-slate-50 dark:bg-slate-950">
+    <header class="shrink-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between shadow-xs">
+      <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Famie</h1>
       <div class="flex items-center space-x-3 text-sm">
-        <span class="text-slate-600 font-medium">{{ user?.display_name }} さん</span>
+        <span class="text-slate-600 dark:text-slate-300 font-medium">{{ user?.display_name }} さん</span>
       </div>
     </header>
 
@@ -27,17 +27,17 @@ const iconStyles = {
       </main>
     </div>
 
-    <nav aria-label="メインメニュー" class="shrink-0 bg-white border-t border-slate-200 px-4 pb-[env(safe-area-inset-bottom)] z-10">
+    <nav aria-label="メインメニュー" class="shrink-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 pb-[env(safe-area-inset-bottom)] z-10">
       <div class="grid grid-cols-3 max-w-md mx-auto">
-      <NuxtLink to="/" :aria-current="route.path === '/' || route.path.startsWith('/logs/') ? 'page' : undefined" class="footer-item" :class="route.path === '/' || route.path.startsWith('/logs/') ? 'text-blue-600' : 'text-slate-500'">
+      <NuxtLink to="/" :aria-current="route.path === '/' || route.path.startsWith('/logs/') ? 'page' : undefined" class="footer-item" :class="route.path === '/' || route.path.startsWith('/logs/') ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.timeline" />
         <span class="text-xs font-medium">タイムライン</span>
       </NuxtLink>
-      <button type="button" disabled aria-label="リワード（準備中）" class="footer-item text-slate-300 cursor-not-allowed">
+      <button type="button" disabled aria-label="リワード（準備中）" class="footer-item text-slate-300 dark:text-slate-500 cursor-not-allowed">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.trophy" />
         <span class="text-xs font-medium">リワード</span>
       </button>
-      <NuxtLink to="/settings" class="footer-item" :class="route.path === '/settings' ? 'text-blue-600' : 'text-slate-500'">
+      <NuxtLink to="/settings" class="footer-item" :class="route.path === '/settings' ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.settings" />
         <span class="text-xs font-medium">設定</span>
       </NuxtLink>

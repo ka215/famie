@@ -105,27 +105,27 @@ onMounted(loadLog)
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <NuxtLink to="/" class="text-sm text-blue-600">← タイムラインへ</NuxtLink>
-      <span v-if="log" class="text-xs text-slate-500">{{ log.user.display_name }}さんの記録</span>
+      <NuxtLink to="/" class="text-sm text-blue-600 dark:text-blue-300">← タイムラインへ</NuxtLink>
+      <span v-if="log" class="text-xs text-slate-500 dark:text-slate-400">{{ log.user.display_name }}さんの記録</span>
     </div>
 
-    <div v-if="errorMessage" role="alert" class="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+    <div v-if="errorMessage" role="alert" class="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
       {{ errorMessage }}
     </div>
-    <div v-if="successMessage" class="p-3 bg-emerald-50 text-emerald-700 text-sm rounded-lg">
+    <div v-if="successMessage" class="p-3 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-sm rounded-lg">
       {{ successMessage }}
     </div>
 
-    <div v-if="isLoading" class="text-center py-8 text-slate-400 text-sm">読み込み中...</div>
+    <div v-if="isLoading" class="text-center py-8 text-slate-400 dark:text-slate-400 text-sm">読み込み中...</div>
 
-    <form v-else-if="log" class="bg-white p-4 rounded-xl border border-slate-200 space-y-4" novalidate @submit.prevent="handleUpdate">
+    <form v-else-if="log" class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4" novalidate @submit.prevent="handleUpdate">
       <div>
-        <label class="block text-xs font-semibold text-slate-600 mb-1">カテゴリ</label>
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">カテゴリ</label>
         <select
           v-model="form.category_id"
           required
           :disabled="!canEdit"
-          class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white disabled:bg-slate-100"
+          class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 disabled:bg-slate-100"
         >
           <option v-for="category in categories" :key="category.id" :value="category.id">
             {{ category.name }}
@@ -135,34 +135,34 @@ onMounted(loadLog)
 
       <div class="grid grid-cols-2 gap-3">
         <div class="min-w-0">
-          <label for="edit-activity-date" class="block text-xs font-semibold text-slate-600 mb-1">実施日</label>
-          <input id="edit-activity-date" v-model="form.activity_date" type="date" required :disabled="!canEdit" class="block min-w-0 max-w-full w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 bg-white disabled:bg-slate-100">
+          <label for="edit-activity-date" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">実施日</label>
+          <input id="edit-activity-date" v-model="form.activity_date" type="date" required :disabled="!canEdit" class="block min-w-0 max-w-full w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 disabled:bg-slate-100">
         </div>
         <div class="min-w-0">
-          <label for="edit-activity-time" class="block text-xs font-semibold text-slate-600 mb-1">実施時刻</label>
-          <input id="edit-activity-time" v-model="form.activity_time" type="time" :disabled="!canEdit" class="block min-w-0 max-w-full w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 bg-white disabled:bg-slate-100">
+          <label for="edit-activity-time" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">実施時刻</label>
+          <input id="edit-activity-time" v-model="form.activity_time" type="time" :disabled="!canEdit" class="block min-w-0 max-w-full w-full appearance-none px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 disabled:bg-slate-100">
         </div>
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-slate-600 mb-1">活動内容</label>
-        <textarea v-model="form.content" required rows="4" :disabled="!canEdit" class="w-full px-3 py-2 rounded-lg border border-slate-300 disabled:bg-slate-100" />
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">活動内容</label>
+        <textarea v-model="form.content" required rows="4" :disabled="!canEdit" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:bg-slate-100" />
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-slate-600 mb-1">補足メモ</label>
-        <textarea v-model="form.note" rows="3" :disabled="!canEdit" class="w-full px-3 py-2 rounded-lg border border-slate-300 disabled:bg-slate-100" />
+        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">補足メモ</label>
+        <textarea v-model="form.note" rows="3" :disabled="!canEdit" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:bg-slate-100" />
       </div>
 
       <div v-if="canEdit" class="flex gap-3 pt-2">
         <button type="submit" :disabled="isSaving" class="flex-1 py-2.5 bg-blue-600 text-white rounded-lg disabled:opacity-50">
           {{ isSaving ? '保存中...' : '更新する' }}
         </button>
-        <button type="button" :disabled="isSaving" class="px-4 py-2.5 border border-red-300 text-red-600 rounded-lg disabled:opacity-50" @click="handleDelete">
+        <button type="button" :disabled="isSaving" class="px-4 py-2.5 border border-red-300 dark:border-red-600 text-red-600 dark:text-red-300 rounded-lg disabled:opacity-50" @click="handleDelete">
           削除
         </button>
       </div>
-      <p v-else class="text-xs text-slate-500">この記録は閲覧のみ可能です。</p>
+      <p v-else class="text-xs text-slate-500 dark:text-slate-400">この記録は閲覧のみ可能です。</p>
     </form>
   </div>
 </template>
