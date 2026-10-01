@@ -7,12 +7,18 @@ const isProduction = import.meta.env.NODE_ENV === 'production'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
+  // Nuxt 4のsrcDir(app/)から既存のルート直下テンプレートを参照する。
+  spaLoadingTemplate: '../spa-loading-template.html',
   // ビルド端末の DEBUG 環境変数を本番バンドルへ持ち込まない。
   debug: isProduction ? false : undefined,
   // 起動中の開発サーバーとE2Eの生成物・ロックを分離する。
   buildDir: import.meta.env.FAMIE_E2E === '1' ? '.cache/nuxt-e2e' : '.nuxt',
   app: {
     head: {
+      meta: [
+        { name: 'theme-color', content: '#f8fafc', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#020617', media: '(prefers-color-scheme: dark)' },
+      ],
       link: [{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }],
     },
   },

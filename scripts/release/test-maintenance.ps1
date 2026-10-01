@@ -106,7 +106,24 @@ try {
     if ($response.StatusCode -ne 200 -or $response.Content -notmatch 'Normal frontend') { throw 'Recovery failed.' }
     $response = Request '/api/v1/status'
     if ($response.StatusCode -ne 200 -or $response.Content -notmatch 'Backend reached') { throw 'API recovery failed.' }
-    Write-Host 'PASS: Apache HTML/API 503, GET/POST, no-store, retry header, IP restrictions and recovery.'
+    # Production removes only the IP rule; maintenance and routing still work.
+    [System.IO.File]::WriteAllText((Join-Path $public '.htaccess'), $rules.Replace("Require ip 127.0.0.1`n", ''))
+    foreach ($path in @('/', '/api/v1/status')) {
+        $response = Request $path
+        if ($response.StatusCode -ne 200) { throw "Unrestricted access failed: $path HTTP $($response.StatusCode)" }
+    }
+    New-Item -ItemType File -Path (Join-Path $public '.maintenance') | Out-Null
+    $response = Request '/'
+    if ($response.StatusCode -ne 503 -or $response.Content -notmatch 'ただいまメンテナンス中です') { throw 'Unrestricted HTML maintenance failed.' }
+    $response = Request '/api/v1/status' 'POST'
+    if ($response.StatusCode -ne 503 -or $response.Content -cne [IO.File]::ReadAllText((Join-Path $public 'maintenance.json'))) { throw 'Unrestricted API maintenance failed.' }
+    Remove-Item -LiteralPath (Join-Path $public '.maintenance')
+    # Reinstating the stage-like restriction denies requests again.
+    [System.IO.File]::WriteAllText((Join-Path $public '.htaccess'), $rules.Replace('Require ip 127.0.0.1', 'Require ip 192.0.2.1'))
+    foreach ($path in @('/', '/api/v1/status')) {
+        if ((Request $path).StatusCode -ne 403) { throw "IP restriction restoration failed: $path" }
+    }
+    Write-Host 'PASS: Apache HTML/API 503, GET/POST, no-store, retry header, IP restrictions, unrestricted production and recovery.'
     Write-Host "Fixture retained: $fixture"
 } finally {
     if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }

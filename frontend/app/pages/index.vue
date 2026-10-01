@@ -11,6 +11,7 @@ import {
   getWeekRange,
   parseLocalDate,
 } from '#shared/utils/calendar'
+import { categoryStyle } from '#shared/utils/categoryColor'
 import plusIcon from '~/assets/icons/plus.svg'
 import editIcon from '~/assets/icons/square-edit-outline.svg'
 
@@ -24,6 +25,13 @@ const categories = ref<Category[]>([])
 const familyMembers = ref<User[]>([])
 const isLoading = ref(false)
 const isModalOpen = ref(false)
+const badgeStyle = categoryStyle
+const openCreateModal = (event: MouseEvent) => {
+  // Safariはタップしたボタンへ自動でフォーカスしないため、復帰先を明示する。
+  const trigger = event.currentTarget as HTMLButtonElement
+  trigger.focus({ preventScroll: true })
+  isModalOpen.value = true
+}
 const errorMessage = ref('')
 const currentPage = ref(1)
 const lastPage = ref(1)
@@ -274,27 +282,27 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-4">
-    <div v-if="errorMessage" class="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+    <div v-if="errorMessage" class="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
       {{ errorMessage }}
     </div>
-    <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-3">
+    <div class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-slate-500">表示期間</span>
-        <div class="flex space-x-1 bg-slate-100 p-1 rounded-lg">
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">表示期間</span>
+        <div class="flex space-x-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
           <button
-            :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'this_week' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600']"
+            :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'this_week' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-300']"
             @click="selectPeriod('this_week')"
           >
             今週
           </button>
           <button
-            :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'month' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600']"
+            :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'month' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-300']"
             @click="selectPeriod('month')"
           >
             月表示
           </button>
           <button
-            :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'custom' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600']"
+            :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'custom' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-300']"
             @click="selectPeriod('custom')"
           >
             指定
@@ -302,19 +310,19 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="filterPeriod === 'custom'" class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-2 border-t border-slate-100">
-        <input v-model="filterFrom" aria-label="開始日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <span class="text-slate-400 text-xs">〜</span>
-        <input v-model="filterTo" aria-label="終了日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <button class="col-span-3 justify-self-end px-3 py-1 bg-slate-800 text-white text-xs rounded-lg" @click="fetchLogs(1)">
+      <div v-if="filterPeriod === 'custom'" class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+        <input v-model="filterFrom" aria-label="開始日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 dark:border-slate-700 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <span class="text-slate-400 dark:text-slate-400 text-xs">〜</span>
+        <input v-model="filterTo" aria-label="終了日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 dark:border-slate-700 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button class="col-span-3 justify-self-end px-3 py-1 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded-lg" @click="fetchLogs(1)">
           適用
         </button>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
         <div>
-          <label class="block text-2xs font-semibold text-slate-500 mb-1">投稿者</label>
-          <select v-model="filterUserId" class="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+          <label class="block text-2xs font-semibold text-slate-500 dark:text-slate-400 mb-1">投稿者</label>
+          <select v-model="filterUserId" class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800">
             <option value="">全員</option>
             <option v-for="member in familyMembers" :key="member.id" :value="String(member.id)">
               {{ member.id === user?.id ? '自分' : member.display_name }}
@@ -322,8 +330,8 @@ onMounted(async () => {
           </select>
         </div>
         <div>
-          <label class="block text-2xs font-semibold text-slate-500 mb-1">カテゴリ</label>
-          <select v-model="filterCategoryId" class="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+          <label class="block text-2xs font-semibold text-slate-500 dark:text-slate-400 mb-1">カテゴリ</label>
+          <select v-model="filterCategoryId" class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800">
             <option value="">全カテゴリ</option>
             <option v-for="cat in categories" :key="cat.id" :value="String(cat.id)">
               {{ cat.name }}
@@ -335,7 +343,7 @@ onMounted(async () => {
 
     <button
       class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md flex items-center justify-center space-x-2 transition"
-      @click="isModalOpen = true"
+      @click="openCreateModal"
     >
       <span aria-hidden="true" class="h-5 w-5 shrink-0 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="plusIconStyle" />
       <span>アクティビティを記録する</span>
@@ -351,7 +359,7 @@ onMounted(async () => {
       @select="selectWeekDate"
     />
 
-    <div v-if="filterPeriod === 'month' && !isDayView" class="rounded-xl border border-slate-200 bg-white p-3">
+    <div v-if="filterPeriod === 'month' && !isDayView" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
       <MonthCalendar
         :year="calendarYear"
         :month="calendarMonth"
@@ -367,12 +375,12 @@ onMounted(async () => {
       />
     </div>
 
-    <div v-if="filterPeriod === 'month' && isDayView" class="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+    <div v-if="filterPeriod === 'month' && isDayView" class="flex items-center justify-between gap-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-3">
       <div>
-        <p class="text-2xs font-semibold text-blue-600">指定日のアクティビティ</p>
-        <h2 class="text-sm font-bold text-slate-800">{{ selectedDateLabel }}</h2>
+        <p class="text-2xs font-semibold text-blue-600 dark:text-blue-300">指定日のアクティビティ</p>
+        <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ selectedDateLabel }}</h2>
       </div>
-      <button type="button" class="shrink-0 rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700" @click="returnToCalendar">
+      <button type="button" class="shrink-0 rounded-lg border border-blue-300 dark:border-blue-500 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-medium text-blue-700 dark:text-blue-300" @click="returnToCalendar">
         カレンダーに戻る
       </button>
     </div>
@@ -382,49 +390,49 @@ onMounted(async () => {
       :class="filterPeriod === 'this_week' ? 'grid grid-cols-[3.25rem_minmax(0,1fr)] items-start gap-3' : ''"
     >
       <div v-if="filterPeriod === 'this_week'" class="pt-2 text-center" aria-live="polite">
-        <p class="text-sm font-bold leading-tight text-slate-700">{{ weekDateLabel.date }}</p>
-        <p class="mt-1 text-xs text-slate-500">{{ weekDateLabel.weekday }}</p>
+        <p class="text-sm font-bold leading-tight text-slate-700 dark:text-slate-200">{{ weekDateLabel.date }}</p>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ weekDateLabel.weekday }}</p>
       </div>
 
       <div class="min-w-0">
         <LoadingIndicator v-if="isLoading" class="py-4" />
 
-        <div v-else-if="logs.length === 0" class="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300 p-6">
-          <p class="text-slate-500 text-sm">該当する記録がありません。</p>
+        <div v-else-if="logs.length === 0" class="text-center py-8 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 p-6">
+          <p class="text-slate-500 dark:text-slate-400 text-sm">該当する記録がありません。</p>
         </div>
 
         <div v-else class="space-y-3">
           <article
             v-for="log in logs"
             :key="log.id"
-            class="block bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2 relative transition"
-            :class="log.user_id === user?.id ? 'hover:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500' : ''"
+            class="block bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-2 relative transition"
+            :class="log.user_id === user?.id ? 'hover:border-blue-300 dark:hover:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500' : ''"
           >
             <div class="flex flex-wrap gap-2 items-center justify-between">
               <div class="flex flex-wrap gap-2 items-center">
                 <span
                   class="px-2 py-0.5 text-xs font-semibold text-white rounded-full"
-                  :style="{ backgroundColor: log.category?.color_code || '#3B82F6' }"
+                  :style="badgeStyle(log.category?.color_code)"
                 >
                   {{ log.category?.name }}
                 </span>
-                <span class="text-xs font-bold text-slate-700">{{ log.user?.display_name }}</span>
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-200">{{ log.user?.display_name }}</span>
               </div>
 
-              <span class="ml-auto text-xs text-slate-400 whitespace-nowrap">
+              <span class="ml-auto text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap">
                 {{ log.activity_date }} {{ log.activity_time ? log.activity_time.slice(0, 5) : '' }}
               </span>
             </div>
 
-            <p class="text-sm text-slate-800 whitespace-pre-wrap font-normal">
+            <p class="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap font-normal">
               {{ log.content }}
             </p>
 
-            <p v-if="log.note" class="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
+            <p v-if="log.note" class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg">
               メモ: {{ log.note }}
             </p>
             <div v-if="log.user_id === user?.id" class="flex justify-end">
-              <NuxtLink :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 bg-blue-50">
+              <NuxtLink :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">
                 <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="editIconStyle" />
               </NuxtLink>
             </div>
@@ -434,18 +442,18 @@ onMounted(async () => {
             <button
               type="button"
               :disabled="currentPage <= 1 || isLoading"
-              class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white disabled:opacity-40"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 disabled:opacity-40"
               @click="fetchLogs(currentPage - 1)"
             >
               前へ
             </button>
-            <span class="text-xs text-slate-500">
+            <span class="text-xs text-slate-500 dark:text-slate-400">
               {{ currentPage }} / {{ lastPage }} ページ（全 {{ total }} 件）
             </span>
             <button
               type="button"
               :disabled="currentPage >= lastPage || isLoading"
-              class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white disabled:opacity-40"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 disabled:opacity-40"
               @click="fetchLogs(currentPage + 1)"
             >
               次へ

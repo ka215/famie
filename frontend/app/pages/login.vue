@@ -33,38 +33,38 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-100 flex flex-col items-center gap-4 px-4 py-8">
-    <div class="w-full max-w-sm bg-white rounded-2xl shadow-md p-6 space-y-6">
+  <div class="min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col items-center gap-4 px-4 py-8">
+    <div class="w-full max-w-sm bg-white dark:bg-slate-800 rounded-2xl shadow-md p-6 space-y-6">
       <div class="text-center space-y-1">
-        <h1 class="text-2xl font-bold text-slate-800">Famie</h1>
-        <p class="text-sm text-slate-500">家族のアクティビティ記録</p>
+        <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Famie</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">家族のアクティビティ記録</p>
       </div>
 
       <form class="space-y-4" @submit.prevent="handleLogin">
-        <div v-if="errorMessage" class="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
+        <div v-if="errorMessage" class="p-3 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
           {{ errorMessage }}
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">ログインID / メールアドレス</label>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">ログインID / メールアドレス</label>
           <input
             v-model="loginId"
             type="text"
             required
             placeholder="例: parent1"
-            class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            class="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
         </div>
 
         <div>
-          <label for="login-password" class="block text-sm font-medium text-slate-700 mb-1">パスワード</label>
+          <label for="login-password" class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">パスワード</label>
           <PasswordInput
             id="login-password"
             label="パスワード"
             v-model="password"
             autocomplete="current-password"
             required
-            class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            class="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           />
         </div>
 

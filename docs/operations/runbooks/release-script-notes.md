@@ -60,6 +60,8 @@ pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging -ConfirmSta
 
 ## 3. 商用配置
 
+v0.9.0では通常配置後に[IP制限変更手順](ip-access-notes.md)に従って商用だけIP制限を解除する。`.env`・`.htaccess`は配置時に保持されるため、コード配置だけでは解除されない。設定反映・従来許可外回線での確認を商用完了判定に含める。ステージングの制限は維持する。
+
 ```powershell
 pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment production
 pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment production -Apply
@@ -81,6 +83,8 @@ pwsh scripts/release/complete-release.ps1 -Version X.Y.Z -Apply
 GitHub Releaseへ成果物を登録し、`main`を`dev`へ同期する。公開記録と `version.json` の更新PRを作成し、取り込み済み作業ブランチを削除する。次版が決まっている場合は `-NextVersion A.B.C` を指定する。
 
 ## 5. 切り戻し
+
+商用IP制限を解除した後でv0.8.0以前へ戻す場合は、[IP制限の復旧手順](ip-access-notes.md)も実施する。旧版は新しい解除設定を認識しない。環境設定は通常のアプリ切り戻しでは復元されない。
 
 対象の公開済み版と環境を指定し、まずpreflightを実行する。
 

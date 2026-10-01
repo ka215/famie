@@ -30,12 +30,19 @@ try {
         || ! empty($values['DB_URL'])) {
         throw new RuntimeException('APP_DEBUG must be disabled and DB_URL must be unset');
     }
+    if ($expectedDatabase === 'ka2_famiestg'
+        && in_array(strtolower($values['IP_RESTRICTION_ENABLED'] ?? 'true'), ['false', '(false)'], true)) {
+        throw new RuntimeException('Staging IP restriction must remain enabled');
+    }
 
     $app = require $backend.'/bootstrap/app.php';
     $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
     if (! $app->environment('production') || config('app.debug') || config('app.url') !== $expectedUrl
         || config('database.default') !== 'pgsql') {
         throw new RuntimeException('Unexpected effective application configuration');
+    }
+    if ($expectedDatabase === 'ka2_famiestg' && config('famie.ip_restriction_enabled', true) === false) {
+        throw new RuntimeException('Staging effective IP restriction must remain enabled');
     }
     $connection = Illuminate\Support\Facades\DB::connection();
     foreach (['host' => 'localhost', 'port' => '5432', 'database' => $expectedDatabase,
@@ -51,6 +58,6 @@ try {
     echo "Application and database identity verified.\n";
 } catch (Throwable $error) {
     // Connection exception messages can include credentials; never print them.
-    fwrite(STDERR, "Environment/database identity check failed. Check .env, cached config and DB connectivity for the selected target.\n");
+    fwrite(STDERR, "Environment/database identity check failed. Check .env, cached config, IP restriction and DB connectivity for the selected target.\n");
     exit(1);
 }

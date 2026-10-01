@@ -25,10 +25,10 @@ const recover = () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-    <div class="w-full max-w-sm bg-white rounded-2xl shadow-md p-6 text-center space-y-4">
-      <h1 class="text-xl font-bold text-slate-800">Famie</h1>
-      <p class="text-sm text-slate-600">{{ message }}</p>
+  <div class="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white dark:bg-slate-800 rounded-2xl shadow-md p-6 text-center space-y-4">
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Famie</h1>
+      <p class="text-sm text-slate-600 dark:text-slate-300">{{ message }}</p>
       <button type="button" class="w-full py-2.5 bg-blue-600 text-white rounded-lg" @click="recover">
         {{ retryRequired ? '再試行' : 'ホームへ戻る' }}
       </button>
