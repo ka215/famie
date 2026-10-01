@@ -11,7 +11,9 @@ pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging
 pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging -Apply
 ```
 
-配置workflowは次を自動確認する。CoreServer上では成果物、環境、DB、バックアップ、配置後の静的資産を検査し、self-hosted runnerからは公開URLのHTTP、API、ブラウザ動作を検査する。APIは接続元IP制限のためCoreServer自身から確認しない。
+配置workflowは次を自動確認する。CoreServer上では成果物、環境、DB、バックアップ、配置後の静的資産を検査し、self-hosted runnerからは公開URLのHTTP、API、ブラウザ動作を検査する。ステージングAPIは接続元IP制限のためCoreServer自身から確認しない。
+
+v0.9.0の商用解除後もステージングは`IP_RESTRICTION_ENABLED=true`（未指定も有効）とApacheの許可IPを維持する。配置ガードはステージングの`.env`または有効設定がfalseの場合に停止する。許可外IPから画面/APIが403となる確認は[IP制限変更手順](ip-access-notes.md)に従う。
 
 - 配布アーカイブとpayloadのSHA256、manifestの版・source tree
 - 配置先URL、Laravel設定、接続中DB・schema・DB user

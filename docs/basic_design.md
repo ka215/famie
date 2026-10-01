@@ -84,9 +84,11 @@ Cookie は本番で `Secure`、`SameSite=Lax`、`Path=/` を設定する。ブ�
 
 ### 3.3 IP 制限
 
+- v0.9.0では商用のみIP制限を解除する。ステージングは以下の二層の制限を維持する。[決定記録](development/decisions/2026-09-28-production-ip-access.md)と[適用・復旧手順](operations/runbooks/ip-access-notes.md)を参照。
+- Laravelは`IP_RESTRICTION_ENABLED=false`で明示的に解除する。未指定は有効。商用のApache側も別途解除する。両環境の`APP_ENV=production`を判定に使わない。
 - `ALLOWED_IPS` 環境変数にカンマ区切りで許可 IP アドレスを設定する。
 - API は Apache の `Require ip` と Laravel の `RestrictIpAddress` ミドルウェアの二層で遮断する。静的ファイルは Apache で遮断する。
-- 許可リストが空、またはクライアント IP が一致しない場合は HTTP 403 を返す。
+- 制限有効時は、許可リストが空、またはクライアント IP が一致しない場合に HTTP 403 を返す。
 - HTML、JavaScript、CSS、Manifest、Service Worker、アイコンおよび API の全経路を保護対象とする。
 - `ALLOWED_IPS` を正本とし、デプロイ時および許可 IP 変更時に Apache の許可設定へ同期する。Laravel の `.env` は Apache が自動で読み込むものとは扱わない。空の場合は Apache も `Require all denied` とする。
 - Laravel は実際の接続元 IP を使用する。ホスティング環境にプロキシがある場合のみ、その信頼済みプロキシからの転送ヘッダーを使用し、任意の `X-Forwarded-For` を信用しない。
@@ -159,7 +161,7 @@ flowchart TD
 
 | メソッド | パス | 用途 | 権限 |
 | --- | --- | --- | --- |
-| POST | `/auth/login` | ログイン、トークン発行 | IP 許可済み |
+| POST | `/auth/login` | ログイン、トークン発行 | 未認証可。IP制限有効環境では許可IPのみ |
 | POST | `/auth/logout` | 現在トークンの破棄 | 認証済み |
 | GET | `/auth/me` | 現在の利用者情報 | 認証済み |
 | GET | `/users` | 家族ユーザー一覧 | 認証済み |
@@ -324,7 +326,7 @@ erDiagram
 | Nuxt | ローカルで生成した `frontend/.output/public` の内容を Apache の静的公開領域へ配置 |
 | Laravel | 契約環境の PHP 8.4 で実行し、`public` のみを公開対象として `/api/v1` を処理 |
 | PostgreSQL | 契約環境の PostgreSQL 14.13 を利用し、Laravel から接続。ブラウザーから直接接続しない |
-| Apache | HTTPS、全経路の IP 制限、静的配信、SPA フォールバック、Laravel への API 振り分け |
+| Apache | HTTPS、制限有効環境の全経路の IP 制限、静的配信、SPA フォールバック、Laravel への API 振り分け |
 
 CoreServer の Apache を本番 Web サーバーとして使用する。契約環境の HTTPS、IP 制限、`mod_rewrite` およびヘッダー設定機能を利用する。Nuxt 用の `mod_proxy`、`mod_proxy_http`、PM2 および本番 Node.js は不要とする。配置先の絶対パスは契約環境の公開ディレクトリに合わせ、VPS のディレクトリ構成や管理者権限を前提としない。
 
@@ -356,7 +358,8 @@ Apache の振り分けは、IP 制限を適用したうえで API、実在する
 | `DB_CONNECTION` | `pgsql` |
 | `DB_HOST` / `DB_PORT` | PostgreSQL 接続先 |
 | `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | DB 接続情報 |
-| `ALLOWED_IPS` | 許可するクライアント IP の一覧。Laravel で使用し、Apache 設定にも同期 |
+| `IP_RESTRICTION_ENABLED` | 未指定はtrue。商用で明示的にfalseとした場合だけLaravelのIP制限を解除。Apache側は別途設定 |
+| `ALLOWED_IPS` | 制限有効時の許可するクライアント IP の一覧。Laravel で使用し、Apache 設定にも同期 |
 | `NUXT_DEV_API_BASE` | Nuxt 開発サーバーから呼び出す API URL。本番生成物では使用しない |
 
 本番生成物の API ベースは同一 Origin の `/api/v1` に固定する。`NUXT_DEV_API_BASE` は開発時だけ使用し、DB 接続情報や API トークンなどの秘密情報を Nuxt の公開設定に含めない。

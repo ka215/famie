@@ -23,7 +23,7 @@ Apacheは `/api` を `backend/public` のマウントパスとして取り除い
 - Composer 2.8.10 を SSH から実行できることを確認済みである。
 - rsync 3.1.3 が利用でき、シンボリックリンクを扱えることを確認済みである。
 - `pg_dump`と`pg_restore`をリリーススクリプトから実行できる。
-- 許可する接続元 IP アドレスが確定している。
+- ステージングなどIP制限有効環境では許可する接続元IPが確定している。商用解除は[IP制限変更手順](ip-access-notes.md)に従う。
 
 初回作業前に実行環境を確認する。
 
@@ -89,7 +89,8 @@ DB_USERNAME=ka2_famie
 DB_PASSWORD=<CORESERVER_DB_PASSWORD>
 DB_SCHEMA=ka2_famie
 
-ALLOWED_IPS=<ALLOWED_IP_ADDRESS_1>,<ALLOWED_IP_ADDRESS_2>
+IP_RESTRICTION_ENABLED=false
+ALLOWED_IPS=<ROLLBACK_ALLOWED_IP_ADDRESS_1>,<ROLLBACK_ALLOWED_IP_ADDRESS_2>
 CORS_ALLOWED_ORIGINS=https://famie.ka2.org
 
 SESSION_DRIVER=database
@@ -98,7 +99,7 @@ CACHE_STORE=database
 QUEUE_CONNECTION=database
 ```
 
-`ALLOWED_IPS` は許可リストの正本であり、フロントエンド用 `.htaccess` にも同じ値を設定する。空の場合、Laravelは全アクセスを拒否する。
+上記はv0.9.0以降の商用設定。ステージングは`IP_RESTRICTION_ENABLED=true`（未指定も有効）とし、`ALLOWED_IPS`を許可リストの正本としてフロントエンド用`.htaccess`にも同じ値を設定する。有効時に空の場合、Laravelは全アクセスを拒否する。商用解除はApache設定の変更と設定キャッシュ再生成も必要であり、[専用手順](ip-access-notes.md)に従う。旧版へ戻すため、商用でも有効な許可リストを保持する。
 
 APP_KEY は初回だけ生成する。既存のキーをリリース時に再生成してはいけない。
 
@@ -234,7 +235,7 @@ curl -i \
 - 空のログインリクエストが HTML ではなく、JSON の `422` を返す。
 - 実アカウントでログイン、ログアウト、記録の登録と参照ができる。
 - `storage/logs/laravel.log` に新しい例外がない。
-- 許可していない IP から API が `403` になる。
+- ステージングでは許可外IPのAPIが403になる。商用では従来許可外IPからログインでき、未認証の保護APIは401になる。
 
 `The route v1/... could not be found.` が返る場合は、古いルートキャッシュが残っている。次を実行してから再確認する。
 
