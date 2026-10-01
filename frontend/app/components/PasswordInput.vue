@@ -25,7 +25,7 @@ watch(model, (value) => {
       :aria-pressed="visible"
       :aria-controls="id"
       :disabled="disabled"
-      class="absolute inset-y-0 right-0 w-11 flex items-center justify-center rounded-r-lg text-slate-500 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-50"
+      class="absolute inset-y-0 right-0 w-11 flex items-center justify-center rounded-r-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-50"
       @click="visible = !visible"
     >
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-5 h-5">

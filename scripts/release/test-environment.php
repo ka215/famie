@@ -33,6 +33,18 @@ foreach (['APP_URL' => 'https://wrong.example', 'APP_ENV' => 'local', 'APP_DEBUG
     $run($fixture, false);
 }
 // Simulate stale config that disagrees with .env; no live config file is changed.
+if ($database === 'ka2_famiestg') {
+    $modified = preg_replace('/^IP_RESTRICTION_ENABLED=.*\R?/m', '', $original);
+    file_put_contents($fixture.'/.env', rtrim($modified)."\nIP_RESTRICTION_ENABLED=false\n");
+    $run($fixture, false);
+    file_put_contents($fixture.'/ip-disabled-config.php', '<?php return '.var_export([
+        'app' => ['env' => 'production', 'debug' => false, 'url' => $url],
+        'database' => ['default' => 'pgsql'],
+        'famie' => ['ip_restriction_enabled' => false],
+    ], true).';');
+    $run($backend, false, ['APP_CONFIG_CACHE' => $fixture.'/ip-disabled-config.php']);
+}
+
 file_put_contents($fixture.'/stale-config.php', '<?php return '.var_export([
     'app' => ['env' => 'production', 'debug' => true, 'url' => $url],
     'database' => ['default' => 'pgsql'],

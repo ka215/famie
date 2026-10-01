@@ -54,3 +54,15 @@ test('remote API responds through the public access path', async ({ request }) =
     errors: expect.any(Object),
   })
 })
+
+test.describe('JavaScript読込前のテーマ', () => {
+  test.use({ javaScriptEnabled: false, colorScheme: 'dark' })
+
+  test('起動前から暗い背景と読込表示を配信する', async ({ page }) => {
+    test.skip(!!process.env.RELEASE_BASE_URL, 'Local candidate verification before deployment')
+    await page.goto('/login')
+    await expect(page.getByText('Famie を読み込んでいます…')).toBeVisible()
+    await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(2, 6, 23)')
+    await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark')
+  })
+})

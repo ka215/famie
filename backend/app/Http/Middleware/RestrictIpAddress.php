@@ -13,6 +13,10 @@ class RestrictIpAddress
      */
     public function handle(Request $request, Closure $next): Response
     {
+        if (config('famie.ip_restriction_enabled', true) === false) {
+            return $next($request);
+        }
+
         /** @var list<string> $allowedIps */
         $allowedIps = config('famie.allowed_ips', []);
 

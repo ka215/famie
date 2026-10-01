@@ -22,7 +22,7 @@ Nuxt SPA をGitHub Actionsで静的生成し、検証済み成果物をCoreServe
 - 通常リリースでは作業ブランチから`prepare-release.ps1`を開始できる。事前に`main`へ直接pushしない。
 - `famie.ka2.org` のAレコードがCoreServerのIPアドレスを向いている。
 - CoreServerのサイト設定で `famie.ka2.org` の無料SSLが有効であり、同FQDNをSANに含む証明書が配信されている。
-- `~/public_html/famie.ka2.org/.htaccess` に本番用 IP 許可リストが設定済みである。
+- `.htaccess`のアクセス設定が対象環境に合っている。v0.9.0以降の商用はIP制限を解除し、ステージングは許可リストを維持する。[IP制限変更手順](ip-access-notes.md)を参照する。
 - CoreServer でドキュメントルートから `~/famie/backend/public` へのシンボリックリンクを利用できることを確認済みである。
 
 ### 2.1 初回のSSL設定
@@ -50,7 +50,7 @@ curl -I https://famie.ka2.org/
 
 ## 5. 初回のみ行う Apache 設定
 
-リポジトリ管理下の`frontend/public/.htaccess`を基に配置し、`RewriteEngine On`より前にApache 2.4のアクセス制限を追加する。許可IPは`backend/.env`の`ALLOWED_IPS`と同じ値にする。
+リポジトリ管理下の`frontend/public/.htaccess`を基に配置する。ステージングなどIP制限有効環境だけ、`RewriteEngine On`より前にApache 2.4のアクセス制限を追加する。許可IPは`backend/.env`の`ALLOWED_IPS`と同じ値にする。商用では以下の`<RequireAny>`ブロックを追加しない。既存商用設定からの解除は[専用手順](ip-access-notes.md)に従い、上位・API側の残存制限も確認する。
 
 ```sh
 cp "$HOME/famie/frontend/public/.htaccess" \
@@ -81,7 +81,7 @@ RewriteRule ^ - [L]
 RewriteRule ^ index.html [L]
 ```
 
-許可 IP が未設定の場合は `<RequireAny>` の代わりに `Require all denied` を設定する。設定後は通常リリースで `.htaccess` を上書きしない。
+IP制限有効環境で許可IPが未設定の場合は`<RequireAny>`の代わりに`Require all denied`を設定する。設定後は通常リリースで`.htaccess`を上書きしない。上の例はルーティングの説明用であり、配布済みのメンテナンスブロック等を省略して実環境へ上書きしない。
 
 API のリンクも初回だけ作成する。
 
@@ -96,7 +96,7 @@ test "$(readlink "$DOCROOT/api")" = "$REPO_DIR/backend/public" || exit 1
 
 ## 6. 初期構築後の確認
 
-許可 IP から確認する。
+商用は従来の許可外IPからも、ステージングは許可IPから確認する。
 
 ```sh
 curl -I https://famie.ka2.org/
@@ -115,7 +115,7 @@ curl -i \
 - ログイン API が HTML ではなく JSON を返す。空データなので `422` が正常である。
 - 実アカウントでログイン、ログアウトできる。
 - ブラウザの開発者ツールで JavaScript、CSS、manifest、Service Worker に `404` がない。
-- 許可していない IP からは画面と API の両方が `403` になる。
+- ステージングでは許可外IPから画面とAPIが403になる。商用ではIPによる403にならず、未認証の保護APIが401になる。
 
 通常リリース時のHTTP、MIME、API、ブラウザ検査は配置workflowが実行する。
 

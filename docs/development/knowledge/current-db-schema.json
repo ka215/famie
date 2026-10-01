@@ -1,0 +1,1030 @@
+{
+  "checked_at": "2026-09-28",
+  "source": "local PostgreSQL public schema; php artisan db:table --json",
+  "production_verified": false,
+  "tables": [
+    {
+      "name": "users",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": {
+            "0": "int8",
+            "2": "autoincrement"
+          },
+          "default": "nextval('users_id_seq'::regclass)",
+          "type": "bigint"
+        },
+        {
+          "column": "username",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "display_name",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "email",
+          "attributes": {
+            "0": "varchar",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "password",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "role",
+          "attributes": [
+            "varchar"
+          ],
+          "default": "'child'::character varying",
+          "type": "character varying(255)"
+        },
+        {
+          "column": "remember_token",
+          "attributes": {
+            "0": "varchar",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "character varying(100)"
+        },
+        {
+          "column": "created_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        },
+        {
+          "column": "updated_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "users_email_unique",
+          "columns": [
+            "email"
+          ],
+          "attributes": {
+            "0": "btree",
+            "2": "unique"
+          }
+        },
+        {
+          "name": "users_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        },
+        {
+          "name": "users_username_unique",
+          "columns": [
+            "username"
+          ],
+          "attributes": {
+            "0": "btree",
+            "2": "unique"
+          }
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "categories",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": {
+            "0": "int8",
+            "2": "autoincrement"
+          },
+          "default": "nextval('categories_id_seq'::regclass)",
+          "type": "bigint"
+        },
+        {
+          "column": "name",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "color_code",
+          "attributes": [
+            "varchar"
+          ],
+          "default": "'#3B82F6'::character varying",
+          "type": "character varying(7)"
+        },
+        {
+          "column": "created_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        },
+        {
+          "column": "updated_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "categories_name_unique",
+          "columns": [
+            "name"
+          ],
+          "attributes": {
+            "0": "btree",
+            "2": "unique"
+          }
+        },
+        {
+          "name": "categories_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "activity_logs",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": {
+            "0": "int8",
+            "2": "autoincrement"
+          },
+          "default": "nextval('activity_logs_id_seq'::regclass)",
+          "type": "bigint"
+        },
+        {
+          "column": "user_id",
+          "attributes": [
+            "int8"
+          ],
+          "default": null,
+          "type": "bigint"
+        },
+        {
+          "column": "category_id",
+          "attributes": [
+            "int8"
+          ],
+          "default": null,
+          "type": "bigint"
+        },
+        {
+          "column": "activity_date",
+          "attributes": [
+            "date"
+          ],
+          "default": null,
+          "type": "date"
+        },
+        {
+          "column": "activity_time",
+          "attributes": {
+            "0": "time",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "time(0) without time zone"
+        },
+        {
+          "column": "content",
+          "attributes": [
+            "text"
+          ],
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "note",
+          "attributes": {
+            "0": "text",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "created_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        },
+        {
+          "column": "updated_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "activity_logs_activity_date_user_id_index",
+          "columns": [
+            "activity_date",
+            "user_id"
+          ],
+          "attributes": [
+            "btree",
+            "compound"
+          ]
+        },
+        {
+          "name": "activity_logs_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": "activity_logs_category_id_foreign",
+          "columns": [
+            "category_id"
+          ],
+          "foreign_schema": "public",
+          "foreign_table": "categories",
+          "foreign_columns": [
+            "id"
+          ],
+          "on_update": "no action",
+          "on_delete": "restrict"
+        },
+        {
+          "name": "activity_logs_user_id_foreign",
+          "columns": [
+            "user_id"
+          ],
+          "foreign_schema": "public",
+          "foreign_table": "users",
+          "foreign_columns": [
+            "id"
+          ],
+          "on_update": "no action",
+          "on_delete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "personal_access_tokens",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": {
+            "0": "int8",
+            "2": "autoincrement"
+          },
+          "default": "nextval('personal_access_tokens_id_seq'::regclass)",
+          "type": "bigint"
+        },
+        {
+          "column": "tokenable_type",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "tokenable_id",
+          "attributes": [
+            "int8"
+          ],
+          "default": null,
+          "type": "bigint"
+        },
+        {
+          "column": "name",
+          "attributes": [
+            "text"
+          ],
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "token",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(64)"
+        },
+        {
+          "column": "abilities",
+          "attributes": {
+            "0": "text",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "last_used_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        },
+        {
+          "column": "expires_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        },
+        {
+          "column": "created_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        },
+        {
+          "column": "updated_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "personal_access_tokens_expires_at_index",
+          "columns": [
+            "expires_at"
+          ],
+          "attributes": [
+            "btree"
+          ]
+        },
+        {
+          "name": "personal_access_tokens_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        },
+        {
+          "name": "personal_access_tokens_token_unique",
+          "columns": [
+            "token"
+          ],
+          "attributes": {
+            "0": "btree",
+            "2": "unique"
+          }
+        },
+        {
+          "name": "personal_access_tokens_tokenable_type_tokenable_id_index",
+          "columns": [
+            "tokenable_type",
+            "tokenable_id"
+          ],
+          "attributes": [
+            "btree",
+            "compound"
+          ]
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "password_reset_tokens",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "email",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "token",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "created_at",
+          "attributes": {
+            "0": "timestamp",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "timestamp(0) without time zone"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "password_reset_tokens_pkey",
+          "columns": [
+            "email"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "sessions",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "user_id",
+          "attributes": {
+            "0": "int8",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "bigint"
+        },
+        {
+          "column": "ip_address",
+          "attributes": {
+            "0": "varchar",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "character varying(45)"
+        },
+        {
+          "column": "user_agent",
+          "attributes": {
+            "0": "text",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "payload",
+          "attributes": [
+            "text"
+          ],
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "last_activity",
+          "attributes": [
+            "int4"
+          ],
+          "default": null,
+          "type": "integer"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sessions_last_activity_index",
+          "columns": [
+            "last_activity"
+          ],
+          "attributes": [
+            "btree"
+          ]
+        },
+        {
+          "name": "sessions_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        },
+        {
+          "name": "sessions_user_id_index",
+          "columns": [
+            "user_id"
+          ],
+          "attributes": [
+            "btree"
+          ]
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "cache",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "key",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "value",
+          "attributes": [
+            "text"
+          ],
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "expiration",
+          "attributes": [
+            "int8"
+          ],
+          "default": null,
+          "type": "bigint"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "cache_expiration_index",
+          "columns": [
+            "expiration"
+          ],
+          "attributes": [
+            "btree"
+          ]
+        },
+        {
+          "name": "cache_pkey",
+          "columns": [
+            "key"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "cache_locks",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "key",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "owner",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "expiration",
+          "attributes": [
+            "int8"
+          ],
+          "default": null,
+          "type": "bigint"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "cache_locks_expiration_index",
+          "columns": [
+            "expiration"
+          ],
+          "attributes": [
+            "btree"
+          ]
+        },
+        {
+          "name": "cache_locks_pkey",
+          "columns": [
+            "key"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "jobs",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": {
+            "0": "int8",
+            "2": "autoincrement"
+          },
+          "default": "nextval('jobs_id_seq'::regclass)",
+          "type": "bigint"
+        },
+        {
+          "column": "queue",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "payload",
+          "attributes": [
+            "text"
+          ],
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "attempts",
+          "attributes": [
+            "int2"
+          ],
+          "default": null,
+          "type": "smallint"
+        },
+        {
+          "column": "reserved_at",
+          "attributes": {
+            "0": "int4",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "integer"
+        },
+        {
+          "column": "available_at",
+          "attributes": [
+            "int4"
+          ],
+          "default": null,
+          "type": "integer"
+        },
+        {
+          "column": "created_at",
+          "attributes": [
+            "int4"
+          ],
+          "default": null,
+          "type": "integer"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "jobs_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        },
+        {
+          "name": "jobs_queue_index",
+          "columns": [
+            "queue"
+          ],
+          "attributes": [
+            "btree"
+          ]
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "job_batches",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "name",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "total_jobs",
+          "attributes": [
+            "int4"
+          ],
+          "default": null,
+          "type": "integer"
+        },
+        {
+          "column": "pending_jobs",
+          "attributes": [
+            "int4"
+          ],
+          "default": null,
+          "type": "integer"
+        },
+        {
+          "column": "failed_jobs",
+          "attributes": [
+            "int4"
+          ],
+          "default": null,
+          "type": "integer"
+        },
+        {
+          "column": "failed_job_ids",
+          "attributes": [
+            "text"
+          ],
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "options",
+          "attributes": {
+            "0": "text",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "cancelled_at",
+          "attributes": {
+            "0": "int4",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "integer"
+        },
+        {
+          "column": "created_at",
+          "attributes": [
+            "int4"
+          ],
+          "default": null,
+          "type": "integer"
+        },
+        {
+          "column": "finished_at",
+          "attributes": {
+            "0": "int4",
+            "3": "nullable"
+          },
+          "default": null,
+          "type": "integer"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "job_batches_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "failed_jobs",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": {
+            "0": "int8",
+            "2": "autoincrement"
+          },
+          "default": "nextval('failed_jobs_id_seq'::regclass)",
+          "type": "bigint"
+        },
+        {
+          "column": "uuid",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "connection",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "queue",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "payload",
+          "attributes": [
+            "text"
+          ],
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "exception",
+          "attributes": [
+            "text"
+          ],
+          "default": null,
+          "type": "text"
+        },
+        {
+          "column": "failed_at",
+          "attributes": [
+            "timestamp"
+          ],
+          "default": "CURRENT_TIMESTAMP",
+          "type": "timestamp(0) without time zone"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "failed_jobs_connection_queue_failed_at_index",
+          "columns": [
+            "connection",
+            "queue",
+            "failed_at"
+          ],
+          "attributes": [
+            "btree",
+            "compound"
+          ]
+        },
+        {
+          "name": "failed_jobs_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        },
+        {
+          "name": "failed_jobs_uuid_unique",
+          "columns": [
+            "uuid"
+          ],
+          "attributes": {
+            "0": "btree",
+            "2": "unique"
+          }
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "migrations",
+      "schema": "public",
+      "columns": [
+        {
+          "column": "id",
+          "attributes": {
+            "0": "int4",
+            "2": "autoincrement"
+          },
+          "default": "nextval('migrations_id_seq'::regclass)",
+          "type": "integer"
+        },
+        {
+          "column": "migration",
+          "attributes": [
+            "varchar"
+          ],
+          "default": null,
+          "type": "character varying(255)"
+        },
+        {
+          "column": "batch",
+          "attributes": [
+            "int4"
+          ],
+          "default": null,
+          "type": "integer"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "migrations_pkey",
+          "columns": [
+            "id"
+          ],
+          "attributes": {
+            "0": "btree",
+            "3": "primary"
+          }
+        }
+      ],
+      "foreign_keys": []
+    }
+  ]
+}

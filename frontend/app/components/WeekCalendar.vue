@@ -38,14 +38,14 @@ const accessibleLabel = (date: string) =>
   }).format(parseLocalDate(date))
 
 const weekdayClass = (dayOfWeek: number) => {
-  if (dayOfWeek === 0) return 'text-red-600'
-  if (dayOfWeek === 6) return 'text-blue-600'
-  return 'text-slate-600'
+  if (dayOfWeek === 0) return 'text-red-600 dark:text-red-300'
+  if (dayOfWeek === 6) return 'text-blue-600 dark:text-blue-300'
+  return 'text-slate-600 dark:text-slate-300'
 }
 </script>
 
 <template>
-  <section aria-label="週カレンダー" class="rounded-xl border border-slate-200 bg-white p-2">
+  <section aria-label="週カレンダー" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2">
     <div class="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-stretch gap-1">
       <button type="button" aria-label="前週" class="week-nav-button" @click="emit('previous')">
         <span aria-hidden="true" class="week-nav-icon" :style="arrowLeftStyle" />
@@ -62,7 +62,7 @@ const weekdayClass = (dayOfWeek: number) => {
           class="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-transparent py-1.5 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
           :class="[
             weekdayClass(day.dayOfWeek),
-            day.date === selectedDate ? 'border-blue-300 bg-blue-50 shadow-xs' : '',
+            day.date === selectedDate ? 'border-blue-300 dark:border-blue-500 bg-blue-50 dark:bg-blue-950 shadow-xs' : '',
           ]"
           @click="emit('select', day.date)"
         >
@@ -105,5 +105,11 @@ const weekdayClass = (dayOfWeek: number) => {
   mask-position: center;
   mask-repeat: no-repeat;
   mask-size: contain;
+}
+
+@media (prefers-color-scheme: dark) {
+  .week-nav-button {
+    color: var(--color-slate-300);
+  }
 }
 </style>

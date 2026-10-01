@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { ApiRequestError, Category, CurrentUserResponse, User } from '#shared/types/api'
 import type { CreateUserForm, PasswordForm } from '#shared/types/forms'
+import { categoryStyle } from '#shared/utils/categoryColor'
 import { type ProfileForm, profileSchema } from '#shared/utils/profileSchema'
 
 const { user, isParent, logout } = useAuth()
 const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
+const badgeStyle = categoryStyle
 
 const profileForm = ref<ProfileForm>({ display_name: user.value?.display_name ?? '' })
 const profileIsLoading = ref(false)
@@ -224,13 +226,13 @@ onMounted(() => {
     <SettingsCard title="ログイン情報" :initial-open="true">
       <div class="flex justify-between items-center pt-1">
         <div>
-          <p class="text-base font-bold text-slate-800">{{ user?.display_name }}</p>
-          <p class="text-xs text-slate-500">ユーザー名: {{ user?.username }}</p>
+          <p class="text-base font-bold text-slate-800 dark:text-slate-100">{{ user?.display_name }}</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">ユーザー名: {{ user?.username }}</p>
         </div>
         <span
           :class="[
             'px-2.5 py-1 text-xs font-semibold rounded-full',
-            isParent ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600',
+            isParent ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300',
           ]"
         >
           {{ isParent ? '親（管理者）' : '子供（一般）' }}
@@ -238,7 +240,7 @@ onMounted(() => {
       </div>
       <form class="space-y-3 pt-3" novalidate @submit.prevent="handleProfileSave">
         <div>
-          <label for="display-name" class="block text-xs font-semibold text-slate-600 mb-1">自分の表示名</label>
+          <label for="display-name" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">自分の表示名</label>
           <div class="flex w-full">
             <input
               id="display-name"
@@ -247,7 +249,7 @@ onMounted(() => {
               autocomplete="nickname"
               :aria-invalid="!!displayedProfileError"
               aria-describedby="display-name-help display-name-error"
-              class="min-w-0 flex-1 rounded-l-lg border border-r-0 border-slate-300 px-3 py-2 text-sm focus:relative focus:z-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="min-w-0 flex-1 rounded-l-lg border border-r-0 border-slate-300 dark:border-slate-600 px-3 py-2 text-sm focus:relative focus:z-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
             <button
               type="submit"
@@ -257,26 +259,26 @@ onMounted(() => {
               {{ profileIsLoading ? '変更中…' : '変更' }}
             </button>
           </div>
-          <p id="display-name-help" class="mt-1 text-xs text-slate-500">50文字以内。前後の空白は取り除きます。</p>
+          <p id="display-name-help" class="mt-1 text-xs text-slate-500 dark:text-slate-400">50文字以内。前後の空白は取り除きます。</p>
         </div>
-        <p id="display-name-error" role="alert" class="text-xs text-red-600">{{ displayedProfileError }}</p>
-        <p v-if="profileSuccessMessage" role="status" class="text-xs text-emerald-600">{{ profileSuccessMessage }}</p>
+        <p id="display-name-error" role="alert" class="text-xs text-red-600 dark:text-red-300">{{ displayedProfileError }}</p>
+        <p v-if="profileSuccessMessage" role="status" class="text-xs text-emerald-600 dark:text-emerald-300">{{ profileSuccessMessage }}</p>
       </form>
-      <div class="flex justify-end pt-3 border-t border-slate-100">
-        <button type="button" class="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50" @click="logout">
+      <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-700">
+        <button type="button" class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-950" @click="logout">
           ログアウト
         </button>
       </div>
     </SettingsCard>
 
     <SettingsCard title="家族メンバー">
-      <div class="divide-y divide-slate-100">
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
         <div v-for="member in familyMembers" :key="member.id" class="py-2.5 flex justify-between items-center first:pt-0 last:pb-0">
           <div>
-            <p class="text-sm font-medium text-slate-700">{{ member.display_name }}</p>
-            <p class="text-xs text-slate-400">@{{ member.username }}</p>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ member.display_name }}</p>
+            <p class="text-xs text-slate-400 dark:text-slate-400">@{{ member.username }}</p>
           </div>
-          <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+          <span class="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded-md">
             {{ member.role === 'parent' ? '親' : '子' }}
           </span>
         </div>
@@ -289,27 +291,27 @@ onMounted(() => {
           v-for="category in categories"
           :key="category.id"
           class="px-2 py-0.5 text-xs font-semibold text-white rounded-full"
-          :style="{ backgroundColor: category.color_code }"
+          :style="badgeStyle(category.color_code)"
         >
           {{ category.name }}
         </span>
       </div>
 
-      <form v-if="isParent" class="flex items-end space-x-2 pt-2 border-t border-slate-100" @submit.prevent="handleAddCategory">
+      <form v-if="isParent" class="flex items-end space-x-2 pt-2 border-t border-slate-100 dark:border-slate-700" @submit.prevent="handleAddCategory">
         <div class="min-w-0 flex-1">
-          <label for="category-name" class="block text-xs font-semibold text-slate-600 mb-1">新しいカテゴリ名</label>
+          <label for="category-name" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">新しいカテゴリ名</label>
           <input
             id="category-name"
             v-model="categoryForm.name"
             type="text"
             required
             placeholder="例: 読書"
-            class="h-11 w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="h-11 w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
         </div>
         <div>
-          <label for="category-color" class="block text-xs font-semibold text-slate-600 mb-1">色</label>
-          <input id="category-color" v-model="categoryForm.color_code" type="color" class="block h-11 w-12 rounded-lg border border-slate-300">
+          <label for="category-color" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">色</label>
+          <input id="category-color" v-model="categoryForm.color_code" type="color" class="block h-11 w-12 rounded-lg border border-slate-300 dark:border-slate-600">
         </div>
         <button
           type="submit"
@@ -320,58 +322,58 @@ onMounted(() => {
         </button>
       </form>
 
-      <div v-if="categorySuccessMessage" class="p-3 bg-emerald-50 text-emerald-600 text-xs rounded-lg">
+      <div v-if="categorySuccessMessage" class="p-3 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 text-xs rounded-lg">
         {{ categorySuccessMessage }}
       </div>
-      <div v-if="categoryErrorMessage" class="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
+      <div v-if="categoryErrorMessage" class="p-3 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 text-xs rounded-lg">
         {{ categoryErrorMessage }}
       </div>
     </SettingsCard>
 
-    <SettingsCard v-if="isParent" title="新しい家族を追加" badge="管理者機能" class="border-blue-200">
+    <SettingsCard v-if="isParent" title="新しい家族を追加" badge="管理者機能" class="border-blue-200 dark:border-blue-800">
 
-      <div v-if="userSuccessMessage" class="p-3 bg-emerald-50 text-emerald-600 text-xs rounded-lg">
+      <div v-if="userSuccessMessage" class="p-3 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 text-xs rounded-lg">
         {{ userSuccessMessage }}
       </div>
-      <div v-if="userErrorMessage" class="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
+      <div v-if="userErrorMessage" class="p-3 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 text-xs rounded-lg">
         {{ userErrorMessage }}
       </div>
 
       <form class="space-y-3" @submit.prevent="handleAddUser">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">表示名（名前）<span class="text-red-500">*</span></label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">表示名（名前）<span class="text-red-500 dark:text-red-400">*</span></label>
           <input
             v-model="userForm.display_name"
             type="text"
             required
             placeholder="例: たろう"
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">ログインID（ユーザー名）<span class="text-red-500">*</span></label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">ログインID（ユーザー名）<span class="text-red-500 dark:text-red-400">*</span></label>
           <input
             v-model="userForm.username"
             type="text"
             required
             placeholder="例: taro"
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">メールアドレス（任意）</label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">メールアドレス（任意）</label>
           <input
             v-model="userForm.email"
             type="email"
             placeholder="持っていない場合は空欄でOK"
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
         </div>
 
         <div>
-          <label for="initial-password" class="block text-xs font-semibold text-slate-600 mb-1">初期パスワード<span aria-hidden="true" class="text-red-500">*</span></label>
+          <label for="initial-password" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">初期パスワード<span aria-hidden="true" class="text-red-500 dark:text-red-400">*</span></label>
           <PasswordInput
             id="initial-password"
             label="初期パスワード"
@@ -379,12 +381,12 @@ onMounted(() => {
             autocomplete="new-password"
             required
             placeholder="6文字以上"
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label for="initial-password-confirmation" class="block text-xs font-semibold text-slate-600 mb-1">初期パスワード（確認）<span aria-hidden="true" class="text-red-500">*</span></label>
+          <label for="initial-password-confirmation" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">初期パスワード（確認）<span aria-hidden="true" class="text-red-500 dark:text-red-400">*</span></label>
           <PasswordInput
             id="initial-password-confirmation"
             label="初期パスワード（確認）"
@@ -392,19 +394,19 @@ onMounted(() => {
             autocomplete="new-password"
             required
             placeholder="もう一度入力してください"
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">役割（ロール）</label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">役割（ロール）</label>
           <div class="flex space-x-4 pt-1">
-            <label class="flex items-center space-x-2 text-sm text-slate-700 cursor-pointer">
-              <input v-model="userForm.role" type="radio" value="child" class="text-blue-600">
+            <label class="flex items-center space-x-2 text-sm text-slate-700 dark:text-slate-200 cursor-pointer">
+              <input v-model="userForm.role" type="radio" value="child" class="text-blue-600 dark:text-blue-300">
               <span>子供（一般）</span>
             </label>
-            <label class="flex items-center space-x-2 text-sm text-slate-700 cursor-pointer">
-              <input v-model="userForm.role" type="radio" value="parent" class="text-blue-600">
+            <label class="flex items-center space-x-2 text-sm text-slate-700 dark:text-slate-200 cursor-pointer">
+              <input v-model="userForm.role" type="radio" value="parent" class="text-blue-600 dark:text-blue-300">
               <span>親（保護者）</span>
             </label>
           </div>
@@ -422,64 +424,64 @@ onMounted(() => {
 
     <SettingsCard title="パスワードの変更">
 
-      <div v-if="pwdSuccessMessage" class="p-3 bg-emerald-50 text-emerald-600 text-xs rounded-lg">
+      <div v-if="pwdSuccessMessage" class="p-3 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 text-xs rounded-lg">
         {{ pwdSuccessMessage }}
       </div>
-      <div v-if="pwdErrorMessage" class="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
+      <div v-if="pwdErrorMessage" class="p-3 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 text-xs rounded-lg">
         {{ pwdErrorMessage }}
       </div>
 
       <form class="space-y-3" @submit.prevent="handlePasswordChange">
         <div>
-          <label for="current-password" class="block text-xs font-semibold text-slate-600 mb-1">現在のパスワード</label>
+          <label for="current-password" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">現在のパスワード</label>
           <PasswordInput
             id="current-password"
             label="現在のパスワード"
             v-model="pwdForm.current_password"
             autocomplete="current-password"
             required
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label for="new-password" class="block text-xs font-semibold text-slate-600 mb-1">新しいパスワード</label>
+          <label for="new-password" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">新しいパスワード</label>
           <PasswordInput
             id="new-password"
             label="新しいパスワード"
             v-model="pwdForm.new_password"
             autocomplete="new-password"
             required
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label for="new-password-confirmation" class="block text-xs font-semibold text-slate-600 mb-1">新しいパスワード（確認）</label>
+          <label for="new-password-confirmation" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">新しいパスワード（確認）</label>
           <PasswordInput
             id="new-password-confirmation"
             label="新しいパスワード（確認）"
             v-model="pwdForm.new_password_confirmation"
             autocomplete="new-password"
             required
-            class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <button
           type="submit"
           :disabled="pwdIsLoading"
-          class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-medium text-sm rounded-lg transition disabled:opacity-50"
+          class="w-full py-2.5 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white font-medium text-sm rounded-lg transition disabled:opacity-50"
         >
           {{ pwdIsLoading ? '更新中...' : 'パスワードを変更する' }}
         </button>
       </form>
     </SettingsCard>
     <SettingsCard title="アプリについて">
-      <dl class="text-sm text-slate-600">
+      <dl class="text-sm text-slate-600 dark:text-slate-300">
         <div class="flex justify-between gap-4"><dt>バージョン</dt><dd>{{ publicConfig.appVersion }}</dd></div>
       </dl>
-      <p class="text-center text-xs text-slate-500">© MAGIC METHODS</p>
+      <p class="text-center text-xs text-slate-500 dark:text-slate-400">© MAGIC METHODS</p>
     </SettingsCard>
   </div>
 </template>
