@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Group;
+use App\Models\GroupMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -37,13 +39,15 @@ class RestrictIpAddressTest extends TestCase
     {
         config(['famie.ip_restriction_enabled' => false, 'famie.allowed_ips' => []]);
 
-        $this->getJson('/v1/users')->assertUnauthorized();
-        $this->postJson('/v1/logs', [])->assertUnauthorized();
+        $group = Group::factory()->create();
+        $this->getJson("/v1/groups/{$group->id}/members")->assertUnauthorized();
+        $this->postJson("/v1/groups/{$group->id}/logs", [])->assertUnauthorized();
 
         $child = User::factory()->create();
+        GroupMember::query()->create(['group_id' => $group->id, 'user_id' => $child->id, 'role' => 'member', 'status' => 'active']);
         Sanctum::actingAs($child);
-        $this->getJson('/v1/users')->assertOk();
-        $this->postJson('/v1/categories', ['name' => '禁止'])->assertForbidden();
+        $this->getJson("/v1/groups/{$group->id}/members")->assertOk();
+        $this->postJson("/v1/groups/{$group->id}/categories", ['name' => '禁止'])->assertForbidden();
         $this->assertDatabaseMissing('categories', ['name' => '禁止']);
     }
 
@@ -53,7 +57,7 @@ class RestrictIpAddressTest extends TestCase
         $this->app->maintenanceMode()->activate([]);
 
         $this->getJson('/v1/status')->assertServiceUnavailable()->assertJsonPath('code', 'maintenance');
-        $this->postJson('/v1/logs', [])->assertServiceUnavailable()->assertJsonPath('code', 'maintenance');
+        $this->postJson('/v1/groups/1/logs', [])->assertServiceUnavailable()->assertJsonPath('code', 'maintenance');
         $this->assertDatabaseCount('activity_logs', 0);
     }
 }

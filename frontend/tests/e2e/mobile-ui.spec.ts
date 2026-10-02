@@ -2,14 +2,22 @@ import { expect, test } from '@playwright/test'
 
 test('カテゴリ追加欄が320px幅で整列し、親だけが追加できる', async ({ page, context }) => {
   await page.setViewportSize({ width: 320, height: 844 })
-  let role = 'parent'
+  let role = 'admin'
   let saved: unknown
   await context.addCookies([{ name: 'auth_token', value: 'mobile-test', url: 'http://127.0.0.1' }])
   await page.route('**/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/auth/me'))
       return route.fulfill({
-        json: { user: { id: 1, username: 'owner', display_name: '自分', role } },
+        json: {
+          user: { id: 1, username: 'owner', display_name: '自分' },
+          membership: {
+            id: 1,
+            role,
+            status: 'active',
+            group: { id: 1, name: '家族', type: 'family' },
+          },
+        },
       })
     if (path.endsWith('/categories') && route.request().method() === 'POST') {
       saved = route.request().postDataJSON()
@@ -36,7 +44,7 @@ test('カテゴリ追加欄が320px幅で整列し、親だけが追加できる
   await add.click()
   await expect(page.getByText('「読書」を追加しました。')).toBeVisible()
   expect(saved).toEqual({ name: '読書', color_code: '#123456' })
-  role = 'child'
+  role = 'member'
   await page.reload()
   await page.getByText('カテゴリ', { exact: true }).click()
   await expect(name).toHaveCount(0)

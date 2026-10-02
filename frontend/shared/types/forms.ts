@@ -1,12 +1,19 @@
-import type { UserRole } from './api'
+import type { MembershipRole } from './api'
 
 export interface CreateUserForm {
   username: string
   display_name: string
-  email: string
   password: string
   password_confirmation: string
-  role: UserRole
+  role: MembershipRole
+}
+
+export interface RegisterForm {
+  group_name: string
+  username: string
+  display_name: string
+  password: string
+  password_confirmation: string
 }
 
 export interface PasswordForm {

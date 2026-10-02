@@ -28,7 +28,6 @@ class UserSeeder extends Seeder
             'display_name' => 'おとうさん',
             'email' => null,
             'password' => Hash::make($parentPassword),
-            'role' => 'parent',
         ]);
 
         User::create([
@@ -36,7 +35,6 @@ class UserSeeder extends Seeder
             'display_name' => 'たろう',
             'email' => null,
             'password' => Hash::make($childPassword),
-            'role' => 'child',
         ]);
 
         $this->command?->warn('開発用アカウントを作成しました（このパスワードは二度と表示されません）:');

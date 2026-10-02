@@ -4,105 +4,91 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\Group;
+use App\Models\GroupMember;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ActivityLogController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, Group $group): JsonResponse
     {
-        Gate::authorize('viewAny', ActivityLog::class);
-
+        $activeUserIds = $group->memberships()->where('status', GroupMember::STATUS_ACTIVE)->select('user_id');
         $request->validate([
-            'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date'],
-            'user_id' => ['nullable', 'exists:users,id'],
-            'category_id' => ['nullable', 'exists:categories,id'],
+            'from' => ['nullable', 'date'], 'to' => ['nullable', 'date'],
+            'user_id' => ['nullable', Rule::exists('group_members', 'user_id')->where(fn ($query) => $query->where('group_id', $group->id)->where('status', GroupMember::STATUS_ACTIVE))],
+            'category_id' => ['nullable', Rule::exists('categories', 'id')->where('group_id', $group->id)],
         ]);
-
-        $query = ActivityLog::with(['user:id,display_name,role', 'category:id,name,color_code'])
+        $query = $group->activityLogs()->whereIn('user_id', $activeUserIds)
+            ->with(['user:id,display_name', 'category:id,name,color_code,sort_order'])
             ->dateBetween($request->query('from'), $request->query('to'));
-
         if ($request->filled('user_id')) {
-            $query->where('user_id', $request->query('user_id'));
+            $query->where('user_id', $request->integer('user_id'));
         }
-
         if ($request->filled('category_id')) {
-            $query->where('category_id', $request->query('category_id'));
+            $query->where('category_id', $request->integer('category_id'));
         }
 
-        $logs = $query->orderBy('activity_date', 'desc')
-            ->orderBy('activity_time', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->paginate(50);
-
-        return response()->json($logs);
+        return response()->json($query->orderByDesc('activity_date')->orderByDesc('activity_time')->orderByDesc('created_at')->paginate(50));
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, Group $group): JsonResponse
     {
-        Gate::authorize('create', ActivityLog::class);
-
+        $this->rejectOwnedFields($request);
         $validated = $request->validate([
-            'category_id' => ['required', 'exists:categories,id'],
-            'activity_date' => ['required', 'date'],
-            'activity_time' => ['nullable', 'date_format:H:i'],
-            'content' => ['required', 'string', 'max:1000'],
-            'note' => ['nullable', 'string', 'max:1000'],
+            'category_id' => ['required', Rule::exists('categories', 'id')->where('group_id', $group->id)],
+            'activity_date' => ['required', 'date'], 'activity_time' => ['nullable', 'date_format:H:i'],
+            'content' => ['required', 'string', 'max:1000'], 'note' => ['nullable', 'string', 'max:1000'],
         ]);
+        $log = $group->activityLogs()->create([...$validated, 'user_id' => $request->user()->id]);
+        $log->load(['user:id,display_name', 'category:id,name,color_code,sort_order']);
 
-        $validated['user_id'] = $request->user()->id;
-
-        $log = ActivityLog::create($validated);
-        $log->load(['user:id,display_name,role', 'category:id,name,color_code']);
-
-        return response()->json([
-            'message' => 'アクティビティを記録しました。',
-            'data' => $log,
-        ], 201);
+        return response()->json(['message' => 'アクティビティを記録しました。', 'data' => $log], 201);
     }
 
-    public function show(ActivityLog $log): JsonResponse
+    public function show(Group $group, int $log): JsonResponse
     {
-        Gate::authorize('view', $log);
+        $target = $this->visibleLog($group, $log);
+        Gate::authorize('view', $target);
 
-        $log->load(['user:id,display_name,role', 'category:id,name,color_code']);
-
-        return response()->json([
-            'data' => $log,
-        ]);
+        return response()->json(['data' => $target->load(['user:id,display_name', 'category:id,name,color_code,sort_order'])]);
     }
 
-    public function update(Request $request, ActivityLog $log): JsonResponse
+    public function update(Request $request, Group $group, int $log): JsonResponse
     {
-        Gate::authorize('update', $log);
+        $this->rejectOwnedFields($request);
+        $target = $this->visibleLog($group, $log);
+        Gate::authorize('update', $target);
+        $target->update($request->validate([
+            'category_id' => ['sometimes', 'required', Rule::exists('categories', 'id')->where('group_id', $group->id)],
+            'activity_date' => ['sometimes', 'required', 'date'], 'activity_time' => ['nullable', 'date_format:H:i'],
+            'content' => ['sometimes', 'required', 'string', 'max:1000'], 'note' => ['nullable', 'string', 'max:1000'],
+        ]));
 
-        $validated = $request->validate([
-            'category_id' => ['sometimes', 'required', 'exists:categories,id'],
-            'activity_date' => ['sometimes', 'required', 'date'],
-            'activity_time' => ['nullable', 'date_format:H:i'],
-            'content' => ['sometimes', 'required', 'string', 'max:1000'],
-            'note' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $log->update($validated);
-        $log->load(['user:id,display_name,role', 'category:id,name,color_code']);
-
-        return response()->json([
-            'message' => 'ログを更新しました。',
-            'data' => $log,
-        ]);
+        return response()->json(['message' => 'ログを更新しました。', 'data' => $target->load(['user:id,display_name', 'category:id,name,color_code,sort_order'])]);
     }
 
-    public function destroy(ActivityLog $log): JsonResponse
+    public function destroy(Group $group, int $log): JsonResponse
     {
-        Gate::authorize('delete', $log);
+        $target = $this->visibleLog($group, $log);
+        Gate::authorize('delete', $target);
+        $target->delete();
 
-        $log->delete();
+        return response()->json(['message' => 'ログを削除しました。']);
+    }
 
-        return response()->json([
-            'message' => 'ログを削除しました。',
-        ]);
+    private function visibleLog(Group $group, int $log): ActivityLog
+    {
+        return $group->activityLogs()->whereIn('user_id', $group->memberships()->where('status', GroupMember::STATUS_ACTIVE)->select('user_id'))->findOrFail($log);
+    }
+
+    private function rejectOwnedFields(Request $request): void
+    {
+        if (array_intersect(array_keys($request->all()), ['group_id', 'user_id'])) {
+            throw ValidationException::withMessages(['log' => ['家族または投稿者は指定できません。']]);
+        }
     }
 }

@@ -19,6 +19,8 @@ export const useApi = () => {
         }
         if (response.status === 401 && !isMaintenance.value) {
           token.value = null
+          useState('auth_user').value = null
+          useState('auth_membership').value = null
           navigateTo('/login')
         }
       },
