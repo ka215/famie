@@ -19,9 +19,9 @@ class UserController extends Controller
     public function index(Group $group): JsonResponse
     {
         $members = $group->memberships()->where('status', GroupMember::STATUS_ACTIVE)
-            ->with('user:id,username,display_name,email')->orderBy('id')->get()
+            ->with('user:id,username,display_name')->orderBy('id')->get()
             ->map(fn (GroupMember $membership): array => [
-                ...$membership->user->only(['id', 'username', 'display_name', 'email']),
+                ...$membership->user->only(['id', 'username', 'display_name']),
                 'membership_id' => $membership->id,
                 'role' => $membership->role,
             ]);
@@ -63,7 +63,7 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'ユーザーを作成しました。',
-            'data' => [...$user->only(['id', 'username', 'display_name', 'email']), 'membership_id' => $newMembership->id, 'role' => $newMembership->role],
+            'data' => [...$user->only(['id', 'username', 'display_name']), 'membership_id' => $newMembership->id, 'role' => $newMembership->role],
         ], 201);
     }
 }

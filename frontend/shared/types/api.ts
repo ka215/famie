@@ -20,7 +20,10 @@ export interface Membership {
   group: Group
 }
 
-export interface FamilyMember extends User {
+export interface FamilyMember {
+  id: number
+  username: string
+  display_name: string
   membership_id: number
   role: MembershipRole
 }

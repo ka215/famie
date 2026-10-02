@@ -65,6 +65,19 @@ class GroupIsolationTest extends TestCase
         $this->getJson("/v1/groups/{$group->id}/logs")->assertJsonFragment(['content' => '保持される記録']);
     }
 
+    public function test_member_list_does_not_disclose_email_addresses(): void
+    {
+        [$group, $admin] = $this->family('家族');
+        $admin->update(['email' => 'private@example.test']);
+        Sanctum::actingAs($admin);
+
+        $this->getJson("/v1/groups/{$group->id}/members")
+            ->assertOk()
+            ->assertJsonFragment(['id' => $admin->id, 'username' => $admin->username])
+            ->assertJsonMissingPath('0.email')
+            ->assertJsonMissing(['email' => 'private@example.test']);
+    }
+
     /** @return array{Group, User, Category} */
     private function family(string $name): array
     {
