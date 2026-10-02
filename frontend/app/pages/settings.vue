@@ -1,10 +1,18 @@
 <script setup lang="ts">
-import type { ApiRequestError, Category, CurrentUserResponse, User } from '#shared/types/api'
+import type {
+  ApiRequestError,
+  Category,
+  CurrentUserResponse,
+  DataResponse,
+  FamilyMember,
+  Group,
+} from '#shared/types/api'
 import type { CreateUserForm, PasswordForm } from '#shared/types/forms'
 import { categoryStyle } from '#shared/utils/categoryColor'
 import { type ProfileForm, profileSchema } from '#shared/utils/profileSchema'
 
-const { user, isParent, logout } = useAuth()
+const { user, membership, groupId, isParent, logout } = useAuth()
+const groupPath = (path = '') => `/groups/${groupId.value}${path}`
 const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
 const badgeStyle = categoryStyle
@@ -57,6 +65,7 @@ const handleProfileSave = async () => {
       body: result.data,
     })
     user.value = response.user
+    membership.value = response.membership
     profileForm.value.display_name = response.user.display_name
     savedDisplayName.value = response.user.display_name
     familyMembers.value = familyMembers.value.map((member) =>
@@ -88,16 +97,18 @@ const pwdErrorMessage = ref('')
 const userForm = ref<CreateUserForm>({
   username: '',
   display_name: '',
-  email: '',
   password: '',
   password_confirmation: '',
-  role: 'child',
+  role: 'member',
 })
 const userIsLoading = ref(false)
 const userSuccessMessage = ref('')
 const userErrorMessage = ref('')
 
-const familyMembers = ref<User[]>([])
+const familyMembers = ref<FamilyMember[]>([])
+const groupName = ref(membership.value?.group.name ?? '')
+const groupNameIsLoading = ref(false)
+const groupNameMessage = ref('')
 
 // カテゴリ管理（親のみ）
 const categories = ref<Category[]>([])
@@ -108,7 +119,7 @@ const categoryErrorMessage = ref('')
 
 const fetchCategories = async () => {
   try {
-    categories.value = await fetchApi<Category[]>('/categories')
+    categories.value = await fetchApi<Category[]>(groupPath('/categories'))
   } catch (err) {
     console.error('カテゴリ一覧の取得に失敗しました', err)
   }
@@ -125,7 +136,7 @@ const handleAddCategory = async () => {
   categorySuccessMessage.value = ''
 
   try {
-    await fetchApi('/categories', {
+    await fetchApi(groupPath('/categories'), {
       method: 'POST',
       body: categoryForm.value,
     })
@@ -142,7 +153,7 @@ const handleAddCategory = async () => {
 
 const fetchMembers = async () => {
   try {
-    familyMembers.value = await fetchApi<User[]>('/users')
+    familyMembers.value = await fetchApi<FamilyMember[]>(groupPath('/members'))
   } catch (err) {
     console.error('メンバー一覧の取得に失敗しました', err)
   }
@@ -159,7 +170,7 @@ const handlePasswordChange = async () => {
   pwdSuccessMessage.value = ''
 
   try {
-    await fetchApi(`/users/${user.value?.id}/password`, {
+    await fetchApi('/auth/me/password', {
       method: 'PUT',
       body: pwdForm.value,
     })
@@ -193,7 +204,7 @@ const handleAddUser = async () => {
   userSuccessMessage.value = ''
 
   try {
-    await fetchApi('/users', {
+    await fetchApi(groupPath('/members'), {
       method: 'POST',
       body: userForm.value,
     })
@@ -201,10 +212,9 @@ const handleAddUser = async () => {
     userForm.value = {
       username: '',
       display_name: '',
-      email: '',
       password: '',
       password_confirmation: '',
-      role: 'child',
+      role: 'member',
     }
     await fetchMembers()
   } catch (err: unknown) {
@@ -212,6 +222,26 @@ const handleAddUser = async () => {
     userErrorMessage.value = e.data?.message || 'アカウントの作成に失敗しました。'
   } finally {
     userIsLoading.value = false
+  }
+}
+
+const handleGroupNameSave = async () => {
+  if (!groupName.value.trim() || !isParent.value) return
+  groupNameIsLoading.value = true
+  groupNameMessage.value = ''
+  try {
+    const response = await fetchApi<DataResponse<Group>>(groupPath(), {
+      method: 'PATCH',
+      body: { name: groupName.value },
+    })
+    groupName.value = response.data.name
+    if (membership.value) membership.value.group.name = response.data.name
+    groupNameMessage.value = '家族名を変更しました。'
+  } catch (error: unknown) {
+    const apiError = error as ApiRequestError
+    groupNameMessage.value = apiError.data?.message || '家族名を変更できませんでした。'
+  } finally {
+    groupNameIsLoading.value = false
   }
 }
 
@@ -271,6 +301,17 @@ onMounted(() => {
       </div>
     </SettingsCard>
 
+    <SettingsCard title="家族設定">
+      <form class="space-y-2" @submit.prevent="handleGroupNameSave">
+        <label for="group-name" class="block text-xs font-semibold text-slate-600 dark:text-slate-300">家族名</label>
+        <div class="flex">
+          <input id="group-name" v-model="groupName" maxlength="50" :disabled="!isParent" class="min-w-0 flex-1 rounded-l-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 dark:border-slate-600 dark:disabled:bg-slate-900">
+          <button v-if="isParent" type="submit" :disabled="groupNameIsLoading" class="rounded-r-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50">変更</button>
+        </div>
+        <p v-if="groupNameMessage" role="status" class="text-xs text-slate-500 dark:text-slate-400">{{ groupNameMessage }}</p>
+      </form>
+    </SettingsCard>
+
     <SettingsCard title="家族メンバー">
       <div class="divide-y divide-slate-100 dark:divide-slate-700">
         <div v-for="member in familyMembers" :key="member.id" class="py-2.5 flex justify-between items-center first:pt-0 last:pb-0">
@@ -279,7 +320,7 @@ onMounted(() => {
             <p class="text-xs text-slate-400 dark:text-slate-400">@{{ member.username }}</p>
           </div>
           <span class="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded-md">
-            {{ member.role === 'parent' ? '親' : '子' }}
+            {{ member.role === 'admin' ? '親' : '子' }}
           </span>
         </div>
       </div>
@@ -330,7 +371,7 @@ onMounted(() => {
       </div>
     </SettingsCard>
 
-    <SettingsCard v-if="isParent" title="新しい家族を追加" badge="管理者機能" class="border-blue-200 dark:border-blue-800">
+    <SettingsCard v-if="isParent" title="新しい家族メンバーを追加" badge="管理者機能" class="border-blue-200 dark:border-blue-800">
 
       <div v-if="userSuccessMessage" class="p-3 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 text-xs rounded-lg">
         {{ userSuccessMessage }}
@@ -358,16 +399,6 @@ onMounted(() => {
             type="text"
             required
             placeholder="例: taro"
-            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">メールアドレス（任意）</label>
-          <input
-            v-model="userForm.email"
-            type="email"
-            placeholder="持っていない場合は空欄でOK"
             class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
         </div>
@@ -402,11 +433,11 @@ onMounted(() => {
           <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">役割（ロール）</label>
           <div class="flex space-x-4 pt-1">
             <label class="flex items-center space-x-2 text-sm text-slate-700 dark:text-slate-200 cursor-pointer">
-              <input v-model="userForm.role" type="radio" value="child" class="text-blue-600 dark:text-blue-300">
+              <input v-model="userForm.role" type="radio" value="member" class="text-blue-600 dark:text-blue-300">
               <span>子供（一般）</span>
             </label>
             <label class="flex items-center space-x-2 text-sm text-slate-700 dark:text-slate-200 cursor-pointer">
-              <input v-model="userForm.role" type="radio" value="parent" class="text-blue-600 dark:text-blue-300">
+              <input v-model="userForm.role" type="radio" value="admin" class="text-blue-600 dark:text-blue-300">
               <span>親（保護者）</span>
             </label>
           </div>

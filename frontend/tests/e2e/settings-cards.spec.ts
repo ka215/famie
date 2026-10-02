@@ -20,9 +20,9 @@ for (const account of ['parent1', 'child1']) {
       await expect(card(title)).toHaveJSProperty('open', false)
     }
     if (account === 'parent1') {
-      await expect(card('新しい家族を追加')).toHaveJSProperty('open', false)
+      await expect(card('新しい家族メンバーを追加')).toHaveJSProperty('open', false)
     } else {
-      await expect(page.getByText('新しい家族を追加', { exact: true })).toHaveCount(0)
+      await expect(page.getByText('新しい家族メンバーを追加', { exact: true })).toHaveCount(0)
     }
     await page.getByLabel('自分の表示名').fill('入力中の名前')
     await passwordCard.locator('summary').focus()

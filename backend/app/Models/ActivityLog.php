@@ -8,10 +8,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'category_id', 'activity_date', 'activity_time', 'content', 'note'])]
+#[Fillable(['group_id', 'user_id', 'category_id', 'activity_date', 'activity_time', 'content', 'note'])]
 class ActivityLog extends Model
 {
     use HasFactory;
+
+    /** @return BelongsTo<Group, $this> */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class);
+    }
 
     /**
      * @return array<string, string>

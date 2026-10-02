@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ActivityLog, Category, PaginatedResponse, User } from '#shared/types/api'
+import type { ActivityLog, Category, FamilyMember, PaginatedResponse } from '#shared/types/api'
 import type { FilterPeriod } from '#shared/types/forms'
 import {
   countActivitiesByDate,
@@ -16,13 +16,14 @@ import plusIcon from '~/assets/icons/plus.svg'
 import editIcon from '~/assets/icons/square-edit-outline.svg'
 
 const { fetchApi } = useApi()
-const { user } = useAuth()
+const { user, groupId } = useAuth()
+const groupPath = (path: string) => `/groups/${groupId.value}${path}`
 const editIconStyle = { maskImage: `url("${editIcon}")` }
 const plusIconStyle = { maskImage: `url("${plusIcon}")` }
 
 const logs = ref<ActivityLog[]>([])
 const categories = ref<Category[]>([])
-const familyMembers = ref<User[]>([])
+const familyMembers = ref<FamilyMember[]>([])
 const isLoading = ref(false)
 const isModalOpen = ref(false)
 const badgeStyle = categoryStyle
@@ -92,7 +93,9 @@ const fetchLogs = async (page = 1, day?: string | null) => {
     appendFilters(params)
     params.set('page', String(page))
 
-    const res = await fetchApi<PaginatedResponse<ActivityLog>>(`/logs?${params.toString()}`)
+    const res = await fetchApi<PaginatedResponse<ActivityLog>>(
+      groupPath(`/logs?${params.toString()}`)
+    )
     if (requestId !== logRequestId) return
     logs.value = res.data
     currentPage.value = res.current_page
@@ -117,7 +120,7 @@ const fetchMonthCounts = async () => {
     const fetchPage = async (page: number) => {
       const params = new URLSearchParams({ from: range.from, to: range.to, page: String(page) })
       appendFilters(params)
-      return await fetchApi<PaginatedResponse<ActivityLog>>(`/logs?${params.toString()}`)
+      return await fetchApi<PaginatedResponse<ActivityLog>>(groupPath(`/logs?${params.toString()}`))
     }
 
     const firstPage = await fetchPage(1)
@@ -139,7 +142,7 @@ const fetchMonthCounts = async () => {
 
 const fetchCategories = async () => {
   try {
-    categories.value = await fetchApi<Category[]>('/categories')
+    categories.value = await fetchApi<Category[]>(groupPath('/categories'))
   } catch {
     errorMessage.value = 'カテゴリの取得に失敗しました。'
   }
@@ -147,7 +150,7 @@ const fetchCategories = async () => {
 
 const fetchMembers = async () => {
   try {
-    familyMembers.value = await fetchApi<User[]>('/users')
+    familyMembers.value = await fetchApi<FamilyMember[]>(groupPath('/members'))
   } catch {
     errorMessage.value = '家族メンバーの取得に失敗しました。'
   }

@@ -81,13 +81,13 @@ test('未ログインでもメンテナンスを案内し、復旧時にログ�
 test('メンテナンス検知後に届いた401で案内と認証を上書きしない', async ({ page, context }) => {
   await login(page)
   const token = (await context.cookies()).find((cookie) => cookie.name === 'auth_token')?.value
-  await page.route('**/api/v1/categories', (route) => route.fulfill(maintenance))
-  await page.route('**/api/v1/users', async (route) => {
+  await page.route('**/api/v1/groups/*/categories', (route) => route.fulfill(maintenance))
+  await page.route('**/api/v1/groups/*/members', async (route) => {
     await expect(page.getByRole('heading', { name: 'ただいまメンテナンス中です' })).toBeVisible()
     await route.fulfill({ status: 401, contentType: 'application/json', body: '{}' })
   })
   const unauthorized = page.waitForResponse(
-    (response) => response.url().endsWith('/users') && response.status() === 401
+    (response) => response.url().endsWith('/members') && response.status() === 401
   )
   await page.reload()
   await unauthorized
@@ -132,7 +132,7 @@ test('保存時の503を案内し、復旧しても書き込みを自動再送�
   await page.locator('form select').selectOption({ label: '勉強・宿題' })
   await page.getByPlaceholder('例: 算数のドリルを2ページ進めた').fill('メンテナンス中の未保存記録')
   let writes = 0
-  await page.route('**/api/v1/logs', async (route) => {
+  await page.route('**/api/v1/groups/*/logs', async (route) => {
     if (route.request().method() === 'POST') {
       writes++
       await route.fulfill(maintenance)
