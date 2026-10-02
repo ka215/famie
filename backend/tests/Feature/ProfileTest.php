@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Group;
+use App\Models\GroupMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -19,13 +21,13 @@ class ProfileTest extends TestCase
         config(['famie.allowed_ips' => ['127.0.0.1']]);
     }
 
-    #[TestWith(['parent'])]
-    #[TestWith(['child'])]
+    #[TestWith(['admin'])]
+    #[TestWith(['member'])]
     public function test_each_role_can_save_only_its_own_display_name(string $role): void
     {
-        $user = User::factory()->create(['role' => $role]);
+        $user = $this->createActiveUser($role);
         $other = User::factory()->create(['display_name' => '別のユーザー']);
-        $original = $user->only(['username', 'email', 'role', 'password']);
+        $original = $user->only(['username', 'email', 'password']);
         Sanctum::actingAs($user);
 
         $response = $this->patchJson('/v1/auth/me', ['display_name' => '　新しい 名前😀　']);
@@ -33,14 +35,14 @@ class ProfileTest extends TestCase
         $response->assertOk()->assertJsonPath('user.display_name', '新しい 名前😀')
             ->assertJsonPath('user.id', $user->id)->assertJsonMissingPath('user.password');
         $this->assertSame('新しい 名前😀', $user->fresh()->display_name);
-        $this->assertSame($original, $user->fresh()->only(['username', 'email', 'role', 'password']));
+        $this->assertSame($original, $user->fresh()->only(['username', 'email', 'password']));
         $this->assertSame('別のユーザー', $other->fresh()->display_name);
     }
 
     #[DataProvider('validNames')]
     public function test_accepts_boundary_and_normalizes_whitespace(string $input, string $expected): void
     {
-        $user = User::factory()->create();
+        $user = $this->createActiveUser();
         Sanctum::actingAs($user);
 
         $response = $this->patchJson('/v1/auth/me', ['display_name' => $input]);
@@ -62,7 +64,7 @@ class ProfileTest extends TestCase
     #[DataProvider('invalidNames')]
     public function test_rejects_invalid_names_with_422_and_a_japanese_reason(mixed $input, string $message): void
     {
-        $user = User::factory()->create(['display_name' => '変更前']);
+        $user = $this->createActiveUser(displayName: '変更前');
         Sanctum::actingAs($user);
 
         $response = $this->patchJson('/v1/auth/me', ['display_name' => $input]);
@@ -85,11 +87,11 @@ class ProfileTest extends TestCase
         ];
     }
 
-    #[TestWith(['parent'])]
-    #[TestWith(['child'])]
+    #[TestWith(['admin'])]
+    #[TestWith(['member'])]
     public function test_rejects_target_and_protected_fields_with_422(string $role): void
     {
-        $user = User::factory()->create(['role' => $role, 'display_name' => '変更前']);
+        $user = $this->createActiveUser($role, '変更前');
         $other = User::factory()->create(['display_name' => '別のユーザー']);
         $original = $user->fresh()->getAttributes();
         Sanctum::actingAs($user);
@@ -104,15 +106,15 @@ class ProfileTest extends TestCase
         $this->assertSame('別のユーザー', $other->fresh()->display_name);
     }
 
-    public function test_child_cannot_use_existing_parent_update_endpoint(): void
+    public function test_removed_user_update_endpoint_returns_404(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createActiveUser();
         $other = User::factory()->create(['display_name' => '別のユーザー']);
         Sanctum::actingAs($user);
 
         $response = $this->putJson("/v1/users/{$other->id}", ['display_name' => '書き換え']);
 
-        $response->assertForbidden();
+        $response->assertNotFound();
         $this->assertSame('別のユーザー', $other->fresh()->display_name);
     }
 
@@ -121,5 +123,19 @@ class ProfileTest extends TestCase
         $response = $this->patchJson('/v1/auth/me', ['display_name' => '未認証']);
 
         $response->assertUnauthorized();
+    }
+
+    private function createActiveUser(string $role = 'member', ?string $displayName = null): User
+    {
+        $group = Group::factory()->create();
+        $user = User::factory()->create($displayName === null ? [] : ['display_name' => $displayName]);
+        GroupMember::query()->create([
+            'group_id' => $group->id,
+            'user_id' => $user->id,
+            'role' => $role,
+            'status' => 'active',
+        ]);
+
+        return $user;
     }
 }

@@ -13,6 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['close', 'created'])
 const { fetchApi } = useApi()
+const { groupId } = useAuth()
 const { isMaintenance } = useMaintenance()
 const dialog = ref<HTMLDialogElement | null>(null)
 const viewportStyle = ref<Record<string, string>>({})
@@ -105,7 +106,7 @@ const handleSubmit = async () => {
   isLoading.value = true
 
   try {
-    await fetchApi('/logs', {
+    await fetchApi(`/groups/${groupId.value}/logs`, {
       method: 'POST',
       body: result.data,
     })

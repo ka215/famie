@@ -5,10 +5,11 @@ definePageMeta({
   layout: false,
 })
 
-const { login } = useAuth()
+const { login, accessError } = useAuth()
 const loginId = ref('')
 const password = ref('')
-const errorMessage = ref('')
+const errorMessage = ref(accessError.value)
+accessError.value = ''
 const isLoading = ref(false)
 
 const handleLogin = async () => {
@@ -77,6 +78,9 @@ const handleLogin = async () => {
           <span v-else>ログイン</span>
         </button>
       </form>
+      <div class="border-t border-slate-200 pt-4 text-center dark:border-slate-700">
+        <NuxtLink to="/register" class="text-sm font-medium text-blue-600 dark:text-blue-300">新しい家族を登録</NuxtLink>
+      </div>
     </div>
     <HomeInstallGuide class="w-full max-w-sm" />
   </div>

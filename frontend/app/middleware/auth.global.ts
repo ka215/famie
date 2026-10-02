@@ -5,11 +5,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (isMaintenance.value) return
 
-  if (!token.value && to.path !== '/login') {
+  const publicPaths = ['/login', '/register']
+
+  if (!token.value && !publicPaths.includes(to.path)) {
     return navigateTo('/login')
   }
 
-  if (!token.value && to.path === '/login') {
+  if (!token.value && publicPaths.includes(to.path)) {
     const { fetchApi } = useApi()
     try {
       const status = await fetchApi<{ status: string }>('/status', { cache: 'no-store' })
@@ -25,7 +27,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (token.value && !user.value && to.path !== '/login') {
+  if (token.value && !user.value && !publicPaths.includes(to.path)) {
     try {
       const fetchedUser = await fetchUser()
       if (!fetchedUser) {
@@ -42,7 +44,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (token.value && to.path === '/login') {
+  if (token.value && publicPaths.includes(to.path)) {
     return navigateTo('/')
   }
 })

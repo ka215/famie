@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveGroupMembership;
 use App\Http\Middleware\RestrictIpAddress;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(RestrictIpAddress::class);
+        $middleware->alias(['group.member' => EnsureActiveGroupMembership::class]);
         // API専用アプリのためゲストのリダイレクト先'login'ルートは存在しない
         $middleware->redirectGuestsTo(fn () => null);
     })

@@ -55,7 +55,7 @@ test('低い画面でも保存ボタンが最前面になり、背景操作を�
 })
 
 test('保存中にメンテナンスへ移行するとモーダルを閉じ、再試行を操作できる', async ({ page }) => {
-  await page.route('**/v1/logs', (route) =>
+  await page.route('**/v1/groups/*/logs', (route) =>
     route.request().method() === 'POST'
       ? route.fulfill({ status: 503, json: { code: 'maintenance', message: 'メンテナンス中' } })
       : route.fallback()

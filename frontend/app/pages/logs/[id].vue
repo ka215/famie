@@ -4,7 +4,8 @@ import { type ActivityLogForm, activityLogSchema } from '#shared/utils/activityL
 
 const route = useRoute()
 const { fetchApi } = useApi()
-const { user } = useAuth()
+const { user, groupId } = useAuth()
+const groupPath = (path: string) => `/groups/${groupId.value}${path}`
 
 const log = ref<ActivityLog | null>(null)
 const categories = ref<Category[]>([])
@@ -28,8 +29,8 @@ const loadLog = async () => {
 
   try {
     const [logResponse, categoryResponse] = await Promise.all([
-      fetchApi<DataResponse<ActivityLog>>(`/logs/${route.params.id}`),
-      fetchApi<Category[]>('/categories'),
+      fetchApi<DataResponse<ActivityLog>>(groupPath(`/logs/${route.params.id}`)),
+      fetchApi<Category[]>(groupPath('/categories')),
     ])
     log.value = logResponse.data
     categories.value = categoryResponse
@@ -64,7 +65,7 @@ const handleUpdate = async () => {
   isSaving.value = true
 
   try {
-    await fetchApi(`/logs/${route.params.id}`, {
+    await fetchApi(groupPath(`/logs/${route.params.id}`), {
       method: 'PUT',
       body: result.data,
     })
@@ -89,7 +90,7 @@ const handleDelete = async () => {
   errorMessage.value = ''
 
   try {
-    await fetchApi(`/logs/${route.params.id}`, { method: 'DELETE' })
+    await fetchApi(groupPath(`/logs/${route.params.id}`), { method: 'DELETE' })
     await navigateTo('/')
   } catch (error: unknown) {
     const apiError = error as ApiRequestError

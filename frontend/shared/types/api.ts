@@ -1,23 +1,44 @@
-export type UserRole = 'parent' | 'child'
+export type MembershipRole = 'admin' | 'member'
 
 export interface User {
   id: number
   username: string
   display_name: string
   email?: string | null
-  role: UserRole
+}
+
+export interface Group {
+  id: number
+  name: string
+  type: 'family'
+}
+
+export interface Membership {
+  id: number
+  role: MembershipRole
+  status: 'active'
+  group: Group
+}
+
+export interface FamilyMember {
+  id: number
+  username: string
+  display_name: string
+  membership_id: number
+  role: MembershipRole
 }
 
 export interface Category {
   id: number
+  group_id: number
   name: string
   color_code: string
+  sort_order: number
 }
 
 export interface ActivityLogUser {
   id: number
   display_name: string
-  role: UserRole
 }
 
 export interface ActivityLog {
@@ -67,10 +88,12 @@ export interface LoginResponse extends MessageResponse {
   access_token: string
   token_type: 'Bearer'
   user: User
+  membership: Membership
 }
 
 export interface CurrentUserResponse {
   user: User
+  membership: Membership
 }
 
 export interface ApiErrorBody {
@@ -81,6 +104,6 @@ export interface ApiErrorBody {
 
 export interface ApiRequestError {
   data?: ApiErrorBody
-  response?: { status?: number }
+  response?: { status?: number; headers?: Headers }
   statusCode?: number
 }

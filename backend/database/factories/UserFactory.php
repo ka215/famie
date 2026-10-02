@@ -29,18 +29,7 @@ class UserFactory extends Factory
             'display_name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
-            'role' => 'child',
             'remember_token' => Str::random(10),
         ];
-    }
-
-    /**
-     * Indicate that the user is a parent (administrator) account.
-     */
-    public function parent(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'role' => 'parent',
-        ]);
     }
 }
