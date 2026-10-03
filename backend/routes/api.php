@@ -25,6 +25,9 @@ Route::prefix('v1')->group(function () {
             Route::patch('/', [GroupController::class, 'update']);
             Route::get('/members', [UserController::class, 'index']);
             Route::post('/members', [UserController::class, 'store']);
+            Route::get('/members/inactive', [UserController::class, 'inactive']);
+            Route::patch('/members/{member}', [UserController::class, 'update'])->whereNumber('member');
+            Route::put('/members/{member}/status', [UserController::class, 'updateStatus'])->whereNumber('member');
             Route::get('/categories', [CategoryController::class, 'index']);
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::put('/categories/{category}', [CategoryController::class, 'update']);
