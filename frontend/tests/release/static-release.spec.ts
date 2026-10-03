@@ -66,3 +66,14 @@ test.describe('JavaScript読込前のテーマ', () => {
     await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark')
   })
 })
+
+test('アプリ起動前に保存テーマとブラウザ表示色を適用する', async ({ page }) => {
+  test.skip(!!process.env.RELEASE_BASE_URL, 'Local candidate verification before deployment')
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.addInitScript(() => localStorage.setItem('famie-theme', 'dark'))
+  await page.route('**/_nuxt/*.js', (route) => route.abort())
+  await page.goto('/login')
+  await expect(page.getByText('Famie を読み込んでいます…')).toBeVisible()
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(2, 6, 23)')
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#020617')
+})

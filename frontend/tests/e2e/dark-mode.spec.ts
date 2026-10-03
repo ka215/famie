@@ -29,7 +29,7 @@ const expectReadable = async (locator: Locator) => {
   expect(contrast).toBeGreaterThanOrEqual(4.5)
 }
 
-test('ログイン画面は初期ダーク表示とシステム設定の変更に追従し、QRは白背景を維持する', async ({
+test('ログイン画面は初回OS設定を保存し、OS変更後も選択を維持してQRは白背景を保つ', async ({
   page,
 }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
@@ -43,8 +43,9 @@ test('ログイン画面は初期ダーク表示とシステム設定の変更�
     'rgb(255, 255, 255)'
   )
   await page.emulateMedia({ colorScheme: 'light' })
-  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light')
-  await expect(input).not.toHaveCSS('background-color', darkBackground)
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark')
+  await page.reload()
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark')
   await page.emulateMedia({ colorScheme: 'dark' })
   await expect(input).toHaveCSS('background-color', darkBackground)
   await expectReadable(page.getByRole('heading', { name: 'Famie', exact: true }))
@@ -58,7 +59,13 @@ test('ダーク表示でタイムライン・登録・編集・設定の文字�
 }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await context.addCookies([{ name: 'auth_token', value: 'theme-test', url: 'http://127.0.0.1' }])
-  const user = { id: 1, username: 'parent', display_name: '自分', role: 'parent' }
+  const user = { id: 1, username: 'parent', display_name: '自分' }
+  const membership = {
+    id: 1,
+    role: 'admin',
+    status: 'active',
+    group: { id: 1, name: '家族', type: 'family' },
+  }
   const category = { id: 1, name: '明るいカテゴリ', color_code: '#ffffff' }
   const log = {
     id: 1,
@@ -74,15 +81,23 @@ test('ダーク表示でタイムライン・登録・編集・設定の文字�
   await page.route('**/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/status')) return route.fulfill({ json: { status: 'ok' } })
-    if (path.endsWith('/auth/me')) return route.fulfill({ json: { user } })
+    if (path.endsWith('/auth/me')) return route.fulfill({ json: { user, membership } })
     if (path.endsWith('/categories')) return route.fulfill({ json: [category] })
-    if (path.endsWith('/users')) return route.fulfill({ json: [user] })
+    if (path.endsWith('/members'))
+      return route.fulfill({ json: [{ ...user, membership_id: 1, role: 'admin' }] })
     if (path.endsWith('/logs/1')) return route.fulfill({ json: { data: log } })
     return route.fulfill({ json: { data: [log], current_page: 1, last_page: 1, total: 1 } })
   })
   await page.goto('/')
   const article = page.locator('article').first()
   await expect(article).toBeVisible()
+  await expect(page.locator('.week-nav-button').first()).toHaveCSS('color', /^oklch\(0\.869 /)
+  await page.getByRole('button', { name: '月表示', exact: true }).click()
+  await expect(page.locator('.calendar-nav-button').first()).toHaveCSS(
+    'background-color',
+    /^oklch\(0\.279 /
+  )
+  await page.getByRole('button', { name: '今週', exact: true }).click()
   const darkCard = await article.evaluate((el) => getComputedStyle(el).backgroundColor)
   await expect(article.getByText('明るいカテゴリ')).toHaveCSS('color', 'rgb(0, 0, 0)')
   await expectReadable(article.getByText('表示確認', { exact: true }))
@@ -98,15 +113,21 @@ test('ダーク表示でタイムライン・登録・編集・設定の文字�
   await expect(page.getByLabel('実施日', { exact: true })).toHaveCSS('background-color', darkCard)
   await page.goto('/settings')
   await expect(page.getByLabel('自分の表示名')).toHaveCSS('background-color', darkCard)
-  await expect(page.getByRole('button', { name: '変更', exact: true })).toBeDisabled()
+  await expect(
+    page
+      .locator('details')
+      .filter({ has: page.getByRole('heading', { name: 'ログイン情報' }) })
+      .getByRole('button', { name: '変更', exact: true })
+  ).toBeDisabled()
   await page.screenshot({ path: 'test-results/settings-dark.png', fullPage: true })
 })
 
-test('静的メンテナンス画面もシステム設定へ追従する', async ({ page }) => {
+test('静的メンテナンス画面も保存テーマを維持する', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/maintenance.html')
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(2, 6, 23)')
   await expect(page.getByRole('button', { name: '再試行' })).toBeVisible()
   await page.emulateMedia({ colorScheme: 'light' })
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(248, 250, 252)')
+  await page.reload()
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(2, 6, 23)')
 })

@@ -12,7 +12,7 @@ Header always set Retry-After "60" "expr=%{REQUEST_STATUS} == 503"
     Header always set Cache-Control "no-store, max-age=0"
 </FilesMatch>
 # mod_alias applies even when the API has its own mod_rewrite rules.
-<If "-f '%{DOCUMENT_ROOT}/.maintenance' && %{REQUEST_URI} !~ m#^/maintenance\.(html|json)$#">
+<If "-f '%{DOCUMENT_ROOT}/.maintenance' && %{REQUEST_URI} !~ m#^/(?:maintenance\.(?:html|json)|theme\.js)$#">
     Redirect 503 /
 </If>
 # END FAMIE MAINTENANCE
