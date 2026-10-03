@@ -15,6 +15,7 @@ const { user, membership, groupId, isParent, logout } = useAuth()
 const groupPath = (path = '') => `/groups/${groupId.value}${path}`
 const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
+const { theme, setTheme, storageError } = useTheme()
 const badgeStyle = categoryStyle
 
 const profileForm = ref<ProfileForm>({ display_name: user.value?.display_name ?? '' })
@@ -106,6 +107,14 @@ const userSuccessMessage = ref('')
 const userErrorMessage = ref('')
 
 const familyMembers = ref<FamilyMember[]>([])
+const inactiveMembers = ref<FamilyMember[]>([])
+const inactiveLoaded = ref(false)
+const inactiveLoading = ref(false)
+const memberMessage = ref('')
+const memberError = ref('')
+const selectedMember = ref<FamilyMember | null>(null)
+const restoringMember = ref(false)
+const selectedCategory = ref<Category | null>(null)
 const groupName = ref(membership.value?.group.name ?? '')
 const groupNameIsLoading = ref(false)
 const groupNameMessage = ref('')
@@ -121,7 +130,7 @@ const fetchCategories = async () => {
   try {
     categories.value = await fetchApi<Category[]>(groupPath('/categories'))
   } catch (err) {
-    console.error('カテゴリ一覧の取得に失敗しました', err)
+    categoryErrorMessage.value = 'カテゴリ一覧を取得できませんでした。再読み込みしてください。'
   }
 }
 
@@ -155,8 +164,49 @@ const fetchMembers = async () => {
   try {
     familyMembers.value = await fetchApi<FamilyMember[]>(groupPath('/members'))
   } catch (err) {
-    console.error('メンバー一覧の取得に失敗しました', err)
+    memberError.value = 'メンバー一覧を取得できませんでした。再読み込みしてください。'
   }
+}
+
+const fetchInactiveMembers = async () => {
+  if (!isParent.value || inactiveLoading.value) return
+  inactiveLoading.value = true
+  try {
+    inactiveMembers.value = await fetchApi<FamilyMember[]>(groupPath('/members/inactive'))
+    inactiveLoaded.value = true
+  } catch (cause: unknown) {
+    memberError.value =
+      (cause as ApiRequestError).data?.message ??
+      '復元対象を取得できませんでした。もう一度お試しください。'
+  } finally {
+    inactiveLoading.value = false
+  }
+}
+
+const openMember = (member: FamilyMember, inactive = false) => {
+  selectedMember.value = member
+  restoringMember.value = inactive
+  memberMessage.value = ''
+  memberError.value = ''
+}
+
+const memberSaved = async (member: FamilyMember) => {
+  selectedMember.value = null
+  memberMessage.value = 'メンバー情報を更新しました。'
+  if (user.value?.id === member.id) {
+    user.value.display_name = member.display_name
+    profileForm.value.display_name = member.display_name
+    savedDisplayName.value = member.display_name
+  }
+  await fetchMembers()
+  if (inactiveLoaded.value) await fetchInactiveMembers()
+}
+
+const categorySaved = async () => {
+  selectedCategory.value = null
+  categorySuccessMessage.value = 'カテゴリ情報を更新しました。'
+  categoryErrorMessage.value = ''
+  await fetchCategories()
 }
 
 const handlePasswordChange = async () => {
@@ -315,27 +365,45 @@ onMounted(() => {
     <SettingsCard title="家族メンバー">
       <div class="divide-y divide-slate-100 dark:divide-slate-700">
         <div v-for="member in familyMembers" :key="member.id" class="py-2.5 flex justify-between items-center first:pt-0 last:pb-0">
-          <div>
+          <div class="min-w-0 break-all">
             <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ member.display_name }}</p>
             <p class="text-xs text-slate-400 dark:text-slate-400">@{{ member.username }}</p>
           </div>
+          <div class="flex shrink-0 items-center gap-2">
           <span class="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded-md">
             {{ member.role === 'admin' ? '親' : '子' }}
           </span>
+          <button v-if="isParent" type="button" :aria-label="`${member.display_name}を管理`" class="min-h-11 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-600" @click="openMember(member)">管理</button>
+          </div>
         </div>
       </div>
+      <div v-if="isParent" class="space-y-3 border-t border-slate-200 dark:border-slate-700 pt-3">
+        <button type="button" :disabled="inactiveLoading" class="min-h-11 text-sm text-blue-600 dark:text-blue-300 disabled:opacity-50" @click="memberError = ''; fetchInactiveMembers()">無効化済みメンバーを復元</button>
+        <p v-if="inactiveLoaded && !inactiveMembers.length" class="text-sm text-slate-600 dark:text-slate-300">無効化済みメンバーはいません。</p>
+        <div v-for="member in inactiveMembers" :key="member.membership_id" class="flex items-center justify-between gap-3">
+          <div class="min-w-0 text-sm break-all">{{ member.display_name }}（@{{ member.username }}）<span class="ml-2">{{ member.role === 'admin' ? '親' : '子' }}</span></div>
+          <button type="button" :aria-label="`${member.display_name}を復元`" class="min-h-11 shrink-0 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-600" @click="openMember(member, true)">復元</button>
+        </div>
+      </div>
+      <p v-if="memberMessage" role="status" class="text-sm text-emerald-600 dark:text-emerald-300">{{ memberMessage }}</p>
+      <p v-if="memberError" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ memberError }}</p>
     </SettingsCard>
 
     <SettingsCard title="カテゴリ">
       <div class="flex flex-wrap gap-2">
-        <span
+        <component
           v-for="category in categories"
+          :is="isParent ? 'button' : 'span'"
           :key="category.id"
+          :type="isParent ? 'button' : undefined"
+          :aria-label="isParent ? `${category.name}を管理` : undefined"
           class="px-2 py-0.5 text-xs font-semibold text-white rounded-full"
+          :class="isParent ? 'min-h-11' : ''"
           :style="badgeStyle(category.color_code)"
+          @click="isParent && (selectedCategory = category)"
         >
           {{ category.name }}
-        </span>
+        </component>
       </div>
 
       <form v-if="isParent" class="flex items-end space-x-2 pt-2 border-t border-slate-100 dark:border-slate-700" @submit.prevent="handleAddCategory">
@@ -363,10 +431,10 @@ onMounted(() => {
         </button>
       </form>
 
-      <div v-if="categorySuccessMessage" class="p-3 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 text-xs rounded-lg">
+      <div v-if="categorySuccessMessage" role="status" class="p-3 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 text-xs rounded-lg">
         {{ categorySuccessMessage }}
       </div>
-      <div v-if="categoryErrorMessage" class="p-3 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 text-xs rounded-lg">
+      <div v-if="categoryErrorMessage" role="alert" class="p-3 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 text-xs rounded-lg">
         {{ categoryErrorMessage }}
       </div>
     </SettingsCard>
@@ -508,11 +576,24 @@ onMounted(() => {
         </button>
       </form>
     </SettingsCard>
+    <SettingsCard title="表示設定">
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-semibold">表示モード</legend>
+        <div class="flex gap-4">
+          <label class="flex min-h-11 items-center gap-2 text-sm"><input type="radio" name="theme" value="light" :checked="theme === 'light'" @change="setTheme('light')">ライト</label>
+          <label class="flex min-h-11 items-center gap-2 text-sm"><input type="radio" name="theme" value="dark" :checked="theme === 'dark'" @change="setTheme('dark')">ダーク</label>
+        </div>
+        <p class="text-xs text-slate-600 dark:text-slate-300">この端末のブラウザ・アプリに保存します。端末の表示設定が変わっても、選んだモードを維持します。</p>
+        <p v-if="storageError" role="alert" class="text-sm text-red-600 dark:text-red-300">表示設定を保存できませんでした。現在の画面には反映していますが、再起動後は保持されない場合があります。</p>
+      </fieldset>
+    </SettingsCard>
     <SettingsCard title="アプリについて">
       <dl class="text-sm text-slate-600 dark:text-slate-300">
         <div class="flex justify-between gap-4"><dt>バージョン</dt><dd>{{ publicConfig.appVersion }}</dd></div>
       </dl>
       <p class="text-center text-xs text-slate-500 dark:text-slate-400">© MAGIC METHODS</p>
     </SettingsCard>
+    <MemberManageDialog v-if="selectedMember && isParent" :member="selectedMember" :inactive="restoringMember" @close="selectedMember = null" @saved="memberSaved" />
+    <CategoryManageDialog v-if="selectedCategory && isParent" :category="selectedCategory" @close="selectedCategory = null" @saved="categorySaved" />
   </div>
 </template>

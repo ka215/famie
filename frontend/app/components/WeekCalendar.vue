@@ -107,9 +107,7 @@ const weekdayClass = (dayOfWeek: number) => {
   mask-size: contain;
 }
 
-@media (prefers-color-scheme: dark) {
-  .week-nav-button {
-    color: var(--color-slate-300);
-  }
+:global([data-theme="dark"] .week-nav-button) {
+  color: var(--color-slate-300);
 }
 </style>

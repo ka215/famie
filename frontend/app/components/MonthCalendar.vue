@@ -157,11 +157,9 @@ const accessibleLabel = (date: string) => {
   mask-size: contain;
 }
 
-@media (prefers-color-scheme: dark) {
-  .calendar-nav-button {
-    border-color: var(--color-slate-600);
-    background: var(--color-slate-800);
-    color: var(--color-slate-200);
-  }
+:global([data-theme="dark"] .calendar-nav-button) {
+  border-color: var(--color-slate-600);
+  background: var(--color-slate-800);
+  color: var(--color-slate-200);
 }
 </style>

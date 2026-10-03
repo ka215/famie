@@ -6,6 +6,7 @@ use App\Models\Group;
 use App\Models\GroupMember;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureActiveGroupMembership
@@ -19,6 +20,19 @@ class EnsureActiveGroupMembership
     {
         $groupId = $request->route('group');
         $group = $groupId instanceof Group ? $groupId : Group::query()->findOrFail($groupId);
+        if (! $request->isMethodSafe()) {
+            return DB::transaction(function () use ($request, $next, $group): Response {
+                Group::query()->whereKey($group->id)->lockForUpdate()->firstOrFail();
+
+                return $this->handleForGroup($request, $next, $group);
+            });
+        }
+
+        return $this->handleForGroup($request, $next, $group);
+    }
+
+    private function handleForGroup(Request $request, Closure $next, Group $group): Response
+    {
         $membership = GroupMember::query()
             ->where('group_id', $group->id)
             ->where('user_id', $request->user()->id)
