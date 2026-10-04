@@ -17,7 +17,7 @@ Copy-Item -LiteralPath (Join-Path $workspace 'backend/public/.htaccess') -Destin
 Add-Content -LiteralPath (Join-Path $backend '.htaccess') -Value 'RewriteBase /api/'
 # A static front controller proves that maintenance never depends on PHP/Laravel.
 Set-Content -LiteralPath (Join-Path $backend 'index.php') -Value 'Backend reached' -Encoding utf8NoBOM
-foreach ($asset in @('.htaccess', 'maintenance.html', 'maintenance.json')) {
+foreach ($asset in @('.htaccess', 'maintenance.html', 'maintenance.json', 'theme.js')) {
     Copy-Item -LiteralPath (Join-Path $workspace "frontend/public/$asset") -Destination $public
 }
 Set-Content -LiteralPath (Join-Path $public 'index.html') -Value 'Normal frontend' -Encoding utf8NoBOM
@@ -69,6 +69,8 @@ try {
     $response = Request '/api/v1/status'
     if ($response.StatusCode -ne 200 -or $response.Content -notmatch 'Backend reached') { throw "Normal API routing failed: $($response.StatusCode) $($response.Content)" }
     New-Item -ItemType File -Path (Join-Path $public '.maintenance') | Out-Null
+    $themeResponse = Request '/theme.js'
+    if ($themeResponse.StatusCode -ne 200 -or $themeResponse.Content -notmatch 'famie-theme') { throw 'Theme bootstrap unavailable during maintenance.' }
     foreach ($path in @('/', '/login/', '/settings')) {
         $response = Request $path
         if ($response.StatusCode -ne 503 -or $response.Content -notmatch 'ただいまメンテナンス中です') { throw "Expected maintenance HTML: $path HTTP $($response.StatusCode)" }
@@ -96,7 +98,7 @@ try {
         if ($response.StatusCode -ne 200 -or $response.Headers['Cache-Control'] -notmatch 'no-store') { throw "Maintenance asset failed: $asset" }
     }
     [System.IO.File]::WriteAllText((Join-Path $public '.htaccess'), $rules.Replace('Require ip 127.0.0.1', 'Require ip 192.0.2.1'))
-    foreach ($path in @('/', '/api/v1/status', '/maintenance.html', '/maintenance.json')) {
+    foreach ($path in @('/', '/api/v1/status', '/maintenance.html', '/maintenance.json', '/theme.js')) {
         $response = Request $path
         if ($response.StatusCode -ne 403) { throw "IP restriction bypassed: $path HTTP $($response.StatusCode)" }
     }

@@ -10,6 +10,30 @@ use Illuminate\Validation\ValidationException;
 
 class GroupMembershipService
 {
+    public function updateMember(User $actor, GroupMember $target, string $displayName, string $role): GroupMember
+    {
+        return DB::transaction(function () use ($actor, $target, $displayName, $role): GroupMember {
+            Group::query()->whereKey($target->group_id)->lockForUpdate()->firstOrFail();
+            $memberships = GroupMember::query()->where('group_id', $target->group_id)->orderBy('id')->lockForUpdate()->get();
+            $actorMembership = $memberships->firstWhere('user_id', $actor->id);
+            $lockedTarget = $memberships->firstWhere('id', $target->id);
+            abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, '所属の変更権限がありません。');
+            abort_if($lockedTarget->status !== GroupMember::STATUS_ACTIVE, 422, '無効化済みメンバーは復元してから編集してください。');
+            if (! in_array($role, [GroupMember::ROLE_ADMIN, GroupMember::ROLE_MEMBER], true)) {
+                throw ValidationException::withMessages(['role' => ['役割が不正です。']]);
+            }
+            if ($lockedTarget->role !== $role) {
+                abort_if($lockedTarget->user_id === $actor->id, 422, '自分自身の役割は変更できません。');
+                $activeAdmins = $memberships->where('status', GroupMember::STATUS_ACTIVE)->where('role', GroupMember::ROLE_ADMIN)->count();
+                abort_if($lockedTarget->isAdmin() && $activeAdmins <= 1, 422, '最後の管理者は降格できません。');
+            }
+            $lockedTarget->user->update(['display_name' => $displayName]);
+            $lockedTarget->update(['role' => $role]);
+
+            return $lockedTarget->fresh('user');
+        });
+    }
+
     public function changeStatus(User $actor, GroupMember $target, string $status): GroupMember
     {
         if (! in_array($status, [GroupMember::STATUS_ACTIVE, GroupMember::STATUS_INACTIVE], true)) {

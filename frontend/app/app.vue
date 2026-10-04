@@ -1,5 +1,9 @@
 <script setup lang="ts">
 const { isMaintenance } = useMaintenance()
+const { theme } = useTheme()
+useHead(() => ({
+  meta: [{ name: 'theme-color', content: theme.value === 'dark' ? '#020617' : '#f8fafc' }],
+}))
 useHead({
   link: [{ rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' }],
 })

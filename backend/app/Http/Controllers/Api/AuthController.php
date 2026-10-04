@@ -8,6 +8,7 @@ use App\Models\GroupMember;
 use App\Models\User;
 use App\Support\InitialCategories;
 use App\Support\UsernameRules;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -27,14 +28,15 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['login' => ['ログインIDまたはパスワードが正しくありません。']]);
         }
 
-        $membership = $this->activeMembership($user);
-        $user->tokens()->delete();
-        $token = $user->createToken('auth_token', expiresAt: now()->addDays(30))->plainTextToken;
+        return $this->withMembershipLock($user, function (GroupMember $membership) use ($user): JsonResponse {
+            $user->tokens()->delete();
+            $token = $user->createToken('auth_token', expiresAt: now()->addDays(30))->plainTextToken;
 
-        return response()->json([
-            'message' => 'ログインに成功しました。', 'access_token' => $token, 'token_type' => 'Bearer',
-            ...$this->identityPayload($user, $membership),
-        ]);
+            return response()->json([
+                'message' => 'ログインに成功しました。', 'access_token' => $token, 'token_type' => 'Bearer',
+                ...$this->identityPayload($user, $membership),
+            ]);
+        });
     }
 
     public function register(Request $request): JsonResponse
@@ -98,7 +100,7 @@ class AuthController extends Controller
 
     public function updateMe(Request $request): JsonResponse
     {
-        $membership = $this->activeMembership($request->user());
+        $this->activeMembership($request->user());
         if (array_diff(array_keys($request->all()), ['display_name'])) {
             throw ValidationException::withMessages(['profile' => ['表示名以外は変更できません。']]);
         }
@@ -106,9 +108,12 @@ class AuthController extends Controller
             'display_name.required' => '表示名を入力してください。', 'display_name.string' => '表示名は文字列で入力してください。',
             'display_name.max' => '表示名は50文字以内で入力してください。',
         ]);
-        $request->user()->update($validated);
 
-        return response()->json($this->identityPayload($request->user()->fresh(), $membership));
+        return $this->withMembershipLock($request->user(), function (GroupMember $membership) use ($request, $validated): JsonResponse {
+            $request->user()->update($validated);
+
+            return response()->json($this->identityPayload($request->user()->fresh(), $membership));
+        });
     }
 
     public function updatePassword(Request $request): JsonResponse
@@ -117,12 +122,27 @@ class AuthController extends Controller
         $validated = $request->validate([
             'current_password' => ['required', 'string'], 'new_password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
-        if (! Hash::check($validated['current_password'], $request->user()->password)) {
-            return response()->json(['message' => '現在のパスワードが正しくありません。'], 422);
-        }
-        $request->user()->update(['password' => Hash::make($validated['new_password'])]);
 
-        return response()->json(['message' => 'パスワードを変更しました。']);
+        return $this->withMembershipLock($request->user(), function () use ($request, $validated): JsonResponse {
+            $user = $request->user()->fresh();
+            if (! Hash::check($validated['current_password'], $user->password)) {
+                return response()->json(['message' => '現在のパスワードが正しくありません。'], 422);
+            }
+            $user->update(['password' => Hash::make($validated['new_password'])]);
+
+            return response()->json(['message' => 'パスワードを変更しました。']);
+        });
+    }
+
+    private function withMembershipLock(User $user, Closure $callback): JsonResponse
+    {
+        $membership = $this->activeMembership($user);
+
+        return DB::transaction(function () use ($user, $membership, $callback): JsonResponse {
+            Group::query()->whereKey($membership->group_id)->lockForUpdate()->firstOrFail();
+
+            return $callback($this->activeMembership($user));
+        });
     }
 
     private function activeMembership(User $user): GroupMember

@@ -15,10 +15,8 @@ export default defineNuxtConfig({
   buildDir: import.meta.env.FAMIE_E2E === '1' ? '.cache/nuxt-e2e' : '.nuxt',
   app: {
     head: {
-      meta: [
-        { name: 'theme-color', content: '#f8fafc', media: '(prefers-color-scheme: light)' },
-        { name: 'theme-color', content: '#020617', media: '(prefers-color-scheme: dark)' },
-      ],
+      meta: [{ name: 'theme-color', content: '#f8fafc' }],
+      script: [{ src: '/theme.js', tagPosition: 'bodyOpen' }],
       link: [{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }],
     },
   },

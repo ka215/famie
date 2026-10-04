@@ -42,6 +42,12 @@ class CategoryController extends Controller
         $target->update($request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('categories')->where('group_id', $group->id)->ignore($target->id)],
             'color_code' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ], [
+            'name.required' => 'カテゴリ名を入力してください。',
+            'name.string' => 'カテゴリ名は文字列で入力してください。',
+            'name.max' => 'カテゴリ名は255文字以内で入力してください。',
+            'name.unique' => '同じ名前のカテゴリが存在します。',
+            'color_code.regex' => '色は#に続く6桁の16進数で指定してください。',
         ]));
 
         return response()->json(['message' => 'カテゴリを更新しました。', 'data' => $target]);
