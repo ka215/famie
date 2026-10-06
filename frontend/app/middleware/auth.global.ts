@@ -5,7 +5,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (isMaintenance.value) return
 
-  const publicPaths = ['/login', '/register']
+  const accountPaths = ['/verify-email', '/forgot-password', '/reset-password']
+  const publicPaths = ['/login', '/register', ...accountPaths]
 
   if (!token.value && !publicPaths.includes(to.path)) {
     return navigateTo('/login')
@@ -44,7 +45,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (token.value && publicPaths.includes(to.path)) {
+  if (token.value && ['/login', '/register'].includes(to.path)) {
     return navigateTo('/')
   }
 })

@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   }
 })
 
-for (const path of ['/login', '/']) {
+for (const path of ['/login', '/', '/forgot-password', '/verify-email', '/reset-password']) {
   test(`${path} mounts without console errors or unknown warnings`, async ({ page }) => {
     const consoleFailures: string[] = []
     const pageFailures: string[] = []
@@ -27,9 +27,21 @@ for (const path of ['/login', '/']) {
     })
     page.on('pageerror', (error) => pageFailures.push(error.message))
 
-    await page.goto(path)
+    const hash = ['/verify-email', '/reset-password'].includes(path)
+      ? `#id=123&token=${'a'.repeat(64)}`
+      : ''
+    await page.goto(path + hash)
     await expect(page.locator('#__nuxt')).not.toBeEmpty()
     await expect(page.locator('body')).toBeVisible()
+    if (hash) {
+      await expect(
+        page.getByRole('button', {
+          name: path === '/verify-email' ? 'メールアドレスを確認する' : 'パスワードを再設定',
+          exact: true,
+        })
+      ).toBeEnabled()
+      await expect(page).toHaveURL(new RegExp(`${path}/?$`))
+    }
     expect(pageFailures).toEqual([])
     expect(consoleFailures).toEqual([])
   })
