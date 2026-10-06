@@ -12,7 +12,16 @@ test.beforeEach(async ({ page }) => {
   }
 })
 
-for (const path of ['/login', '/', '/forgot-password', '/verify-email', '/reset-password']) {
+for (const path of [
+  '/login',
+  '/',
+  '/forgot-password',
+  '/forgot-password/',
+  '/verify-email',
+  '/verify-email/',
+  '/reset-password',
+  '/reset-password/',
+]) {
   test(`${path} mounts without console errors or unknown warnings`, async ({ page }) => {
     const consoleFailures: string[] = []
     const pageFailures: string[] = []
@@ -27,7 +36,8 @@ for (const path of ['/login', '/', '/forgot-password', '/verify-email', '/reset-
     })
     page.on('pageerror', (error) => pageFailures.push(error.message))
 
-    const hash = ['/verify-email', '/reset-password'].includes(path)
+    const normalizedPath = path.replace(/\/$/, '')
+    const hash = ['/verify-email', '/reset-password'].includes(normalizedPath)
       ? `#id=123&token=${'a'.repeat(64)}`
       : ''
     await page.goto(path + hash)
@@ -36,11 +46,16 @@ for (const path of ['/login', '/', '/forgot-password', '/verify-email', '/reset-
     if (hash) {
       await expect(
         page.getByRole('button', {
-          name: path === '/verify-email' ? 'メールアドレスを確認する' : 'パスワードを再設定',
+          name:
+            normalizedPath === '/verify-email' ? 'メールアドレスを確認する' : 'パスワードを再設定',
           exact: true,
         })
       ).toBeEnabled()
-      await expect(page).toHaveURL(new RegExp(`${path}/?$`))
+      await expect(page).toHaveURL(new RegExp(`${normalizedPath}/?$`))
+    }
+    if (normalizedPath === '/forgot-password') {
+      await expect(page.getByRole('button', { name: '再設定メールを送信' })).toBeEnabled()
+      await expect(page).toHaveURL(/\/forgot-password\/?$/)
     }
     expect(pageFailures).toEqual([])
     expect(consoleFailures).toEqual([])
