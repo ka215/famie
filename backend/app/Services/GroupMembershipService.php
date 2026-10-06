@@ -10,6 +10,8 @@ use Illuminate\Validation\ValidationException;
 
 class GroupMembershipService
 {
+    public function __construct(private AccountEmailService $emails) {}
+
     public function updateMember(User $actor, GroupMember $target, string $displayName, string $role): GroupMember
     {
         return DB::transaction(function () use ($actor, $target, $displayName, $role): GroupMember {
@@ -59,6 +61,7 @@ class GroupMembershipService
             $lockedTarget->update(['status' => $status]);
             if ($status === GroupMember::STATUS_INACTIVE) {
                 $lockedTarget->user->tokens()->delete();
+                $this->emails->clearChallenges($lockedTarget->user);
             }
 
             return $lockedTarget->fresh();

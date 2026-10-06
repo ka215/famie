@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'frontend_url' => env('FAMIE_FRONTEND_URL', 'http://localhost:3000'),
+    'mail_restrict_recipients' => env('FAMIE_MAIL_RESTRICT_RECIPIENTS', true),
+    'mail_allowed_recipients' => array_values(array_filter(array_map('trim', explode(',', strtolower((string) env('FAMIE_MAIL_ALLOWED_RECIPIENTS', '')))))),
     'ip_restriction_enabled' => env('IP_RESTRICTION_ENABLED', true),
     'allowed_ips' => array_values(array_filter(array_map(
         'trim',

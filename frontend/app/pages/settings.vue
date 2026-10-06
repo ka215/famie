@@ -225,6 +225,10 @@ const handlePasswordChange = async () => {
       body: pwdForm.value,
     })
     pwdSuccessMessage.value = 'パスワードを変更しました。'
+    if (user.value) {
+      user.value.pending_email = null
+      user.value.email_verification_expires_at = null
+    }
     pwdForm.value = {
       current_password: '',
       new_password: '',
@@ -520,6 +524,8 @@ onMounted(() => {
         </button>
       </form>
     </SettingsCard>
+
+    <EmailSettingsCard />
 
     <SettingsCard title="パスワードの変更">
 
