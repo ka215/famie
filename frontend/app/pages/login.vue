@@ -78,6 +78,9 @@ const handleLogin = async () => {
           <span v-else>ログイン</span>
         </button>
       </form>
+      <div class="text-center">
+        <NuxtLink to="/forgot-password" class="text-sm text-blue-600 dark:text-blue-300">パスワードを忘れた方</NuxtLink>
+      </div>
       <div class="border-t border-slate-200 pt-4 text-center dark:border-slate-700">
         <NuxtLink to="/register" class="text-sm font-medium text-blue-600 dark:text-blue-300">新しい家族を登録</NuxtLink>
       </div>

@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
+
 // Read-only guard. Validate both .env and effective (possibly cached) configuration.
 if ($argc !== 4 || ! in_array($argv[3], ['ka2_famie', 'ka2_famiestg'], true)) {
     fwrite(STDERR, "Invalid environment guard arguments\n");
@@ -34,9 +37,13 @@ try {
         && in_array(strtolower($values['IP_RESTRICTION_ENABLED'] ?? 'true'), ['false', '(false)'], true)) {
         throw new RuntimeException('Staging IP restriction must remain enabled');
     }
+    if ($expectedDatabase === 'ka2_famiestg'
+        && ! in_array(strtolower($values['FAMIE_MAIL_RESTRICT_RECIPIENTS'] ?? 'true'), ['true', '(true)', '1'], true)) {
+        throw new RuntimeException('Staging mail recipient restriction must remain enabled');
+    }
 
     $app = require $backend.'/bootstrap/app.php';
-    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    $app->make(Kernel::class)->bootstrap();
     if (! $app->environment('production') || config('app.debug') || config('app.url') !== $expectedUrl
         || config('database.default') !== 'pgsql') {
         throw new RuntimeException('Unexpected effective application configuration');
@@ -44,7 +51,10 @@ try {
     if ($expectedDatabase === 'ka2_famiestg' && config('famie.ip_restriction_enabled', true) === false) {
         throw new RuntimeException('Staging effective IP restriction must remain enabled');
     }
-    $connection = Illuminate\Support\Facades\DB::connection();
+    if ($expectedDatabase === 'ka2_famiestg' && ! config('famie.mail_restrict_recipients', true)) {
+        throw new RuntimeException('Staging effective mail recipient restriction must remain enabled');
+    }
+    $connection = DB::connection();
     foreach (['host' => 'localhost', 'port' => '5432', 'database' => $expectedDatabase,
         'username' => $expectedDatabase, 'search_path' => $expectedDatabase] as $key => $value) {
         if ((string) $connection->getConfig($key) !== $value) {

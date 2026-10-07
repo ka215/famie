@@ -6,6 +6,9 @@ use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -93,6 +96,83 @@ class PostgresConcurrencyTest extends TestCase
         $this->assertSame($saveFirst, Category::query()->whereKey($category->id)->exists());
     }
 
+    #[TestWith(['verify'])]
+    #[TestWith(['reset'])]
+    public function test_account_link_can_only_be_consumed_once(string $kind): void
+    {
+        [$group, , $member] = $this->family();
+        $operation = $this->accountOperation($member, $kind);
+        $results = $this->race($group, [$operation, $operation]);
+        $this->assertSame([200, 422], array_column($results, 'status'), json_encode($results));
+    }
+
+    #[TestWith([false, 'verify'])]
+    #[TestWith([true, 'verify'])]
+    #[TestWith([false, 'reset'])]
+    #[TestWith([true, 'reset'])]
+    public function test_deactivation_and_account_link_are_serialized(bool $linkFirst, string $kind): void
+    {
+        [$group, $admin, $member] = $this->family();
+        $link = $this->accountOperation($member, $kind);
+        $disable = $this->operation($admin, 'PUT', "/v1/groups/{$group->id}/members/{$member->id}/status", ['status' => 'inactive']);
+        $results = $this->race($group, $linkFirst ? [$link, $disable] : [$disable, $link]);
+        $this->assertSame($linkFirst ? [200, 200] : [200, 422], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(0, $member->user->tokens()->count());
+        $this->assertNull($member->user->fresh()->pending_email);
+    }
+
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_email_change_and_password_reset_invalidate_each_other(bool $resetFirst): void
+    {
+        [$group, , $member] = $this->family();
+        $verify = $this->accountOperation($member, 'verify');
+        $reset = $this->accountOperation($member, 'reset');
+        $results = $this->race($group, $resetFirst ? [$reset, $verify] : [$verify, $reset]);
+        $this->assertSame([200, 422], array_column($results, 'status'), json_encode($results));
+    }
+
+    public function test_two_families_cannot_confirm_the_same_email(): void
+    {
+        [$group, , $member] = $this->family();
+        [$otherGroup, , $otherMember] = $this->family();
+        $email = 'shared-'.Str::lower(Str::random(12)).'@example.test';
+        $first = $this->accountOperation($member, 'verify', $email);
+        $second = $this->accountOperation($otherMember, 'verify', $email);
+        $results = $this->race([$group, $otherGroup], [$first, $second]);
+        $statuses = array_column($results, 'status');
+        sort($statuses);
+        $this->assertSame([200, 422], $statuses, json_encode($results));
+        $this->assertSame(1, DB::table('users')->where('email', $email)->count());
+    }
+
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_reset_and_old_password_login_leave_no_live_token(bool $loginFirst): void
+    {
+        [$group, , $member] = $this->family();
+        $reset = $this->accountOperation($member, 'reset');
+        $login = $this->operation($member, 'POST', '/v1/auth/login', ['login' => $member->user->username, 'password' => 'password']);
+        $results = $this->race($group, $loginFirst ? [$login, $reset] : [$reset, $login]);
+        $this->assertSame($loginFirst ? [200, 200] : [200, 422], array_column($results, 'status'), json_encode($results));
+        $this->assertSame(0, $member->user->tokens()->count());
+        $this->assertTrue(Hash::check('new-password', $member->user->fresh()->password));
+    }
+
+    private function accountOperation(GroupMember $member, string $kind, ?string $email = null): array
+    {
+        $user = $member->user->fresh();
+        if ($kind === 'verify') {
+            $token = Str::random(64);
+            $user->forceFill(['pending_email' => $email ?? 'new-'.$user->id.'@example.test', 'email_verification_token' => hash('sha256', $token), 'email_verification_expires_at' => now()->addHour()])->save();
+
+            return $this->operation($member, 'POST', '/v1/auth/email/verify', ['id' => $user->id, 'token' => $token]);
+        }
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        return $this->operation($member, 'POST', '/v1/auth/password/reset', ['id' => $user->id, 'token' => Password::createToken($user), 'password' => 'new-password', 'password_confirmation' => 'new-password']);
+    }
+
     /** @return array{Group, GroupMember, GroupMember, Category} */
     private function family(): array
     {
@@ -111,12 +191,16 @@ class PostgresConcurrencyTest extends TestCase
     }
 
     /** @return array<int, array<string, mixed>> */
-    private function race(Group $group, array $operations, int $limit = 10): array
+    private function race(Group|array $group, array $operations, int $limit = 10): array
     {
+        $groups = is_array($group) ? $group : [$group];
+        $group = $groups[0];
         $processes = [];
         DB::beginTransaction();
         try {
-            Group::query()->whereKey($group->id)->lockForUpdate()->firstOrFail();
+            foreach ($groups as $lockedGroup) {
+                Group::query()->whereKey($lockedGroup->id)->lockForUpdate()->firstOrFail();
+            }
             foreach ($operations as $index => $operation) {
                 $worker = 'famie-race-'.$group->id.'-'.$index;
                 $process = new Process([PHP_BINARY, base_path('tests/Support/concurrent-request.php')], base_path(), timeout: 25);

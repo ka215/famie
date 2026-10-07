@@ -5,13 +5,16 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (isMaintenance.value) return
 
-  const publicPaths = ['/login', '/register']
+  const accountPaths = ['/verify-email', '/forgot-password', '/reset-password']
+  const publicPaths = ['/login', '/register', ...accountPaths]
+  // Apache adds a trailing slash when serving prerendered page directories.
+  const path = to.path.replace(/\/+$/, '') || '/'
 
-  if (!token.value && !publicPaths.includes(to.path)) {
+  if (!token.value && !publicPaths.includes(path)) {
     return navigateTo('/login')
   }
 
-  if (!token.value && publicPaths.includes(to.path)) {
+  if (!token.value && publicPaths.includes(path)) {
     const { fetchApi } = useApi()
     try {
       const status = await fetchApi<{ status: string }>('/status', { cache: 'no-store' })
@@ -27,7 +30,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (token.value && !user.value && !publicPaths.includes(to.path)) {
+  if (token.value && !user.value && !publicPaths.includes(path)) {
     try {
       const fetchedUser = await fetchUser()
       if (!fetchedUser) {
@@ -44,7 +47,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (token.value && publicPaths.includes(to.path)) {
+  if (token.value && ['/login', '/register'].includes(path)) {
     return navigateTo('/')
   }
 })

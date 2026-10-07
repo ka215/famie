@@ -5,6 +5,9 @@ export interface User {
   username: string
   display_name: string
   email?: string | null
+  email_verified_at?: string | null
+  pending_email?: string | null
+  email_verification_expires_at?: string | null
 }
 
 export interface Group {

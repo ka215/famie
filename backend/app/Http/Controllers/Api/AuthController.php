@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
+use App\Services\AccountEmailService;
 use App\Support\InitialCategories;
 use App\Support\UsernameRules;
 use Closure;
@@ -22,13 +23,18 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate(['login' => ['required', 'string'], 'password' => ['required', 'string']]);
-        $user = User::query()->where('username', $request->string('login'))->orWhere('email', $request->string('login'))->first();
+        $user = User::query()->where('username', $request->string('login'))->orWhereRaw('LOWER(email) = ?', [strtolower((string) $request->string('login'))])->first();
 
         if (! $user || ! Hash::check($request->string('password'), $user->password)) {
             throw ValidationException::withMessages(['login' => ['ログインIDまたはパスワードが正しくありません。']]);
         }
 
-        return $this->withMembershipLock($user, function (GroupMember $membership) use ($user): JsonResponse {
+        return $this->withMembershipLock($user, function (GroupMember $membership) use ($user, $request): JsonResponse {
+            $user->refresh();
+            if (! Hash::check($request->string('password'), $user->password)
+                || ($user->username !== (string) $request->string('login') && strtolower((string) $user->email) !== strtolower((string) $request->string('login')))) {
+                throw ValidationException::withMessages(['login' => ['ログインIDまたはパスワードが正しくありません。']]);
+            }
             $user->tokens()->delete();
             $token = $user->createToken('auth_token', expiresAt: now()->addDays(30))->plainTextToken;
 
@@ -95,7 +101,7 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json($this->identityPayload($request->user(), $this->activeMembership($request->user())));
+        return response()->json($this->identityPayload($request->user()->fresh(), $this->activeMembership($request->user())));
     }
 
     public function updateMe(Request $request): JsonResponse
@@ -116,19 +122,20 @@ class AuthController extends Controller
         });
     }
 
-    public function updatePassword(Request $request): JsonResponse
+    public function updatePassword(Request $request, AccountEmailService $emails): JsonResponse
     {
         $this->activeMembership($request->user());
         $validated = $request->validate([
             'current_password' => ['required', 'string'], 'new_password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
 
-        return $this->withMembershipLock($request->user(), function () use ($request, $validated): JsonResponse {
+        return $this->withMembershipLock($request->user(), function () use ($request, $validated, $emails): JsonResponse {
             $user = $request->user()->fresh();
             if (! Hash::check($validated['current_password'], $user->password)) {
                 return response()->json(['message' => '現在のパスワードが正しくありません。'], 422);
             }
             $user->update(['password' => Hash::make($validated['new_password'])]);
+            $emails->clearChallenges($user);
 
             return response()->json(['message' => 'パスワードを変更しました。']);
         });
@@ -158,7 +165,7 @@ class AuthController extends Controller
     private function identityPayload(User $user, GroupMember $membership): array
     {
         return [
-            'user' => $user->only(['id', 'username', 'display_name', 'email']),
+            'user' => $user->only(['id', 'username', 'display_name', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
             'membership' => [
                 'id' => $membership->id, 'role' => $membership->role, 'status' => $membership->status,
                 'group' => $membership->group->only(['id', 'name', 'type']),
