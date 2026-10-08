@@ -23,6 +23,7 @@ class ActivityLogController extends Controller
             'category_id' => ['nullable', Rule::exists('categories', 'id')->where('group_id', $group->id)],
         ]);
         $query = $group->activityLogs()->whereIn('user_id', $activeUserIds)
+            ->withLikeState($request->user()->id)
             ->with(['user:id,display_name', 'category:id,name,color_code,sort_order'])
             ->dateBetween($request->query('from'), $request->query('to'));
         if ($request->filled('user_id')) {
@@ -44,17 +45,17 @@ class ActivityLogController extends Controller
             'content' => ['required', 'string', 'max:1000'], 'note' => ['nullable', 'string', 'max:1000'],
         ]);
         $log = $group->activityLogs()->create([...$validated, 'user_id' => $request->user()->id]);
-        $log->load(['user:id,display_name', 'category:id,name,color_code,sort_order']);
+        $log = $this->responseLog($request, $group, $log->id);
 
         return response()->json(['message' => 'アクティビティを記録しました。', 'data' => $log], 201);
     }
 
-    public function show(Group $group, int $log): JsonResponse
+    public function show(Request $request, Group $group, int $log): JsonResponse
     {
         $target = $this->visibleLog($group, $log);
         Gate::authorize('view', $target);
 
-        return response()->json(['data' => $target->load(['user:id,display_name', 'category:id,name,color_code,sort_order'])]);
+        return response()->json(['data' => $this->responseLog($request, $group, $target->id)]);
     }
 
     public function update(Request $request, Group $group, int $log): JsonResponse
@@ -68,7 +69,7 @@ class ActivityLogController extends Controller
             'content' => ['sometimes', 'required', 'string', 'max:1000'], 'note' => ['nullable', 'string', 'max:1000'],
         ]));
 
-        return response()->json(['message' => 'ログを更新しました。', 'data' => $target->load(['user:id,display_name', 'category:id,name,color_code,sort_order'])]);
+        return response()->json(['message' => 'ログを更新しました。', 'data' => $this->responseLog($request, $group, $target->id)]);
     }
 
     public function destroy(Group $group, int $log): JsonResponse
@@ -83,6 +84,12 @@ class ActivityLogController extends Controller
     private function visibleLog(Group $group, int $log): ActivityLog
     {
         return $group->activityLogs()->whereIn('user_id', $group->memberships()->where('status', GroupMember::STATUS_ACTIVE)->select('user_id'))->findOrFail($log);
+    }
+
+    private function responseLog(Request $request, Group $group, int $id): ActivityLog
+    {
+        return $group->activityLogs()->withLikeState($request->user()->id)
+            ->with(['user:id,display_name', 'category:id,name,color_code,sort_order'])->findOrFail($id);
     }
 
     private function rejectOwnedFields(Request $request): void

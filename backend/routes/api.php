@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLikeController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -41,6 +42,10 @@ Route::prefix('v1')->group(function () {
             Route::put('/categories/{category}', [CategoryController::class, 'update']);
             Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
             Route::apiResource('logs', ActivityLogController::class);
+        });
+        Route::prefix('/groups/{group}/logs/{log}/like')->middleware(['throttle:activity-likes', 'group.member'])->whereNumber('log')->group(function () {
+            Route::put('/', [ActivityLikeController::class, 'update']);
+            Route::delete('/', [ActivityLikeController::class, 'destroy']);
         });
     });
 });

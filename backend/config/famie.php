@@ -1,6 +1,10 @@
 <?php
 
+$likeRateLimit = env('FAMIE_LIKE_RATE_LIMIT_PER_SECOND', 2);
+
 return [
+    'like_rate_limit_per_second' => (is_int($likeRateLimit) || is_string($likeRateLimit))
+        ? filter_var($likeRateLimit, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false,
     'frontend_url' => env('FAMIE_FRONTEND_URL', 'http://localhost:3000'),
     'mail_restrict_recipients' => env('FAMIE_MAIL_RESTRICT_RECIPIENTS', true),
     'mail_allowed_recipients' => array_values(array_filter(array_map('trim', explode(',', strtolower((string) env('FAMIE_MAIL_ALLOWED_RECIPIENTS', '')))))),

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLike;
+use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
@@ -157,6 +159,43 @@ class PostgresConcurrencyTest extends TestCase
         $this->assertSame($loginFirst ? [200, 200] : [200, 422], array_column($results, 'status'), json_encode($results));
         $this->assertSame(0, $member->user->tokens()->count());
         $this->assertTrue(Hash::check('new-password', $member->user->fresh()->password));
+    }
+
+    #[TestWith(['PUT', 'PUT', 1])]
+    #[TestWith(['PUT', 'DELETE', 0])]
+    #[TestWith(['DELETE', 'PUT', 1])]
+    #[TestWith(['DELETE', 'DELETE', 0])]
+    public function test_like_requests_serialize_and_preserve_the_final_state(string $first, string $second, int $count): void
+    {
+        [$group, $admin, $member, $category] = $this->family();
+        $log = $group->activityLogs()->create(['user_id' => $admin->user_id, 'category_id' => $category->id, 'activity_date' => '2026-10-08', 'content' => 'いいね競合']);
+        $path = "/v1/groups/{$group->id}/logs/{$log->id}/like";
+        $results = $this->race($group, [$this->operation($member, $first, $path, []), $this->operation($member, $second, $path, [])]);
+        $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results));
+        $this->assertSame($count, $log->likes()->count());
+    }
+
+    #[TestWith([true, 'sender'])]
+    #[TestWith([false, 'sender'])]
+    #[TestWith([true, 'owner'])]
+    #[TestWith([false, 'owner'])]
+    #[TestWith([true, 'delete'])]
+    #[TestWith([false, 'delete'])]
+    public function test_like_and_visibility_changes_never_leave_visible_invalid_likes(bool $likeFirst, string $change): void
+    {
+        [$group, $admin, $member, $category] = $this->family();
+        $log = $group->activityLogs()->create(['user_id' => $member->user_id, 'category_id' => $category->id, 'activity_date' => '2026-10-08', 'content' => 'いいね競合']);
+        $sender = GroupMember::factory()->create(['group_id' => $group->id]);
+        $like = $this->operation($sender, 'PUT', "/v1/groups/{$group->id}/logs/{$log->id}/like", []);
+        $update = $change === 'delete'
+            ? $this->operation($member, 'DELETE', "/v1/groups/{$group->id}/logs/{$log->id}", [])
+            : $this->operation($admin, 'PUT', "/v1/groups/{$group->id}/members/".($change === 'sender' ? $sender->id : $member->id).'/status', ['status' => 'inactive']);
+        $results = $this->race($group, $likeFirst ? [$like, $update] : [$update, $like]);
+        $this->assertSame($likeFirst ? [200, 200] : [200, 404], array_column($results, 'status'), json_encode($results));
+        $this->assertSame($likeFirst && $change !== 'delete' ? 1 : 0, ActivityLike::query()->where('activity_log_id', $log->id)->count());
+        if ($change === 'sender') {
+            $this->assertSame(0, ActivityLog::query()->withLikeState($admin->user_id)->findOrFail($log->id)->likes_count);
+        }
     }
 
     private function accountOperation(GroupMember $member, string $kind, ?string $email = null): array

@@ -23,8 +23,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('account-mail-ip', fn (Request $request) => Limit::perMinute(10)->by('account-mail-ip:'.$request->ip()));
+        RateLimiter::for('activity-likes', fn (Request $request) => Limit::perSecond(config('famie.like_rate_limit_per_second'))
+            ->by('activity-likes:'.$request->user()->id)
+            ->response(fn (Request $request, array $headers) => response()->json(['message' => '操作が続いています。少し待ってから再試行してください。'], 429, $headers)));
         foreach ([
             'max_group_members',
+            'like_rate_limit_per_second',
             'max_group_categories',
             'register_window_seconds',
             'register_max_attempts',

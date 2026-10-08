@@ -101,7 +101,7 @@ class ProfileTest extends TestCase
             'username' => 'hijack', 'email' => 'hijack@example.test', 'role' => 'parent',
         ]);
 
-        $response->assertUnprocessable()->assertJsonPath('errors.profile.0', '表示名以外は変更できません。');
+        $response->assertUnprocessable()->assertJsonPath('errors.profile.0', '表示名と敬称設定以外は変更できません。');
         $this->assertSame($original, $user->fresh()->getAttributes());
         $this->assertSame('別のユーザー', $other->fresh()->display_name);
     }
@@ -137,5 +137,32 @@ class ProfileTest extends TestCase
         ]);
 
         return $user;
+    }
+
+    #[TestWith(['admin'])]
+    #[TestWith(['member'])]
+    public function test_suffix_default_and_partial_updates_preserve_other_profile_fields(string $role): void
+    {
+        $user = $this->createActiveUser($role, '元の名前');
+        Sanctum::actingAs($user);
+        $this->getJson('/v1/auth/me')->assertJsonPath('user.show_name_suffix', true);
+        $this->patchJson('/v1/auth/me', ['show_name_suffix' => false])->assertOk()->assertJsonPath('user.show_name_suffix', false)->assertJsonPath('user.display_name', '元の名前');
+        $this->patchJson('/v1/auth/me', ['display_name' => '別の名前'])->assertOk()->assertJsonPath('user.show_name_suffix', false);
+        $this->getJson('/v1/auth/me')->assertJsonPath('user.show_name_suffix', false);
+        $this->assertFalse($user->fresh()->show_name_suffix);
+        $this->patchJson('/v1/auth/me', ['show_name_suffix' => true])->assertOk();
+        $this->assertTrue($user->fresh()->show_name_suffix);
+    }
+
+    #[TestWith(['false'])]
+    #[TestWith([1])]
+    #[TestWith([null])]
+    public function test_suffix_rejects_non_boolean_without_changing_saved_value(mixed $value): void
+    {
+        $user = $this->createActiveUser();
+        Sanctum::actingAs($user);
+        $this->patchJson('/v1/auth/me', ['show_name_suffix' => $value])->assertUnprocessable();
+        $this->patchJson('/v1/auth/me', [])->assertUnprocessable();
+        $this->assertTrue($user->fresh()->show_name_suffix);
     }
 }
