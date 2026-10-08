@@ -17,7 +17,10 @@ export default defineNuxtConfig({
     head: {
       meta: [{ name: 'theme-color', content: '#f8fafc' }],
       script: [{ src: '/theme.js', tagPosition: 'bodyOpen' }],
-      link: [{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }],
+      link: [
+        { rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+      ],
     },
   },
   nitro: {
@@ -26,7 +29,7 @@ export default defineNuxtConfig({
         ? { '/api/v1': { target: 'http://127.0.0.1:8100/v1', changeOrigin: true } }
         : {},
   },
-  devtools: { enabled: !isProduction },
+  devtools: { enabled: !isProduction && import.meta.env.FAMIE_E2E !== '1' },
 
   // Apache(127.0.0.1経由のProxyPass)から到達できるようIPv4でも待ち受ける
   devServer: {

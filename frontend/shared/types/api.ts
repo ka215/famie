@@ -4,6 +4,7 @@ export interface User {
   id: number
   username: string
   display_name: string
+  show_name_suffix: boolean
   email?: string | null
   email_verified_at?: string | null
   pending_email?: string | null
@@ -54,7 +55,12 @@ export interface ActivityLog {
   note: string | null
   user: ActivityLogUser
   category: Category
+  likes_count: number
+  liked_by_me: boolean
+  can_like: boolean
 }
+
+export type ActivityLikeState = Pick<ActivityLog, 'id' | 'likes_count' | 'liked_by_me' | 'can_like'>
 
 export interface PaginationLink {
   url: string | null

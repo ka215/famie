@@ -11,7 +11,7 @@ import type { CreateUserForm, PasswordForm } from '#shared/types/forms'
 import { categoryStyle } from '#shared/utils/categoryColor'
 import { type ProfileForm, profileSchema } from '#shared/utils/profileSchema'
 
-const { user, membership, groupId, isParent, logout } = useAuth()
+const { user, membership, groupId, isParent, logout, token } = useAuth()
 const groupPath = (path = '') => `/groups/${groupId.value}${path}`
 const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
@@ -20,6 +20,31 @@ const badgeStyle = categoryStyle
 
 const profileForm = ref<ProfileForm>({ display_name: user.value?.display_name ?? '' })
 const profileIsLoading = ref(false)
+const suffixIsLoading = ref(false)
+const suffixError = ref('')
+const suffixSuccess = ref('')
+const saveSuffix = async (value: boolean) => {
+  if (suffixIsLoading.value || profileIsLoading.value) return
+  suffixIsLoading.value = true
+  suffixError.value = ''
+  suffixSuccess.value = ''
+  const requestToken = token.value
+  try {
+    const response = await fetchApi<CurrentUserResponse>('/auth/me', {
+      method: 'PATCH',
+      body: { show_name_suffix: value },
+    })
+    if (requestToken !== token.value) return
+    user.value = response.user
+    membership.value = response.membership
+    suffixSuccess.value = '敬称の表示設定を変更しました。'
+  } catch {
+    if (requestToken !== token.value) return
+    suffixError.value = '敬称の表示設定を保存できませんでした。再試行してください。'
+  } finally {
+    suffixIsLoading.value = false
+  }
+}
 const profileSuccessMessage = ref('')
 const profileErrorMessage = ref('')
 const savedDisplayName = ref(user.value?.display_name ?? '')
@@ -36,6 +61,7 @@ const displayedProfileError = computed(
 const canSaveProfile = computed(
   () =>
     !profileIsLoading.value &&
+    !suffixIsLoading.value &&
     parsedProfile.value.success &&
     parsedProfile.value.data.display_name !== savedDisplayName.value
 )
@@ -348,6 +374,9 @@ onMounted(() => {
         <p id="display-name-error" role="alert" class="text-xs text-red-600 dark:text-red-300">{{ displayedProfileError }}</p>
         <p v-if="profileSuccessMessage" role="status" class="text-xs text-emerald-600 dark:text-emerald-300">{{ profileSuccessMessage }}</p>
       </form>
+      <ToggleSwitch :model-value="user?.show_name_suffix !== false" label="ヘッダの名前に『さん』を表示する" :busy="suffixIsLoading" :disabled="profileIsLoading" @update:model-value="saveSuffix" />
+      <p v-if="suffixError" role="alert" class="text-xs text-red-600 dark:text-red-300">{{ suffixError }}</p>
+      <p v-if="suffixSuccess" role="status" class="text-xs text-emerald-600 dark:text-emerald-300">{{ suffixSuccess }}</p>
       <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-700">
         <button type="button" class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-950" @click="logout">
           ログアウト
@@ -394,6 +423,7 @@ onMounted(() => {
     </SettingsCard>
 
     <SettingsCard title="カテゴリ">
+      <p v-if="isParent && categories.length > 0" class="text-xs text-slate-500 dark:text-slate-400">カテゴリのバッジを押すと、名前や色を編集できます。</p>
       <div class="flex flex-wrap gap-2">
         <component
           v-for="category in categories"

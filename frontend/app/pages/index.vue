@@ -22,6 +22,15 @@ const editIconStyle = { maskImage: `url("${editIcon}")` }
 const plusIconStyle = { maskImage: `url("${plusIcon}")` }
 
 const logs = ref<ActivityLog[]>([])
+const {
+  operations: likeOperations,
+  stateFor: likeState,
+  toggle: toggleLike,
+  beginRead,
+  acceptLogs,
+  waiting: likesWaiting,
+  waitSeconds: likeWaitSeconds,
+} = useActivityLikes()
 const categories = ref<Category[]>([])
 const familyMembers = ref<FamilyMember[]>([])
 const isLoading = ref(false)
@@ -84,6 +93,7 @@ const fetchLogs = async (page = 1, day?: string | null) => {
   }
 
   const requestId = ++logRequestId
+  const likeReadRevision = beginRead()
   isLoading.value = true
   errorMessage.value = ''
   try {
@@ -97,6 +107,7 @@ const fetchLogs = async (page = 1, day?: string | null) => {
       groupPath(`/logs?${params.toString()}`)
     )
     if (requestId !== logRequestId) return
+    acceptLogs(res.data, likeReadRevision)
     logs.value = res.data
     currentPage.value = res.current_page
     lastPage.value = res.last_page
@@ -434,11 +445,14 @@ onMounted(async () => {
             <p v-if="log.note" class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg">
               メモ: {{ log.note }}
             </p>
-            <div v-if="log.user_id === user?.id" class="flex justify-end">
-              <NuxtLink :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">
+            <div class="flex items-center justify-between">
+              <ActivityLikeButton :state="likeState(log)" :own="log.user_id === user?.id" :pending="likeOperations[log.id]?.pending" :uncertain="likeOperations[log.id]?.uncertain" :waiting="likesWaiting" @toggle="toggleLike(log)" />
+              <NuxtLink v-if="log.user_id === user?.id" :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-11 w-11 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">
                 <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="editIconStyle" />
               </NuxtLink>
             </div>
+            <p v-if="likeOperations[log.id]?.error" role="alert" class="relative z-1 text-xs text-red-600 dark:text-red-300">{{ likeOperations[log.id]?.error }}</p>
+            <p v-if="likesWaiting && log.user_id !== user?.id" role="status" class="text-xs text-slate-500 dark:text-slate-400">あと{{ likeWaitSeconds }}秒お待ちください。</p>
           </article>
 
           <div v-if="lastPage > 1" class="flex items-center justify-between pt-2">

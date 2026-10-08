@@ -19,6 +19,9 @@ export const useApi = () => {
         }
         if (response.status === 401 && !isMaintenance.value) {
           token.value = null
+          useState('activity_like_operations').value = {}
+          useState('activity_like_retry_until').value = 0
+          useState('activity_like_owner').value = ''
           useState('auth_user').value = null
           useState('auth_membership').value = null
           navigateTo('/login')
