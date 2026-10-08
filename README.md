@@ -1,155 +1,38 @@
 # Famie
 
-Famie is a comprehensive workspace guide designed to streamline development processes for various projects within the Famie organization. This document provides guidelines, environment policies, and essential commands to ensure a consistent and efficient development environment across different projects.
+**Small moments. Shared as a family.**
 
-## Table of Contents
-1. [Workspace Structure](#workspace-structure)
-2. [Environment Policy](#environment-policy)
-3. [Command Prioritization](#command-prioritization)
-4. [Repository Actions](#repository-actions)
-5. [Validation Policy](#validation-policy)
-6. [Working with Windows Shell](#working-with-windows-shell)
-7. [Error Handling](#error-handling)
-8. [Prohibited Practices](#prohibited-practices)
-9. [Document Management](#document-management)
+Famie is a simple place to record everyday activities, see what your family has been doing, and encourage one another with a heart. From finishing homework to helping with dinner, ordinary moments deserve a little recognition.
 
-## Workspace Structure
+**Visit Famie: [famie.ka2.org](https://famie.ka2.org)**
 
-The workspace is organized as follows:
+## A little encouragement, every day
 
-```
-famie/
-├── frontend/     # Frontend project
-├── backend/      # Backend project
-├── other/        # Other projects or utilities
-└── docs/         # Documentation
-```
+- **Keep a family timeline.** Record an activity with a date, category, and optional note.
+- **Celebrate each other.** Like another family member's activity, see the hearts it receives, and undo your own like whenever you want.
+- **Find the moments you need.** Browse by week or month, or filter by date range, family member, and category.
+- **Make it your family's space.** Family administrators manage members and categories. Each person edits their own activity records.
+- **Feel at home on your phone.** Add Famie to your home screen as a PWA, choose a light or dark theme, and customize your display name and header suffix.
 
-## Environment Policy
+<p align="center">
+  <img src="docs/assets/screenshots/timeline-v0.13.0.png" width="430" alt="Famie family timeline showing daily activities, colorful categories, and heart reactions on a mobile screen">
+</p>
 
-- **Development Environment:** Windows
-- **Recommended Shell:** PowerShell
-- **Package Manager:** npm / pnpm / composer
-- **Python is discouraged:** No Python scripts should be generated or executed without confirmation.
+*Illustrative sample data from v0.13.0. The app interface is in Japanese.*
 
-### Startup Checks (Windows)
+## Made for families
 
-```powershell
-Get-Location
-node -v
-pnpm -v
-php -v
-composer -V
-git --version
-python --version   # Continue if it fails
-```
+An administrator creates a family and adds its members. Activities and categories stay within that family, with administrator and regular-member roles. Each account currently belongs to one family.
 
-- `node -v` or `pnpm -v` failing → Explain missing tools and stop
-- `python --version` failing → Do not attempt Python-based alternatives
+Rewards and membership in multiple families are planned features; they are not available yet. Famie does not process payments.
 
-## Command Prioritization
+## Built with
 
-Select commands based on the following priority:
+Nuxt 4, Vue, TypeScript, and Tailwind CSS on the frontend; Laravel, Sanctum, and PostgreSQL on the backend.
 
-1. Scripts defined in `package.json` / `composer.json`
-2. Existing scripts committed to the repository (`scripts/`, `beta/start_server.php`, etc.)
-3. PowerShell commands/scripts
-4. Node.js one-off scripts
-5. Bash (only if explicitly required and available)
-6. Python (only if confirmed and necessary to resolve issues)
+For setup, commands, repository structure, and reproducing the sample screenshot, see the [development guide](docs/development/workspace-guide.md).
 
-### Search Command Rules
-
-- Text search: Use `rg` (ripgrep) as the first choice.
-- File list search: Use `rg --files` as the first choice.
-- Filter with `rg` first, use additional commands (PowerShell `Select-String`, etc.) if needed.
-- Use alternative commands if `rg` is not available in the environment.
-
-## Workspace-Specific Command Cheat Sheet
-
-### frontend/ (pnpm + Nuxt)
-
-```powershell
-pnpm install          # Install dependencies
-pnpm dev              # Start development server (http://localhost:3000)
-pnpm build            # Production build (remove .output directory first)
-pnpm preview          # Preview built version
-pnpm generate         # Static export
-pnpm clean            # Cache clean
-npx @biomejs/biome check --write .   # Lint + format
-```
-
-### backend/ (composer + Laravel)
-
-```powershell
-composer install
-php artisan key:generate
-composer dev          # Start PHP server / queue / log / Vite in parallel
-composer test         # Run tests
-```
-
-### other/ (npm)
-
-```powershell
-npm install
-```
-
-## Repository Actions
-
-- Reuse existing scripts, composerables, utilities, and type definitions.
-- Do not modify files outside the task's directory.
-- Structural changes are only allowed if explicitly required by the task.
-- Adhere to existing naming, formatting, and architecture conventions.
-
-## Validation Policy
-
-Minimize cost by validating first.
-
-1. Lint / type check of changed files
-2. Tests covering the affected scope
-3. Full build only when necessary
-
-```powershell
-# frontend
-npx @biomejs/biome check .
-pnpm build
-
-# backend
-php artisan test
-```
-
-If validation fails, review the command output and consider a different approach before repeating the same failure.
-
-## Working with Windows Shell
-
-Use PowerShell as the primary shell. Avoid Unix-specific commands.
-
-```powershell
-# Unix alternatives
-Get-ChildItem          # ls
-Get-Content .\file.txt # cat
-Set-Location .\app     # cd
-Test-Path .\node_modules # test -d
-```
-
-## Error Handling
-
-1. Explain the specific reason for the failure
-2. Do not blindly repeat the same approach in another runtime
-3. Windows alternatives: PowerShell → Existing repository scripts → Node.js
-4. Do not use Python-based alternatives if Python is not confirmed
-5. If necessary tools are missing, explain and stop
-
-## Prohibited Practices (Common to All Workspaces)
-
-- Do not generate or execute Python scripts without confirming Python availability
-- Do not perform file operations, text replacements, or configuration checks via Python
-- Do not use `npm` as a substitute for `pnpm` (frontend)
-- Do not invent custom commands without confirming existing `package.json` scripts
-- Do not make unrelated file changes or cleanups
-
-## Document Management
-
-- `docs/` contains long-term reference documents (`*-plan.md`, `*-spec.md`, `*-notes.md`).
-- Temporary notes and investigations should be placed in `.temp/`.
-- The main copy of GitHub issues should be in GitHub. Use `.github/ISSUE_TEMPLATE/` templates.
+- [Documentation](docs/README.md)
+- [Requirements and release status](docs/issues/summary.md)
+- [v0.13.0 specification](docs/issues/v0.13.0.md)
+- [Contributor and agent instructions](AGENTS.md)

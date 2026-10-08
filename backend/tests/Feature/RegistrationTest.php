@@ -27,7 +27,7 @@ class RegistrationTest extends TestCase
             'password' => 'password', 'password_confirmation' => 'password',
         ]);
 
-        $response->assertCreated()->assertJsonPath('membership.role', 'admin')->assertJsonPath('membership.group.name', '山田家')
+        $response->assertCreated()->assertJsonPath('user.show_name_suffix', true)->assertJsonPath('membership.role', 'admin')->assertJsonPath('membership.group.name', '山田家')
             ->assertJsonStructure(['access_token', 'user' => ['id'], 'membership' => ['group' => ['id']]]);
         $groupId = $response->json('membership.group.id');
         $this->assertDatabaseHas('group_members', ['group_id' => $groupId, 'role' => 'admin', 'status' => 'active']);

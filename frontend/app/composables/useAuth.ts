@@ -19,6 +19,11 @@ export const useAuth = () => {
   })
   const { fetchApi } = useApi()
   const { isMaintenance } = useMaintenance()
+  const resetLikes = () => {
+    useState('activity_like_operations').value = {}
+    useState('activity_like_retry_until').value = 0
+    useState('activity_like_owner').value = ''
+  }
 
   const login = async (loginId: string, password: string) => {
     const res = await fetchApi<LoginResponse>('/auth/login', {
@@ -27,6 +32,7 @@ export const useAuth = () => {
     })
 
     token.value = res.access_token
+    resetLikes()
     user.value = res.user
     membership.value = res.membership
     accessError.value = ''
@@ -35,6 +41,7 @@ export const useAuth = () => {
 
   const register = async (form: RegisterForm) => {
     const res = await fetchApi<LoginResponse>('/auth/register', { method: 'POST', body: form })
+    resetLikes()
     token.value = res.access_token
     user.value = res.user
     membership.value = res.membership
@@ -53,6 +60,7 @@ export const useAuth = () => {
     } finally {
       if (!isMaintenance.value) {
         token.value = null
+        resetLikes()
         user.value = null
         membership.value = null
         accessError.value = ''

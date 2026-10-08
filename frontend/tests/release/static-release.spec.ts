@@ -4,6 +4,30 @@ import { expect, test } from '@playwright/test'
 // disabled to keep release smoke tests independent from an existing PWA cache.
 const allowedWarnings = [/^Service Worker registration blocked by Playwright$/]
 
+test('初期HTMLはJavaScript実行前からFamieアイコンを指定する', async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false })
+  try {
+    const page = await context.newPage()
+    await page.goto(`${baseURL}/login`)
+    await expect(page.getByText('Famie を読み込んでいます…')).toBeVisible()
+    await expect(page.locator('head link[rel="icon"]')).toHaveAttribute('href', '/icon.svg')
+    const svg = await request.get('/icon.svg')
+    expect(svg.ok()).toBeTruthy()
+    expect(await svg.text()).toContain('Famie')
+    const ico = await request.get('/favicon.ico')
+    expect(ico.ok()).toBeTruthy()
+    const bytes = await ico.body()
+    expect(bytes.subarray(0, 6)).toEqual(Buffer.from([0, 0, 1, 0, 1, 0]))
+    expect(bytes.subarray(22, 30)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  } finally {
+    await context.close()
+  }
+})
+
 test.beforeEach(async ({ page }) => {
   if (!process.env.RELEASE_BASE_URL) {
     await page.route('**/api/v1/status', async (route) => {

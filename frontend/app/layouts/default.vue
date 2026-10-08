@@ -17,7 +17,7 @@ const iconStyles = {
     <header class="shrink-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between shadow-xs">
       <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Famie</h1>
       <div class="flex items-center space-x-3 text-sm">
-        <span class="text-slate-600 dark:text-slate-300 font-medium">{{ user?.display_name }} さん</span>
+        <span class="text-slate-600 dark:text-slate-300 font-medium">{{ user?.display_name }}<template v-if="user?.show_name_suffix !== false"> さん</template></span>
       </div>
     </header>
 

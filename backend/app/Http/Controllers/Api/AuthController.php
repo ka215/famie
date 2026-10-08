@@ -107,10 +107,17 @@ class AuthController extends Controller
     public function updateMe(Request $request): JsonResponse
     {
         $this->activeMembership($request->user());
-        if (array_diff(array_keys($request->all()), ['display_name'])) {
-            throw ValidationException::withMessages(['profile' => ['表示名以外は変更できません。']]);
+        if (array_diff(array_keys($request->all()), ['display_name', 'show_name_suffix'])) {
+            throw ValidationException::withMessages(['profile' => ['表示名と敬称設定以外は変更できません。']]);
         }
-        $validated = $request->validate(['display_name' => ['required', 'string', 'max:50']], [
+        if ($request->all() === []) {
+            throw ValidationException::withMessages(['profile' => ['変更する項目を指定してください。']]);
+        }
+        $validated = $request->validate([
+            'display_name' => ['sometimes', 'required', 'string', 'max:50'],
+            'show_name_suffix' => ['sometimes', 'required', 'boolean:strict'],
+        ], [
+            'show_name_suffix.boolean' => '敬称の表示はONまたはOFFで指定してください。',
             'display_name.required' => '表示名を入力してください。', 'display_name.string' => '表示名は文字列で入力してください。',
             'display_name.max' => '表示名は50文字以内で入力してください。',
         ]);
@@ -165,7 +172,7 @@ class AuthController extends Controller
     private function identityPayload(User $user, GroupMember $membership): array
     {
         return [
-            'user' => $user->only(['id', 'username', 'display_name', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
+            'user' => $user->fresh()->only(['id', 'username', 'display_name', 'show_name_suffix', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
             'membership' => [
                 'id' => $membership->id, 'role' => $membership->role, 'status' => $membership->status,
                 'group' => $membership->group->only(['id', 'name', 'type']),
