@@ -4,6 +4,8 @@
 
 ## 共通ルール
 
+- [開発ガイド](workspace-guide.md)：ワークスペース構成、開発・検証コマンド、サンプル画像の再生成。
+
 - [現行データモデル仕様・ER図](knowledge/current-data-model-spec.md)：複数家族・リワード設計の事前資料。
 - [グループモデル拡張設計案](group-model-extension-spec.md)：ユーザー素案から具体化したモデル・権限・判断事項。
 - [グループモデル移行・検証計画](group-model-extension-plan.md)：段階移行、復旧、後続タスクと完了条件。

@@ -18,6 +18,18 @@ Apacheは `/api` を `backend/public` のマウントパスとして取り除い
 
 ## 2. 前提条件
 
+### v0.13.0：いいねの制限と移行
+
+- `FAMIE_LIKE_RATE_LIMIT_PER_SECOND` は認証ユーザー1人あたり、いいねPUT／DELETE共通の秒間上限。未設定時は2件。正の整数のみ受け付け、不正値では設定エラーとする。取得APIには適用しない。
+- 同じユーザーの別カード・別トークンも合算する。複数PHPワーカーで制限を共有するため、通常は既定の `CACHE_STORE=database` を使用する。複数サーバーの場合も同じDBキャッシュとプレフィックスを使う。`array` / `null` はリクエスト間で制限を維持できないため運用では使用しない。
+- `.env` の値を変更した後は既存配置手順に沿って `php artisan config:cache` で設定を再生成する。常駐プロセスを使用している環境ではそのプロセスも再起動する。設定変更のためにキャッシュ全体を消去する必要はない。
+- 初期値2件を起点に、複数カードの通常操作、低速回線、複数端末で応答時間・429頻度・ロック待ちを確認して最終調整する。変更値・環境・結果をリリース記録へ残す。
+- migrationで `activity_likes`、活動の複合一意制約、`users.show_name_suffix` を追加する。既存活動は0いいね、既存ユーザーは敬称ON。migration完了後に新しいFrontendを利用可能にする。
+- 配置前に既存手順でDBをバックアップする。旧アプリへ戻す際も追加テーブル・列を保持できるため、データ蓄積後の `migrate:rollback` は使わない。migrationのdownは新しいいいね・敬称設定を失う。DB復元が必要な障害では、メンテナンス中にバックアップと対応するアプリを復元し、バックアップ以降の書き込みが失われる範囲を記録する。
+- PostgreSQLの `pg_stat_user_tables` で `activity_likes` の `n_dead_tup / last_autovacuum / autovacuum_count`、`pg_stat_activity` でロック待ちを確認する。dead tuple件数は推定値。autovacuumを有効に保ち、調整は実測に基づく。定期VACUUM FULLは行わない。
+
+### 共通の前提条件
+
 - CoreServer 上の `~/famie` が配置先として初期化済みで、`.env`とstorageを保持できる。
 - SSH の PHP CLI 8.4.17 で `pdo_pgsql` が有効であることを確認済みである。
 - Composer 2.8.10 を SSH から実行できることを確認済みである。
