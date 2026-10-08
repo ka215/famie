@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['username', 'display_name', 'email', 'password'])]
+#[Fillable(['username', 'display_name', 'email', 'password', 'show_name_suffix'])]
 #[Hidden(['password', 'remember_token', 'email_verification_token'])]
 class User extends Authenticatable
 {
@@ -28,6 +28,7 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'show_name_suffix' => 'boolean',
             'email_verified_at' => 'datetime',
             'email_verification_expires_at' => 'datetime',
         ];
@@ -39,6 +40,12 @@ class User extends Authenticatable
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
+    }
+
+    /** @return HasMany<ActivityLike, $this> */
+    public function sentLikes(): HasMany
+    {
+        return $this->hasMany(ActivityLike::class);
     }
 
     /** @return HasOne<GroupMember, $this> */
