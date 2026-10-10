@@ -12,7 +12,7 @@ test('週の日付選択、月別件数、指定日表示、登録日の引き�
   const monthFrom = `${year}-${String(monthNumber).padStart(2, '0')}-01`
   const monthTo = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10)
   const nextWeekDate = new Date(Date.UTC(year, month, day + 7)).toISOString().slice(0, 10)
-  const requestedPages: number[] = []
+  const requestedCounts: string[] = []
   const requestedRanges: string[] = []
 
   const makeLog = (id: number) => ({
@@ -35,26 +35,23 @@ test('週の日付選択、月別件数、指定日表示、登録日の引き�
     if (url.pathname.endsWith('/auth/me')) return route.fulfill({ json: { user: owner } })
     if (url.pathname.endsWith('/categories')) return route.fulfill({ json: [category] })
     if (url.pathname.endsWith('/users')) return route.fulfill({ json: [owner] })
+    if (url.pathname.endsWith('/logs/counts')) {
+      const from = url.searchParams.get('from') ?? ''
+      const to = url.searchParams.get('to') ?? ''
+      requestedCounts.push(`${from}:${to}`)
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      return route.fulfill({ json: { data: { [selectedDate]: 51 } } })
+    }
     if (!url.pathname.endsWith('/logs')) return route.fulfill({ json: {} })
 
     const from = url.searchParams.get('from') ?? ''
     const to = url.searchParams.get('to') ?? ''
-    const currentPage = Number(url.searchParams.get('page') ?? '1')
     requestedRanges.push(`${from}:${to}`)
 
     if (from === nextWeekDate && to === nextWeekDate) {
       await new Promise((resolve) => setTimeout(resolve, 400))
     }
 
-    if (from === monthFrom && to === monthTo) {
-      if (currentPage === 1) await new Promise((resolve) => setTimeout(resolve, 400))
-      requestedPages.push(currentPage)
-      const data =
-        currentPage === 1 ? Array.from({ length: 50 }, (_, i) => makeLog(i + 1)) : [makeLog(51)]
-      return route.fulfill({
-        json: { data, current_page: currentPage, last_page: 2, total: 51 },
-      })
-    }
     if (from === selectedDate && to === selectedDate) {
       return route.fulfill({
         json: { data: [makeLog(51)], current_page: 1, last_page: 1, total: 51 },
@@ -115,7 +112,7 @@ test('週の日付選択、月別件数、指定日表示、登録日の引き�
   expect(calendarBox).not.toBeNull()
   if (!createBox || !calendarBox) throw new Error('登録ボタンまたはカレンダーを表示できません')
   expect(createBox.y + createBox.height).toBeLessThanOrEqual(calendarBox.y)
-  await expect.poll(() => requestedPages.sort()).toEqual([1, 2])
+  await expect.poll(() => requestedCounts).toContain(`${monthFrom}:${monthTo}`)
 
   const selectedDay = page.getByRole('button', {
     name: /15日.*アクティビティ51件/,

@@ -2,7 +2,6 @@
 import type { ActivityLog, Category, FamilyMember, PaginatedResponse } from '#shared/types/api'
 import type { FilterPeriod } from '#shared/types/forms'
 import {
-  countActivitiesByDate,
   formatLocalDate,
   getCalendarDisplayLocale,
   getFirstDayOfWeek,
@@ -128,21 +127,13 @@ const fetchMonthCounts = async () => {
   const range = getMonthRange(calendarYear.value, calendarMonth.value)
 
   try {
-    const fetchPage = async (page: number) => {
-      const params = new URLSearchParams({ from: range.from, to: range.to, page: String(page) })
-      appendFilters(params)
-      return await fetchApi<PaginatedResponse<ActivityLog>>(groupPath(`/logs?${params.toString()}`))
-    }
-
-    const firstPage = await fetchPage(1)
-    const remainingPages = Array.from(
-      { length: Math.max(0, firstPage.last_page - 1) },
-      (_, index) => index + 2
+    const params = new URLSearchParams({ from: range.from, to: range.to })
+    appendFilters(params)
+    const response = await fetchApi<{ data: Record<string, number> }>(
+      groupPath(`/logs/counts?${params.toString()}`)
     )
-    const remaining = await Promise.all(remainingPages.map(fetchPage))
     if (requestId !== calendarRequestId) return
-    const monthLogs = [firstPage, ...remaining].flatMap((response) => response.data)
-    activityCounts.value = countActivitiesByDate(monthLogs.map((log) => log.activity_date))
+    activityCounts.value = response.data
   } catch {
     if (requestId !== calendarRequestId) return
     errorMessage.value = '月の記録件数の取得に失敗しました。もう一度操作してください。'
@@ -445,6 +436,7 @@ onMounted(async () => {
             <p v-if="log.note" class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg">
               メモ: {{ log.note }}
             </p>
+            <ActivityImageView v-if="log.image" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" class="relative z-1" />
             <div class="flex items-center justify-between">
               <ActivityLikeButton :state="likeState(log)" :own="log.user_id === user?.id" :pending="likeOperations[log.id]?.pending" :uncertain="likeOperations[log.id]?.uncertain" :waiting="likesWaiting" @toggle="toggleLike(log)" />
               <NuxtLink v-if="log.user_id === user?.id" :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-11 w-11 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">

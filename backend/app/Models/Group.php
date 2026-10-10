@@ -16,6 +16,17 @@ class Group extends Model
 
     public const TYPE_FAMILY = 'family';
 
+    protected function casts(): array
+    {
+        return ['images_enabled' => 'boolean', 'image_quota_bytes' => 'integer'];
+    }
+
+    /** @return HasMany<ActivityImage, $this> */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ActivityImage::class);
+    }
+
     /** @return HasMany<GroupMember, $this> */
     public function memberships(): HasMany
     {

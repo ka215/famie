@@ -22,9 +22,9 @@ class EnsureActiveGroupMembership
         $group = $groupId instanceof Group ? $groupId : Group::query()->findOrFail($groupId);
         if (! $request->isMethodSafe()) {
             return DB::transaction(function () use ($request, $next, $group): Response {
-                Group::query()->whereKey($group->id)->lockForUpdate()->firstOrFail();
+                $lockedGroup = Group::query()->whereKey($group->id)->lockForUpdate()->firstOrFail();
 
-                return $this->handleForGroup($request, $next, $group);
+                return $this->handleForGroup($request, $next, $lockedGroup);
             });
         }
 

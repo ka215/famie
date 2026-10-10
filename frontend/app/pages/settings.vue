@@ -143,6 +143,7 @@ const restoringMember = ref(false)
 const selectedCategory = ref<Category | null>(null)
 const groupName = ref(membership.value?.group.name ?? '')
 const groupNameIsLoading = ref(false)
+const imageSettings = ref<Group['images']>()
 const groupNameMessage = ref('')
 
 // カテゴリ管理（親のみ）
@@ -328,6 +329,13 @@ const handleGroupNameSave = async () => {
 onMounted(() => {
   fetchMembers()
   fetchCategories()
+  fetchApi<DataResponse<Group>>(groupPath())
+    .then((response) => {
+      imageSettings.value = response.data.images
+    })
+    .catch(() => {
+      imageSettings.value = undefined
+    })
 })
 </script>
 
@@ -385,6 +393,10 @@ onMounted(() => {
     </SettingsCard>
 
     <SettingsCard title="家族設定">
+      <div v-if="imageSettings" class="rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+        <p>画像添付: {{ imageSettings.enabled ? '有効' : '無効' }}</p>
+        <p>保存容量: {{ (imageSettings.used_bytes / 1_000_000).toFixed(1) }} MB / {{ (imageSettings.quota_bytes / 1_000_000).toFixed(0) }} MB</p>
+      </div>
       <form class="space-y-2" @submit.prevent="handleGroupNameSave">
         <label for="group-name" class="block text-xs font-semibold text-slate-600 dark:text-slate-300">家族名</label>
         <div class="flex">
@@ -627,6 +639,7 @@ onMounted(() => {
       <dl class="text-sm text-slate-600 dark:text-slate-300">
         <div class="flex justify-between gap-4"><dt>バージョン</dt><dd>{{ publicConfig.appVersion }}</dd></div>
       </dl>
+      <a href="/THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 underline dark:text-blue-300">利用ライブラリのライセンス</a>
       <p class="text-center text-xs text-slate-500 dark:text-slate-400">© MAGIC METHODS</p>
     </SettingsCard>
     <MemberManageDialog v-if="selectedMember && isParent" :member="selectedMember" :inactive="restoringMember" @close="selectedMember = null" @saved="memberSaved" />

@@ -8,8 +8,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['group_id', 'user_id', 'category_id', 'activity_date', 'activity_time', 'content', 'note'])]
+#[Fillable(['group_id', 'user_id', 'category_id', 'activity_date', 'activity_time', 'content', 'note', 'client_request_id', 'revision'])]
 class ActivityLog extends Model
 {
     use HasFactory;
@@ -54,6 +55,12 @@ class ActivityLog extends Model
     public function likes(): HasMany
     {
         return $this->hasMany(ActivityLike::class);
+    }
+
+    /** @return HasOne<ActivityImage, $this> */
+    public function image(): HasOne
+    {
+        return $this->hasOne(ActivityImage::class);
     }
 
     /** @param Builder<ActivityLog> $query */

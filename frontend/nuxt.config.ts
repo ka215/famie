@@ -3,6 +3,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { version } from './package.json'
 
 const isProduction = import.meta.env.NODE_ENV === 'production'
+const appShortName = 'ファミー'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -15,7 +16,10 @@ export default defineNuxtConfig({
   buildDir: import.meta.env.FAMIE_E2E === '1' ? '.cache/nuxt-e2e' : '.nuxt',
   app: {
     head: {
-      meta: [{ name: 'theme-color', content: '#f8fafc' }],
+      meta: [
+        { name: 'theme-color', content: '#f8fafc' },
+        { name: 'apple-mobile-web-app-title', content: appShortName },
+      ],
       script: [{ src: '/theme.js', tagPosition: 'bodyOpen' }],
       link: [
         { rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' },
@@ -82,7 +86,7 @@ export default defineNuxtConfig({
       start_url: '/',
       scope: '/',
       name: 'Famie',
-      short_name: 'ファミー',
+      short_name: appShortName,
       description: '家族のデイリーアクティビティ記録アプリ',
       lang: 'ja',
       theme_color: '#3B82F6',
@@ -97,7 +101,7 @@ export default defineNuxtConfig({
       globPatterns: ['**/*.{js,css,html,svg}'],
       navigateFallback: '/',
       navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/maintenance\.(?:html|json)$/],
-      globIgnores: ['**/maintenance.html', '**/maintenance.json'],
+      globIgnores: ['**/maintenance.html', '**/maintenance.json', '**/heic.worker-*.js'],
       cleanupOutdatedCaches: true,
       runtimeCaching: [
         {
