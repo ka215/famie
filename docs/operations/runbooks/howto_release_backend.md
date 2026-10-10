@@ -228,6 +228,15 @@ v0.7.0以降は[通常リリースの自動化](./release-script-notes.md)を使
 
 ## 6. リリース確認
 
+### v0.14.0 画像添付の運用確認
+
+画像保存先は既定で `storage/app/private/activity-images/`。通常配置・復旧ではDBと同じ時点の画像を保持し、公開ディレクトリへシンボリックリンクを作らない。Web側PHPのImagickがWebPを読み書きできること、`upload_max_filesize` と `post_max_size` が中間画像の暫定30MiB上限を超えること、メモリ・実行時間制限内で変換できることを確認する。HEIC原本はサーバーへ送らない。
+
+全家族の初期状態はOFF。公開環境で検証後、対象家族を確認して `php artisan famie:group-images 1 --enable` を実行する。コマンドは変更前後を表示して確認を求める。容量変更はバイト単位で `--quota=1000000000` を指定する。運用者用Web画面や家族APIからは変更できない。ステージングの家族IDは公開環境と一致するとは限らない。
+
+物理削除に失敗した画像は `activity_image_deletions` に残る。`php artisan famie:retry-image-deletions` を定期実行またはリリース確認時に実行し、未削除件数とサーバー空き容量を確認する。WebP変換・iPhone実機でのHEIC変換は公開前に確認する。
+`php artisan famie:audit-images` でDBと画像ファイルの不足・孤立を照合できる。孤立ファイルは実行中アップロードの可能性もあるため、このコマンドは自動削除しない。
+
 ```sh
 cd "$HOME/famie/backend" || exit 1
 php artisan migrate:status

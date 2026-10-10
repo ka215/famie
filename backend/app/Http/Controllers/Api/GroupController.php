@@ -34,6 +34,13 @@ class GroupController extends Controller
         return [
             ...$group->only(['id', 'name', 'type']),
             'limits' => ['members' => config('famie.max_group_members'), 'categories' => config('famie.max_group_categories')],
+            'images' => [
+                'enabled' => $group->images_enabled,
+                'used_bytes' => (int) $group->images()->sum('bytes'),
+                'quota_bytes' => $group->image_quota_bytes,
+                'max_files_per_activity' => config('famie.image_max_files'),
+                'max_input_bytes' => config('famie.image_max_input_kb') * 1024,
+            ],
         ];
     }
 }

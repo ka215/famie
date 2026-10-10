@@ -80,14 +80,15 @@ for (const mode of ['create', 'edit'] as const) {
     await save.click()
     await expect(page.getByRole('alert')).toHaveText('カテゴリが削除されています。')
     expect(requests).toEqual([
-      {
+      expect.objectContaining({
         category_id: 1,
         activity_date: '2026-09-25',
         activity_time: null,
         content: '😀'.repeat(1000),
         note: null,
-      },
+      }),
     ])
+    if (mode === 'create') expect(requests[0]?.client_request_id).toMatch(/^[0-9a-f-]{36}$/)
     await expect(content).toHaveValue(`　${'😀'.repeat(1000)}　`)
     rejectSave = false
     await save.click()

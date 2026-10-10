@@ -1,0 +1,10 @@
+Third-party software used by Famie
+
+libheif-js 1.23.5 (HEIC/HEIF decoding in the browser)
+License: GNU Lesser General Public License v3.0 (LGPL-3.0)
+Package and source: https://github.com/catdad-experiments/libheif-js
+Underlying libheif source: https://github.com/strukturag/libheif
+License text supplied with the installed WASM package: /libheif-js-LICENSE.txt
+
+Famie's integration code and build instructions are available at:
+https://github.com/ka215/famie
