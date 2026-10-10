@@ -28,9 +28,24 @@ test('HEICをブラウザーでPNGへ変換しプレビューできる', async (
     return route.fulfill({ json: { data: [], current_page: 1, last_page: 1, total: 0 } })
   })
   await page.goto('/')
+  let reloads = 0
+  page.on('load', () => reloads++)
   await page.getByRole('button', { name: 'アクティビティを記録する' }).click()
   await page
     .getByLabel('画像（任意・1枚）')
     .setInputFiles({ name: 'sample.heic', mimeType: 'image/heic', buffer: heicSample })
+  // Vite may reload once when it first discovers the worker dependency in a cold CI run.
+  await expect
+    .poll(async () => {
+      if (await page.getByAltText('添付予定の画像').isVisible()) return 'preview'
+      return reloads ? 'reloaded' : 'pending'
+    })
+    .not.toBe('pending')
+  if (reloads) {
+    await page.getByRole('button', { name: 'アクティビティを記録する' }).click()
+    await page
+      .getByLabel('画像（任意・1枚）')
+      .setInputFiles({ name: 'sample.heic', mimeType: 'image/heic', buffer: heicSample })
+  }
   await expect(page.getByAltText('添付予定の画像')).toBeVisible({ timeout: 15000 })
 })
