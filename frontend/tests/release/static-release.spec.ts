@@ -28,6 +28,15 @@ test('初期HTMLはJavaScript実行前からFamieアイコンを指定する', a
   }
 })
 
+test('HEIC変換ライブラリの利用案内とライセンス本文を配信する', async ({ request }) => {
+  const notice = await request.get('/THIRD_PARTY_NOTICES.txt')
+  expect(notice.ok()).toBeTruthy()
+  expect(await notice.text()).toContain('libheif-js 1.23.5')
+  const license = await request.get('/libheif-js-LICENSE.txt')
+  expect(license.ok()).toBeTruthy()
+  expect(await license.text()).toContain('GNU LESSER GENERAL PUBLIC LICENSE')
+})
+
 test.beforeEach(async ({ page }) => {
   if (!process.env.RELEASE_BASE_URL) {
     await page.route('**/api/v1/status', async (route) => {

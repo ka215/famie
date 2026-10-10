@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { ActivityLog, ApiRequestError, Category, DataResponse } from '#shared/types/api'
+import type { ActivityLog, ApiRequestError, Category, DataResponse, Group } from '#shared/types/api'
 import { type ActivityLogForm, activityLogSchema } from '#shared/utils/activityLogSchema'
 
 const route = useRoute()
 const { fetchApi } = useApi()
+const { prepareFile } = useActivityImage()
 const { user, groupId } = useAuth()
 const groupPath = (path: string) => `/groups/${groupId.value}${path}`
 
@@ -20,6 +21,44 @@ const isLoading = ref(true)
 const isSaving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const imagesEnabled = ref(false)
+const selectedImage = ref<File | null>(null)
+const removeImage = ref(false)
+const previewUrl = ref('')
+const isConverting = ref(false)
+const imageInput = ref<HTMLInputElement | null>(null)
+let selectionId = 0
+
+const selectImage = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  input.value = ''
+  const current = ++selectionId
+  isConverting.value = true
+  errorMessage.value = ''
+  try {
+    const prepared = await prepareFile(file)
+    if (current !== selectionId) return
+    if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+    selectedImage.value = prepared
+    previewUrl.value = URL.createObjectURL(prepared)
+    removeImage.value = false
+  } catch (error) {
+    if (current === selectionId)
+      errorMessage.value = error instanceof Error ? error.message : '画像を変換できませんでした。'
+  } finally {
+    if (current === selectionId) isConverting.value = false
+  }
+}
+const clearSelectedImage = () => {
+  selectionId++
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = ''
+  selectedImage.value = null
+  isConverting.value = false
+}
+onBeforeUnmount(clearSelectedImage)
 
 const canEdit = computed(() => log.value !== null && log.value.user_id === user.value?.id)
 
@@ -28,12 +67,14 @@ const loadLog = async () => {
   errorMessage.value = ''
 
   try {
-    const [logResponse, categoryResponse] = await Promise.all([
+    const [logResponse, categoryResponse, groupResponse] = await Promise.all([
       fetchApi<DataResponse<ActivityLog>>(groupPath(`/logs/${route.params.id}`)),
       fetchApi<Category[]>(groupPath('/categories')),
+      fetchApi<DataResponse<Group>>(groupPath('')),
     ])
     log.value = logResponse.data
     categories.value = categoryResponse
+    imagesEnabled.value = groupResponse.data.images?.enabled ?? false
     form.value = {
       category_id: logResponse.data.category_id,
       activity_date: logResponse.data.activity_date,
@@ -53,7 +94,7 @@ const loadLog = async () => {
 }
 
 const handleUpdate = async () => {
-  if (!canEdit.value || isSaving.value) return
+  if (!canEdit.value || isSaving.value || isConverting.value) return
   errorMessage.value = ''
   successMessage.value = ''
   const result = activityLogSchema.safeParse(form.value)
@@ -65,10 +106,24 @@ const handleUpdate = async () => {
   isSaving.value = true
 
   try {
-    await fetchApi(groupPath(`/logs/${route.params.id}`), {
-      method: 'PUT',
-      body: result.data,
-    })
+    if (selectedImage.value) {
+      const body = new FormData()
+      body.append('_method', 'PUT')
+      for (const [key, value] of Object.entries(result.data))
+        body.append(key, value == null ? '' : String(value))
+      body.append('image', selectedImage.value)
+      body.append('revision', String(log.value?.revision ?? 1))
+      await fetchApi(groupPath(`/logs/${route.params.id}`), { method: 'POST', body })
+    } else {
+      await fetchApi(groupPath(`/logs/${route.params.id}`), {
+        method: 'PUT',
+        body: {
+          ...result.data,
+          revision: log.value?.revision,
+          ...(removeImage.value ? { remove_image: true } : {}),
+        },
+      })
+    }
     await navigateTo('/')
   } catch (error: unknown) {
     const apiError = error as ApiRequestError
@@ -155,8 +210,23 @@ onMounted(loadLog)
         <textarea v-model="form.note" rows="3" :disabled="!canEdit" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 disabled:bg-slate-100" />
       </div>
 
+      <div v-if="log.image || imagesEnabled" class="space-y-2">
+        <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">添付画像</p>
+        <ActivityImageView v-if="log.image && !removeImage && !selectedImage" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" />
+        <img v-if="previewUrl" :src="previewUrl" alt="差し替え予定の画像" class="max-h-48 rounded-lg object-contain">
+        <p v-if="isConverting" role="status" class="text-xs text-slate-500">画像を変換中...</p>
+        <div v-if="canEdit" class="flex flex-wrap gap-2">
+          <template v-if="imagesEnabled">
+            <input id="edit-image" ref="imageInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" aria-label="画像を選択" class="hidden" @change="selectImage">
+            <button type="button" :disabled="isConverting" class="min-h-11 rounded-lg border border-blue-600 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50 dark:bg-blue-950 dark:text-blue-200" @click="imageInput?.click()">{{ log.image ? '画像を差し替える' : '画像を選択' }}</button>
+          </template>
+          <button v-if="selectedImage" type="button" class="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200" @click="clearSelectedImage">差し替えを取り消す</button>
+          <button v-if="log.image && !selectedImage" type="button" class="min-h-11 rounded-lg border px-3 py-2 text-sm font-medium" :class="removeImage ? 'border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-200' : 'border-red-300 text-red-700 dark:border-red-700 dark:text-red-300'" @click="removeImage = !removeImage">{{ removeImage ? '削除を取り消す' : '保存時に画像を削除' }}</button>
+        </div>
+      </div>
+
       <div v-if="canEdit" class="flex gap-3 pt-2">
-        <button type="submit" :disabled="isSaving" class="flex-1 py-2.5 bg-blue-600 text-white rounded-lg disabled:opacity-50">
+        <button type="submit" :disabled="isSaving || isConverting" class="flex-1 py-2.5 bg-blue-600 text-white rounded-lg disabled:opacity-50">
           {{ isSaving ? '保存中...' : '更新する' }}
         </button>
         <button type="button" :disabled="isSaving" class="px-4 py-2.5 border border-red-300 dark:border-red-600 text-red-600 dark:text-red-300 rounded-lg disabled:opacity-50" @click="handleDelete">

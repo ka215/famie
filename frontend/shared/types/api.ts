@@ -15,6 +15,13 @@ export interface Group {
   id: number
   name: string
   type: 'family'
+  images?: {
+    enabled: boolean
+    used_bytes: number
+    quota_bytes: number
+    max_files_per_activity: number
+    max_input_bytes: number
+  }
 }
 
 export interface Membership {
@@ -58,6 +65,16 @@ export interface ActivityLog {
   likes_count: number
   liked_by_me: boolean
   can_like: boolean
+  revision: number
+  image?: ActivityImage | null
+}
+
+export interface ActivityImage {
+  id: number
+  bytes: number
+  width: number
+  height: number
+  mime: 'image/webp'
 }
 
 export type ActivityLikeState = Pick<ActivityLog, 'id' | 'likes_count' | 'liked_by_me' | 'can_like'>
