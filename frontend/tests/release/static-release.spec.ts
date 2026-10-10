@@ -31,10 +31,32 @@ test('初期HTMLはJavaScript実行前からFamieアイコンを指定する', a
 test('HEIC変換ライブラリの利用案内とライセンス本文を配信する', async ({ request }) => {
   const notice = await request.get('/THIRD_PARTY_NOTICES.txt')
   expect(notice.ok()).toBeTruthy()
-  expect(await notice.text()).toContain('libheif-js 1.23.5')
+  expect(notice.headers()['content-type']).toContain('text/plain')
+  const noticeText = await notice.text()
+  expect(noticeText).toContain('libheif-js 1.23.5')
+  expect(noticeText).not.toContain('github.com/ka215/famie')
   const license = await request.get('/libheif-js-LICENSE.txt')
   expect(license.ok()).toBeTruthy()
   expect(await license.text()).toContain('GNU LESSER GENERAL PUBLIC LICENSE')
+})
+
+test('PWA有効時もライセンス案内をテキストで開ける', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ serviceWorkers: 'allow' })
+  try {
+    const page = await context.newPage()
+    await page.goto(`${baseURL}/login`)
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload()
+    await expect
+      .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+      .toBe(true)
+    await page.goto(`${baseURL}/THIRD_PARTY_NOTICES.txt`)
+    await expect(page.locator('body')).toContainText('libheif-js 1.23.5')
+    await page.goto(`${baseURL}/libheif-js-LICENSE.txt`)
+    await expect(page.locator('body')).toContainText('GNU LESSER GENERAL PUBLIC LICENSE')
+  } finally {
+    await context.close()
+  }
 })
 
 test.beforeEach(async ({ page }) => {
