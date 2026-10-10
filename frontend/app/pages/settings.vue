@@ -144,6 +144,24 @@ const selectedCategory = ref<Category | null>(null)
 const groupName = ref(membership.value?.group.name ?? '')
 const groupNameIsLoading = ref(false)
 const imageSettings = ref<Group['images']>()
+const storageUsedBytes = computed(() => Math.max(0, imageSettings.value?.used_bytes ?? 0))
+const storageQuotaBytes = computed(() => Math.max(0, imageSettings.value?.quota_bytes ?? 0))
+const storageRemainingBytes = computed(() =>
+  Math.max(0, storageQuotaBytes.value - storageUsedBytes.value)
+)
+const storageUsagePercent = computed(() =>
+  storageQuotaBytes.value > 0
+    ? Math.min(100, Math.round((storageUsedBytes.value / storageQuotaBytes.value) * 100))
+    : 0
+)
+const formatStorageSize = (bytes: number) => {
+  const { size, unit } = [
+    { size: 1_000_000_000, unit: 'GB' },
+    { size: 1_000_000, unit: 'MB' },
+    { size: 1_000, unit: 'KB' },
+  ].find(({ size }) => bytes >= size) ?? { size: 1, unit: 'B' }
+  return `${(bytes / size).toLocaleString('ja-JP', { maximumFractionDigits: size === 1 ? 0 : 1 })} ${unit}`
+}
 const groupNameMessage = ref('')
 
 // カテゴリ管理（親のみ）
@@ -393,10 +411,6 @@ onMounted(() => {
     </SettingsCard>
 
     <SettingsCard title="家族設定">
-      <div v-if="imageSettings" class="rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-        <p>画像添付: {{ imageSettings.enabled ? '有効' : '無効' }}</p>
-        <p>保存容量: {{ (imageSettings.used_bytes / 1_000_000).toFixed(1) }} MB / {{ (imageSettings.quota_bytes / 1_000_000).toFixed(0) }} MB</p>
-      </div>
       <form class="space-y-2" @submit.prevent="handleGroupNameSave">
         <label for="group-name" class="block text-xs font-semibold text-slate-600 dark:text-slate-300">家族名</label>
         <div class="flex">
@@ -405,6 +419,19 @@ onMounted(() => {
         </div>
         <p v-if="groupNameMessage" role="status" class="text-xs text-slate-500 dark:text-slate-400">{{ groupNameMessage }}</p>
       </form>
+      <div v-if="imageSettings?.enabled" class="rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+        <div class="flex items-center justify-between gap-3 font-semibold text-slate-800 dark:text-slate-100">
+          <span>画像添付: 有効</span>
+          <span class="text-blue-600 dark:text-blue-300">{{ storageUsagePercent }}%</span>
+        </div>
+        <div role="progressbar" aria-label="画像の保存容量" :aria-valuenow="storageUsagePercent" aria-valuemin="0" aria-valuemax="100" :aria-valuetext="`${formatStorageSize(storageUsedBytes)} 使用中 / ${formatStorageSize(storageQuotaBytes)}`" class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+          <div class="h-full rounded-full bg-blue-500 transition-[width] dark:bg-blue-400" :style="{ width: `${storageUsagePercent}%` }" />
+        </div>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-slate-500 dark:text-slate-400">
+          <span>{{ formatStorageSize(storageUsedBytes) }} 使用中</span>
+          <span>残り {{ formatStorageSize(storageRemainingBytes) }} / {{ formatStorageSize(storageQuotaBytes) }}</span>
+        </div>
+      </div>
     </SettingsCard>
 
     <SettingsCard title="家族メンバー">

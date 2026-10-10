@@ -100,7 +100,11 @@ export default defineNuxtConfig({
     workbox: {
       globPatterns: ['**/*.{js,css,html,svg}'],
       navigateFallback: '/',
-      navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/maintenance\.(?:html|json)$/],
+      navigateFallbackDenylist: [
+        /^\/api(?:\/|$)/,
+        /^\/maintenance\.(?:html|json)$/,
+        /^\/(?:THIRD_PARTY_NOTICES|libheif-js-LICENSE)\.txt$/,
+      ],
       globIgnores: ['**/maintenance.html', '**/maintenance.json', '**/heic.worker-*.js'],
       cleanupOutdatedCaches: true,
       runtimeCaching: [
