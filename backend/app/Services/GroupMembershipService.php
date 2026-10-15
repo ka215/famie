@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 
 class GroupMembershipService
 {
-    public function __construct(private AccountEmailService $emails) {}
+    public function __construct(private AccountEmailService $emails, private RewardService $rewards) {}
 
     public function updateMember(User $actor, GroupMember $target, string $displayName, string $role): GroupMember
     {
@@ -63,6 +63,7 @@ class GroupMembershipService
                 $lockedTarget->user->tokens()->delete();
                 $this->emails->clearChallenges($lockedTarget->user);
             }
+            $this->rewards->evaluate(Group::query()->findOrFail($target->group_id));
 
             return $lockedTarget->fresh();
         });

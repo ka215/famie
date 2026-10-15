@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Models\RewardVersion;
+use App\Services\RewardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,11 +55,13 @@ class CategoryController extends Controller
         return response()->json(['message' => 'カテゴリを更新しました。', 'data' => $target]);
     }
 
-    public function destroy(Request $request, Group $group, int $category): JsonResponse
+    public function destroy(Request $request, Group $group, int $category, RewardService $rewards): JsonResponse
     {
         $this->authorizeAdmin($request);
         $target = $group->categories()->findOrFail($category);
         abort_if($target->activityLogs()->exists(), 422, 'ログが存在するカテゴリは削除できません。');
+        abort_if($rewards->categoryInUse($group, $category), 422, 'リワードで使用中のカテゴリは削除できません。');
+        RewardVersion::query()->where('group_id', $group->id)->where('category_id', $category)->update(['category_id' => null]);
         $target->delete();
 
         return response()->json(['message' => 'カテゴリを削除しました。']);
