@@ -1,5 +1,4 @@
 name: Release CI
-
 on:
   pull_request:
     branches: [dev, main]
@@ -14,14 +13,11 @@ on:
         required: true
         default: true
         type: boolean
-
 permissions:
   contents: read
-
 concurrency:
   group: release-ci-${{ github.ref }}
   cancel-in-progress: false
-
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -47,6 +43,7 @@ jobs:
           php-version: '8.4'
           tools: composer:2.8.10
           coverage: none
+          extensions: pdo_pgsql, pdo_sqlite
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
@@ -68,6 +65,17 @@ jobs:
           cp .env.example .env
           php artisan key:generate --force
           composer test
+      - name: Reward PostgreSQL acceptance
+        working-directory: backend
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_DATABASE: famie_test
+          DB_USERNAME: famie_test
+          DB_PASSWORD: famie-ci-only
+          FAMIE_REWARD_PG_TEST: "1"
+        run: php artisan test --filter=RewardPostgresTest
       - name: Install Playwright browsers
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium webkit
@@ -120,3 +128,13 @@ jobs:
           path: release-dist/
           if-no-files-found: error
           retention-days: 30
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: famie_test
+          POSTGRES_PASSWORD: famie-ci-only
+          POSTGRES_DB: famie_test
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready -U famie_test -d famie_test" --health-interval 5s --health-timeout 5s --health-retries 10

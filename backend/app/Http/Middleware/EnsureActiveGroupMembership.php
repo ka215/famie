@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Services\RewardService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureActiveGroupMembership
 {
+    public function __construct(private RewardService $rewards) {}
+
     /**
      * Handle an incoming request.
      *
@@ -24,7 +27,12 @@ class EnsureActiveGroupMembership
             return DB::transaction(function () use ($request, $next, $group): Response {
                 $lockedGroup = Group::query()->whereKey($group->id)->lockForUpdate()->firstOrFail();
 
-                return $this->handleForGroup($request, $next, $lockedGroup);
+                $response = $this->handleForGroup($request, $next, $lockedGroup);
+                if ($response->isSuccessful() && $request->is('v1/groups/*/logs*')) {
+                    $this->rewards->evaluate($lockedGroup);
+                }
+
+                return $response;
             });
         }
 
