@@ -51,6 +51,12 @@ test('管理者がメンバーを編集・無効化・復元し、履歴が再�
   })
   expect(recorded.ok()).toBeTruthy()
   await page.goto('/settings')
+  await page.getByText('新しい家族メンバーを追加', { exact: true }).click()
+  await expect(
+    page.getByText(
+      '親（保護者）は、家族メンバー・カテゴリ・リワードなどの管理者機能を利用できます。'
+    )
+  ).toBeVisible()
   await page.getByText('家族メンバー', { exact: true }).click()
   await page.getByRole('button', { name: '管理対象を管理', exact: true }).click()
   const dialog = page.getByRole('dialog')

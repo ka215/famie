@@ -108,11 +108,12 @@ const save = async () => {
         </fieldset>
         <label class="block text-sm">開始月<input v-model="startMonth" type="month" :min="periodLocked ? undefined : currentMonth" :disabled="periodLocked" required class="reward-input" /></label>
         <label class="block text-sm">繰り返し周期（月）<select v-model.number="cycle" :disabled="periodLocked" class="reward-input"><option v-for="month in 12" :key="month" :value="month">{{ month }}か月</option></select></label>
+        <p v-if="periodLocked" class="text-sm text-slate-600 dark:text-slate-300">開始月・繰り返し周期は、期間開始後に一度でも有効化すると変更できません。</p>
         <p class="text-sm text-slate-600 dark:text-slate-300">タイムゾーン：{{ timezone }}。月初開始で停止するまで繰り返します。</p>
         <p v-if="reward?.started && reward.status !== 'draft'" class="text-sm text-slate-600 dark:text-slate-300">変更は次サイクルから適用されます。獲得済みトロフィーは維持されます。</p>
         <p v-else class="text-sm text-slate-600 dark:text-slate-300">{{ reward ? '変更は初回開始時の条件に反映されます。' : '下書きとして保存します。管理画面から有効化してください。' }}</p>
       </fieldset>
-      <button type="submit" :disabled="busy" class="w-full min-h-11 rounded-lg bg-blue-600 text-white disabled:opacity-50">{{ busy ? '保存中…' : '保存' }}</button>
+      <button type="submit" :disabled="busy" class="w-full min-h-11 rounded-lg bg-blue-600 text-white disabled:opacity-50">{{ busy ? '保存中…' : reward ? '変更を保存' : '下書きとして保存' }}</button>
     </form>
   </SettingsDialog>
 </template>
@@ -122,4 +123,7 @@ const save = async () => {
 .reward-input { box-sizing: border-box; display: block; width: 100%; min-width: 0; max-width: 100%; margin-top: 4px; padding: 10px; border: 1px solid #94a3b8; border-radius: 8px; background: transparent; font-size: 16px; }
 .reward-input[type="month"] { appearance: none; min-inline-size: 0; }
 .reward-input::-webkit-date-and-time-value { min-width: 0; text-align: left; }
+.reward-input option { background-color: #fff; color: #0f172a; }
+[data-theme='dark'] .reward-input option { background-color: #1e293b; color: #f1f5f9; }
+.reward-input:disabled { cursor: not-allowed; opacity: 0.6; border-style: dashed; }
 </style>

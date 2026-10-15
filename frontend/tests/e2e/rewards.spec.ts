@@ -77,6 +77,13 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
     expect(bounds.outside).toBe(false)
   }
   await expectInputsToFit()
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  const option = dialog.getByLabel('条件指標').locator('option').first()
+  await expect(option).toHaveCSS('background-color', 'rgb(30, 41, 59)')
+  await expect(option).toHaveCSS('color', 'rgb(241, 245, 249)')
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'))
+  await expect(option).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(option).toHaveCSS('color', 'rgb(15, 23, 42)')
   await dialog.getByLabel('名称', { exact: true }).fill('初めての活動')
   await dialog.getByLabel('報酬の説明').fill('好きなおやつ')
   await dialog.getByLabel('必要数', { exact: true }).fill('1')
@@ -114,14 +121,17 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
           response.url().includes('/rewards/manage?') && response.request().method() === 'GET'
       )
     )
-  await dialog.getByRole('button', { name: '保存', exact: true }).click()
+  await dialog.getByRole('button', { name: '下書きとして保存', exact: true }).click()
   await draftReady
   await expect(dialog).toHaveCount(0)
   await expect(page.getByText('下書き', { exact: true })).toBeVisible()
   const badges = page.getByRole('article').locator(':scope > div').first()
   await expect(badges).toContainText('金トロフィー')
   await expect(badges).toContainText('下書き')
+  await expect(page.getByRole('article')).not.toContainText('Asia/Tokyo')
   await page.getByRole('button', { name: '編集', exact: true }).click()
+  await expect(dialog.getByRole('button', { name: '変更を保存', exact: true })).toBeVisible()
+  await expect(dialog.getByText(/タイムゾーン：/)).toBeVisible()
   await expectInputsToFit()
   await expect(dialog.getByRole('checkbox', { name: '選択対象の子（子）' })).not.toBeChecked()
   await expect(dialog.getByRole('checkbox', { name: 'リワードの親（親）' })).toBeChecked()
@@ -137,6 +147,13 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
     .not.toBe('none')
   await page.getByRole('button', { name: '有効化', exact: true }).click()
   await expect(page.getByText('有効', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '編集', exact: true }).click()
+  await expect(dialog.getByLabel('開始月')).toBeDisabled()
+  await expect(dialog.getByLabel('繰り返し周期（月）')).toBeDisabled()
+  await expect(
+    dialog.getByText('開始月・繰り返し周期は、期間開始後に一度でも有効化すると変更できません。')
+  ).toBeVisible()
+  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
   const categories = await (await page.request.get(`${path}/categories`, { headers })).json()
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Tokyo',
@@ -160,6 +177,10 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
   await page.reload()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByText(/獲得済み/)).toBeVisible()
+  await expect(
+    page.getByRole('article').locator(':scope > div').first().getByText('獲得済み', { exact: true })
+  ).toHaveClass(/bg-red-600.*text-white/)
+  await expect(page.getByRole('article')).not.toContainText('獲得時')
   await page.getByRole('button', { name: '管理', exact: true }).click()
   await page.getByRole('button', { name: '停止', exact: true }).click()
   await page.getByRole('button', { name: '削除', exact: true }).click()
@@ -182,7 +203,10 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
   const dynamicSaved = page.waitForResponse(
     (response) => response.url().endsWith('/rewards') && response.request().method() === 'POST'
   )
-  await page.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click()
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: '下書きとして保存', exact: true })
+    .click()
   const dynamic = await (await dynamicSaved).json()
   expect(dynamic.data.version.count_mode).toBe('period_days')
   expect(dynamic.data.version.required_count).toBe(
