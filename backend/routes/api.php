@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\EmailController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\RewardController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,15 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('/groups/{group}')->middleware('group.member')->group(function () {
             Route::get('/', [GroupController::class, 'show']);
+            Route::get('/rewards/manage', [RewardController::class, 'manage']);
+            Route::get('/rewards', [RewardController::class, 'index']);
+            Route::post('/rewards', [RewardController::class, 'store']);
+            Route::post('/rewards/prepare', [RewardController::class, 'prepare']);
+            Route::get('/rewards/awards', [RewardController::class, 'awards']);
+            Route::post('/rewards/notifications', [RewardController::class, 'notifications']);
+            Route::put('/rewards/{reward}/status', [RewardController::class, 'status'])->whereNumber('reward');
+            Route::put('/rewards/{reward}', [RewardController::class, 'update'])->whereNumber('reward');
+            Route::delete('/rewards/{reward}', [RewardController::class, 'destroy'])->whereNumber('reward');
             Route::patch('/', [GroupController::class, 'update']);
             Route::get('/members', [UserController::class, 'index']);
             Route::post('/members', [UserController::class, 'store']);

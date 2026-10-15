@@ -48,10 +48,10 @@ const iconStyles = {
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.timeline" />
         <span class="text-xs font-medium">タイムライン</span>
       </NuxtLink>
-      <button type="button" disabled aria-label="リワード（準備中）" class="footer-item text-slate-300 dark:text-slate-500 cursor-not-allowed">
+      <NuxtLink to="/rewards" :aria-current="route.path === '/rewards' ? 'page' : undefined" class="footer-item" :class="route.path === '/rewards' ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.trophy" />
         <span class="text-xs font-medium">リワード</span>
-      </button>
+      </NuxtLink>
       <NuxtLink v-if="galleryVisible" to="/gallery" class="footer-item" :class="route.path === '/gallery' ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.gallery" />
         <span class="text-xs font-medium">ギャラリー</span>
