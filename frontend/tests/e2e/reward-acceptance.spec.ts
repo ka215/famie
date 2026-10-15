@@ -81,6 +81,24 @@ test('A1・A2：実APIの定義前活動とカテゴリ別の日数を画面で�
   await page.goto('/rewards')
   await initialPreparation
   await expect(page.getByRole('article').getByText('現在 2/3', { exact: true })).toBeVisible()
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '66')
+  const progressRow = page.getByRole('progressbar').locator('..')
+  await expect(progressRow).toContainText('66%')
+  const aligned = await progressRow.evaluate((element) => {
+    const parts = [...element.children].map((child) => child.getBoundingClientRect())
+    return (
+      parts.every(
+        (rect) =>
+          Math.abs(
+            (rect.top + rect.bottom) / 2 - ((parts[0]?.top ?? 0) + (parts[0]?.bottom ?? 0)) / 2
+          ) < 2
+      ) && element.scrollWidth <= element.clientWidth
+    )
+  })
+  expect(aligned).toBe(true)
+  await page
+    .getByRole('article')
+    .screenshot({ path: test.info().outputPath('reward-progress.png') })
   await expect(page.getByText(/集計中です/)).toHaveCount(0)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.goto('/settings')
@@ -133,7 +151,9 @@ test('A5・A10：いいね解除後の獲得維持と同名再作成を実APIで
     (await page.request.delete(`${f.path}/logs/${lastLog}/like`, { headers: liker })).ok()
   ).toBeTruthy()
   await page.reload()
-  await expect(page.getByRole('article')).toContainText('現在 9/10・獲得済み（獲得時 10）')
+  await expect(page.getByRole('article')).toContainText('現在 9/10')
+  await expect(page.getByRole('article')).toContainText('獲得済み（獲得時 10）')
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '90')
   await f.status(reward, 'stopped', 2)
   expect(
     (
@@ -174,7 +194,9 @@ test('A6：停止中の編集を予約し、再開時に旧条件で達成する
   await expect(page.getByRole('dialog', { name: 'リワードを獲得しました！' })).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: '閉じる', exact: true }).click()
   await page.getByRole('button', { name: '条件・進捗', exact: true }).click()
-  await expect(page.getByRole('article')).toContainText('現在 2/2・獲得済み（獲得時 2）')
+  await expect(page.getByRole('article')).toContainText('現在 2/2')
+  await expect(page.getByRole('article')).toContainText('獲得済み（獲得時 2）')
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
 })
 
 test('A7・A14：別タイムゾーンの端末でも開始前編集と保存済み期間を維持する', async ({

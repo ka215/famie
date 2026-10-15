@@ -216,7 +216,8 @@ onBeforeUnmount(() => {
         <p class="text-xs text-slate-600 dark:text-slate-300">{{ reward.starts_on }}〜{{ reward.ends_on }}（{{ reward.timezone }}）・{{ reward.cycle_months }}か月周期</p>
         <p class="text-sm">{{ reward.version.count_mode === 'period_days' ? '期間内日数・' : '' }}{{ reward.version.category_name || '全カテゴリ' }}・{{ reward.version.metric === 'activities' ? '活動日数（1日1回）' : '受信いいね数' }} {{ reward.version.required_count }}{{ reward.version.metric === 'activities' ? '日' : '件' }}</p>
         <template v-if="mode === 'conditions'">
-          <p v-if="reward.started" class="text-sm">現在 {{ reward.progress ?? '未集計' }}/{{ reward.version.required_count }}<span v-if="reward.awarded">・獲得済み（獲得時 {{ reward.achieved_count }}）</span></p>
+          <RewardProgress v-if="reward.started" :current="reward.progress" :required-count="reward.version.required_count" />
+          <p v-if="reward.started && reward.awarded" class="text-xs">獲得済み（獲得時 {{ reward.achieved_count }}）</p>
           <p v-if="reward.status === 'stopped'" class="text-xs">停止中は達成判定を行いません。再開時に現在期間の活動を再集計します。</p>
         </template>
         <template v-else>

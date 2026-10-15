@@ -90,9 +90,9 @@ const save = async () => {
 }
 </script>
 <template>
-  <SettingsDialog :title="reward ? 'リワードを編集' : 'リワードを作成'" :busy="busy" @close="emit('close')">
+  <SettingsDialog class="reward-dialog" :title="reward ? 'リワードを編集' : 'リワードを作成'" :busy="busy" @close="emit('close')">
     <p v-if="error" role="alert" class="mb-3 text-sm text-red-600 dark:text-red-300">{{ error }}</p>
-    <form class="space-y-4" @submit.prevent="save">
+    <form class="reward-form min-w-0 max-w-full space-y-4" @submit.prevent="save">
       <fieldset :disabled="busy" class="space-y-4">
         <label class="block text-sm">名称<input v-model="name" required maxlength="50" class="reward-input" /></label>
         <label class="block text-sm">報酬の説明<textarea v-model="description" required maxlength="500" rows="3" class="reward-input" /></label>
@@ -117,5 +117,9 @@ const save = async () => {
   </SettingsDialog>
 </template>
 <style scoped>
-.reward-input { display: block; width: 100%; margin-top: 4px; padding: 10px; border: 1px solid #94a3b8; border-radius: 8px; background: transparent; font-size: 16px; }
+.reward-dialog { overflow-x: hidden; }
+.reward-form fieldset, .reward-form label { min-inline-size: 0; max-inline-size: 100%; overflow-wrap: anywhere; }
+.reward-input { box-sizing: border-box; display: block; width: 100%; min-width: 0; max-width: 100%; margin-top: 4px; padding: 10px; border: 1px solid #94a3b8; border-radius: 8px; background: transparent; font-size: 16px; }
+.reward-input[type="month"] { appearance: none; min-inline-size: 0; }
+.reward-input::-webkit-date-and-time-value { min-width: 0; text-align: left; }
 </style>

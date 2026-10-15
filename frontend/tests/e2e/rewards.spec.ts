@@ -58,8 +58,25 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
       .not.toBe('none')
   }
   await page.getByRole('button', { name: '管理', exact: true }).click()
+  const originalViewport = page.viewportSize()
+  await page.setViewportSize({ width: 320, height: 740 })
   await page.getByRole('button', { name: 'リワードを作成', exact: true }).click()
   const dialog = page.getByRole('dialog')
+  const expectInputsToFit = async () => {
+    const bounds = await dialog.evaluate((element) => {
+      const dialogRect = element.getBoundingClientRect()
+      return {
+        scroll: element.scrollWidth - element.clientWidth,
+        outside: [...element.querySelectorAll('input,select,textarea')].some((input) => {
+          const rect = input.getBoundingClientRect()
+          return rect.left < dialogRect.left || rect.right > dialogRect.right
+        }),
+      }
+    })
+    expect(bounds.scroll).toBeLessThanOrEqual(1)
+    expect(bounds.outside).toBe(false)
+  }
+  await expectInputsToFit()
   await dialog.getByLabel('名称', { exact: true }).fill('初めての活動')
   await dialog.getByLabel('報酬の説明').fill('好きなおやつ')
   await dialog.getByLabel('必要数', { exact: true }).fill('1')
@@ -105,12 +122,14 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
   await expect(badges).toContainText('金トロフィー')
   await expect(badges).toContainText('下書き')
   await page.getByRole('button', { name: '編集', exact: true }).click()
+  await expectInputsToFit()
   await expect(dialog.getByRole('checkbox', { name: '選択対象の子（子）' })).not.toBeChecked()
   await expect(dialog.getByRole('checkbox', { name: 'リワードの親（親）' })).toBeChecked()
   await trophySelect.click()
   await dialog.getByRole('option', { name: '銀トロフィー', exact: true }).click()
   await expect(trophySelect).toContainText('銀トロフィー')
   await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  if (originalViewport) await page.setViewportSize(originalViewport)
   const trophy = page.getByRole('article').getByRole('heading').locator('[style*="mask"]')
   await expect(trophy).toBeVisible()
   await expect
