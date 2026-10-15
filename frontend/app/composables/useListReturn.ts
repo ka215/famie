@@ -56,7 +56,7 @@ export const useListReturn = () => {
     typeof key === 'string' && Object.hasOwn(entries.value, key) ? entries.value[key] : undefined
   const current = (path: ReturnEntry['path']) => {
     const route = useRoute()
-    const entry = read(route.query.resume) ?? read(window.history.state?.famieList)
+    const entry = read(window.history.state?.famieList) ?? read(route.query.resume)
     return entry?.path === path ? entry : undefined
   }
   const open = (

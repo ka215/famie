@@ -310,3 +310,24 @@ test('ログアウト後に別ユーザーで入ると、過去の詳細履歴�
   await expect(page.getByRole('link', { name: '← タイムラインへ' })).toHaveAttribute('href', '/')
   await expect(page.getByText('この記録は閲覧のみ可能です。')).toBeVisible()
 })
+
+for (const path of ['/', '/gallery']) {
+  test(`${path}: 一度復帰して条件を変更した後も、直前の条件でブラウザ戻るできる`, async ({
+    page,
+  }) => {
+    await setup(page)
+    await page.goto(path)
+    await page.getByRole('combobox').last().selectOption('1')
+    const card = page.locator('[data-log-id="2"]')
+    const label = path === '/' ? '← タイムラインへ' : '← ギャラリーへ'
+    await card.getByRole('link').click()
+    await page.getByRole('link', { name: label }).click()
+    await expect(page.getByRole('combobox').last()).toHaveValue('1')
+    await page.getByRole('combobox').last().selectOption('')
+    await card.getByRole('link').click()
+    await expect(page.getByRole('link', { name: label })).toBeVisible()
+    await page.goBack()
+    await expect(page.getByRole('combobox').last()).toHaveValue('')
+    await expect(card).toBeVisible()
+  })
+}
