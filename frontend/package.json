@@ -1,7 +1,7 @@
 {
 	"name": "famie-frontend",
 	"description": "Frontend for the Famie project",
-	"version": "0.15.0",
+	"version": "0.15.1",
 	"type": "module",
 	"private": true,
 	"scripts": {
@@ -17,7 +17,8 @@
 		"test:release": "playwright test --config playwright.release.config.ts",
 		"test:e2e:ui": "playwright test --ui",
 		"test:e2e:install": "playwright install chromium webkit",
-		"test:unit": "node --test tests/unit/*.test.ts"
+		"test:unit": "node --test tests/unit/*.test.ts",
+		"test:api": "redocly lint ../docs/api/openapi.yaml --extends spec && node ../scripts/check-api-contract.mjs"
 	},
 	"dependencies": {
 		"@tailwindcss/vite": "^4.3.3",
@@ -31,7 +32,10 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.14",
 		"@playwright/test": "^1.63.0",
+		"@redocly/cli": "2.64.0",
 		"@vite-pwa/nuxt": "^1.1.1",
+		"ajv": "8.17.1",
+		"ajv-formats": "3.0.1",
 		"typescript": "^5.7.0",
 		"vue-tsc": "^2.2.0"
 	}

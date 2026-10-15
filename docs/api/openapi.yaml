@@ -1,0 +1,1353 @@
+openapi: 3.1.1
+info:
+  title: Famie API
+  version: 0.15.1
+  description: |
+    現行v1 API契約。公開環境は/api/v1、Laravel直接アクセスは/v1。
+    Accept: application/jsonを送る。Bearer認証でactiveな所属が1件必要。
+    groups/{group}は本人の所属家族のみ。admin制約、所有者制約は各操作に記載する。
+    認証済み家族APIアクセスはリワード期間準備を開始し、活動・いいね変更は達成判定を行う場合がある。
+    グループ内の更新は直列化される。設定値に依存する上限は家族情報と運用設定を参照する。
+servers:
+  - url: https://famie.ka2.org/api/v1
+    description: 本番（専用ドメインへの切替は未実施）
+  - url: https://stg-famie.ka2.org/api/v1
+    description: ステージング（IP制限あり）
+  - url: http://localhost:8000/v1
+    description: Laravelローカル直接アクセス
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+    description: 認証・本人情報・メール
+  - name: groups
+    description: 家族とメンバー
+  - name: categories
+    description: カテゴリ
+  - name: activities
+    description: 活動・画像・いいね
+  - name: rewards
+    description: リワード
+paths:
+  '/status':
+    get:
+      operationId: getStatus
+      summary: 稼働状態を取得
+      tags: [auth]
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, properties: {status: {type: string, const: ok}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  '/auth/login':
+    post:
+      operationId: login
+      summary: ログインし他端末の既存トークンを失効
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [login, password], properties: {login: {type: string}, password: {type: string}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Login'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  '/auth/register':
+    post:
+      operationId: register
+      summary: 新規家族とadminを登録
+      tags: [auth]
+      security: []
+      description: >-
+        group_id・type・role・status・emailの指定禁止。IP毎に既定10分5試行、超過で10分停止。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [group_name, username, display_name, password, password_confirmation], properties: {group_name: {type: string, minLength: 1, maxLength: 50}, username: {$ref: '#/components/schemas/Username'}, display_name: {type: string, minLength: 1, maxLength: 50}, password: {$ref: '#/components/schemas/Password'}, password_confirmation: {$ref: '#/components/schemas/Password'}}}
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Login'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  '/auth/register/username-availability':
+    post:
+      operationId: usernameAvailability
+      summary: ログインIDの利用可否
+      tags: [auth]
+      security: []
+      description: >-
+        30回/分/IP。構文検証後に空き状態を返す。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [username], properties: {username: {$ref: '#/components/schemas/Username'}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, properties: {available: {type: boolean}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  '/auth/logout':
+    post:
+      operationId: logout
+      summary: 現在のトークンを失効
+      tags: [auth]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  '/auth/me':
+    get:
+      operationId: getMe
+      summary: 本人情報とactive所属を取得
+      tags: [auth]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Identity'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '409': {$ref: '#/components/responses/Conflict'}
+    patch:
+      operationId: updateMe
+      summary: 表示名・敬称を変更
+      tags: [auth]
+      description: >-
+        少なくとも1項目必須。指定外項目は禁止。show_name_suffixはJSON booleanのみ。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, properties: {display_name: {type: string, minLength: 1, maxLength: 50}, show_name_suffix: {type: boolean}}, additionalProperties: false, minProperties: 1}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Identity'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/auth/me/password':
+    put:
+      operationId: updatePassword
+      summary: 本人パスワードを変更
+      tags: [auth]
+      description: >-
+        現在のログインは維持。メール確認・再設定の未使用リンクを無効化。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [current_password, new_password, new_password_confirmation], properties: {current_password: {type: string}, new_password: {$ref: '#/components/schemas/Password'}, new_password_confirmation: {$ref: '#/components/schemas/Password'}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/auth/me/email':
+    post:
+      operationId: requestEmail
+      summary: 確認メールを申請
+      tags: [auth]
+      description: >-
+        IP毎10回/分、アドレス・ユーザー毎60秒間隔。確認リンク60分有効。配送失敗時も申請は保存される。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [email, current_password], properties: {email: {type: string, format: email, maxLength: 255}, current_password: {type: string}}, additionalProperties: false}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+    delete:
+      operationId: cancelEmail
+      summary: 確認待ち申請を取消
+      tags: [auth]
+      description: >-
+        10回/分/IP。確認済みメール自体は削除しない。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  '/auth/me/email/resend':
+    post:
+      operationId: resendEmail
+      summary: 確認メールを再送
+      tags: [auth]
+      description: >-
+        確認待ちの申請が必要。IP毎10回/分、60秒間隔。有効な確認リンクを更新する。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  '/auth/email/verify':
+    post:
+      operationId: verifyEmail
+      summary: メールリンクを確認
+      tags: [auth]
+      security: []
+      description: >-
+        20回/分/IP。旧メールからの変更時には旧アドレスへ通知。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [id, token], properties: {id: {$ref: '#/components/schemas/Id'}, token: {type: string, minLength: 64, maxLength: 64}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  '/auth/password/forgot':
+    post:
+      operationId: forgotPassword
+      summary: パスワード再設定を申請
+      tags: [auth]
+      security: []
+      description: >-
+        IP毎10回/分。アカウント存在有無や配送成否によらず同じ受付応答。リンク30分有効。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [email], properties: {email: {type: string, format: email, maxLength: 255}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  '/auth/password/reset':
+    post:
+      operationId: resetPassword
+      summary: リンクでパスワードを再設定
+      tags: [auth]
+      security: []
+      description: >-
+        20回/分/IP。成功時は全トークンと他の確認・再設定リンクを失効。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [id, token, password, password_confirmation], properties: {id: {$ref: '#/components/schemas/Id'}, token: {type: string, minLength: 64, maxLength: 64}, password: {$ref: '#/components/schemas/Password'}, password_confirmation: {$ref: '#/components/schemas/Password'}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  '/groups/{group}':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getGroup
+      summary: 所属家族の情報・制限を取得
+      tags: [groups]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Group'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    patch:
+      operationId: updateGroup
+      summary: 家族名を変更
+      tags: [groups]
+      description: >-
+        admin専用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [name], properties: {name: {type: string, minLength: 1, maxLength: 50}}, additionalProperties: false}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Group'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/members':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getMembers
+      summary: activeメンバーを所属ID順で取得
+      tags: [groups]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Member'}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: createMember
+      summary: 新規メンバーを作成
+      tags: [groups]
+      description: >-
+        admin専用。人数上限は家族設定（既定10）。既存ユーザーを招待する操作ではない。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [username, display_name, password, password_confirmation, role], properties: {username: {$ref: '#/components/schemas/Username'}, display_name: {type: string, minLength: 1, maxLength: 50}, password: {$ref: '#/components/schemas/Password'}, password_confirmation: {$ref: '#/components/schemas/Password'}, role: {type: string, enum: [admin, member]}}}
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Member'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/members/inactive':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getInactiveMembers
+      summary: 無効メンバーを取得
+      tags: [groups]
+      description: >-
+        admin専用。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Member'}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  '/groups/{group}/members/{member}':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: member, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    patch:
+      operationId: updateMember
+      summary: 表示名・役割を変更
+      tags: [groups]
+      description: >-
+        admin専用。memberは所属ID。自己降格・最後のadminを失う変更は禁止。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [display_name, role], properties: {display_name: {type: string, minLength: 1, maxLength: 50}, role: {type: string, enum: [admin, member]}}, additionalProperties: false}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Member'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/members/{member}/status':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: member, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    put:
+      operationId: updateMemberStatus
+      summary: メンバーを無効化・復元
+      tags: [groups]
+      description: >-
+        admin専用。自己無効化・最後のadmin無効化は禁止。復元時も人数制限。無効化でトークン失効し活動は非表示となるが履歴は保持。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [status], properties: {status: {type: string, enum: [active, inactive]}}, additionalProperties: false}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Member'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/categories':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getCategories
+      summary: sort_order・ID順でカテゴリを取得
+      tags: [categories]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Category'}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: createCategory
+      summary: カテゴリ作成
+      tags: [categories]
+      description: >-
+        admin専用。同一家族の名前重複禁止。上限既定10。末尾へ追加する。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [name], properties: {name: {type: string, minLength: 1, maxLength: 255}, color_code: {type: [string, "null"], pattern: "^#[0-9A-Fa-f]{6}$"}}}
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Category'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/categories/{category}':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: category, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    put:
+      operationId: updateCategory
+      summary: カテゴリ名・色を変更
+      tags: [categories]
+      description: >-
+        admin専用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, properties: {name: {type: string, minLength: 1, maxLength: 255}, color_code: {type: [string, "null"], pattern: "^#[0-9A-Fa-f]{6}$"}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Category'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+    delete:
+      operationId: deleteCategory
+      summary: 未使用カテゴリを削除
+      tags: [categories]
+      description: >-
+        admin専用。活動履歴または未削除リワードの現在・予約条件から参照中なら削除不可。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/logs':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getActivities
+      summary: 活動を降順・50件ページングで取得
+      tags: [activities]
+      description: >-
+        活動日・時刻・作成日時・IDの降順。activeメンバーのみ。
+      parameters:
+        - {name: from, in: query, required: false, schema: {type: string, format: date}}
+        - {name: to, in: query, required: false, schema: {type: string, format: date}}
+        - {name: user_id, in: query, required: false, schema: {$ref: '#/components/schemas/Id'}}
+        - {name: category_id, in: query, required: false, schema: {$ref: '#/components/schemas/Id'}}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {allOf: [{$ref: '#/components/schemas/Page'}, {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Activity'}}}}]}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+    post:
+      operationId: createActivity
+      summary: 本人の活動を作成
+      tags: [activities]
+      description: >-
+        所有者・家族は認証情報から決定。client_request_idはユーザー・家族内で冪等。同じIDの再送は既存内容を200で返す。画像入力はJPEG/PNG/WebP/HEIC/HEIF、最大30MiB・4800万画素、長辺1600px以内のWebPに変換。家族容量超過・画像無効は422。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {allOf: [{$ref: '#/components/schemas/ActivityInput'}, {type: object, required: [category_id, activity_date, content], properties: {client_request_id: {type: string, format: uuid}}}]}
+          multipart/form-data:
+            schema: {allOf: [{allOf: [{$ref: '#/components/schemas/ActivityInput'}, {type: object, required: [category_id, activity_date, content], properties: {client_request_id: {type: string, format: uuid}}}]}, {type: object, properties: {image: {type: string, format: binary}}}]}
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Activity'}, message: {type: string}}}
+        '200':
+          description: client_request_idによる既存記録の再送
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Activity'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/gallery':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getGallery
+      summary: 画像付き活動をページング取得
+      tags: [activities]
+      description: >-
+        家族別画像有効フラグにかかわらず既存画像は閲覧可能。既定30件、設定範囲1〜100件。いいね状態は含まない。toはfrom以降。
+      parameters:
+        - {name: from, in: query, required: false, schema: {type: string, format: date}}
+        - {name: to, in: query, required: false, schema: {type: string, format: date}}
+        - {name: user_id, in: query, required: false, schema: {$ref: '#/components/schemas/Id'}}
+        - {name: category_id, in: query, required: false, schema: {$ref: '#/components/schemas/Id'}}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {allOf: [{$ref: '#/components/schemas/Page'}, {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Activity'}}}}]}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/logs/counts':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getActivityCounts
+      summary: 日別件数を取得
+      tags: [activities]
+      description: >-
+        from・to必須、toはfrom以降。件数0の日付はキーなし。
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, format: date}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date}}
+        - {name: user_id, in: query, required: false, schema: {$ref: '#/components/schemas/Id'}}
+        - {name: category_id, in: query, required: false, schema: {$ref: '#/components/schemas/Id'}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, properties: {data: {description: 件数なしの場合は空配列、ある場合は日付から整数へのmap, anyOf: [{type: object, additionalProperties: {type: integer, minimum: 0}}, {type: array, maxItems: 0, items: {}}]}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/logs/{log}':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: log, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getActivity
+      summary: 家族内の活動詳細を取得
+      tags: [activities]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Activity'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      operationId: updateActivity
+      summary: 本人の活動を更新
+      tags: [activities]
+      description: >-
+        所有者のみ。revisionは任意だが指定時に一致必須。画像差替えとremove_imageの同時指定は禁止。画像アップロードはPOSTに_method=PUTを指定。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {allOf: [{$ref: '#/components/schemas/ActivityInput'}, {type: object, properties: {revision: {type: integer, minimum: 1}, remove_image: {type: boolean}}}]}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Activity'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+    patch:
+      operationId: patchActivity
+      summary: 本人の活動を部分更新
+      tags: [activities]
+      description: >-
+        PUTと同じ処理・任意項目。所有者のみ。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {allOf: [{$ref: '#/components/schemas/ActivityInput'}, {type: object, properties: {revision: {type: integer, minimum: 1}, remove_image: {type: boolean}}}]}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Activity'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+    post:
+      operationId: uploadActivityImage
+      summary: multipartで本人の活動画像を差替え
+      tags: [activities]
+      description: >-
+        PHPのファイル受付のためPOST＋_method=PUTを使う。通常のPOSTルートではなく、Laravelのmethod overrideによりPUTへ到達。1活動1枚、最大30MiB・4800万画素。
+      x-method-override: PUT
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {allOf: [{allOf: [{$ref: '#/components/schemas/ActivityInput'}, {type: object, properties: {revision: {type: integer, minimum: 1}, remove_image: {type: boolean}}}]}, {type: object, required: [_method], properties: {image: {type: string, format: binary}, _method: {type: string, const: PUT}}}]}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Activity'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+    delete:
+      operationId: deleteActivity
+      summary: 本人の活動と添付画像を削除
+      tags: [activities]
+      description: >-
+        所有者のみ。リワード進捗は再計算するが、既獲得履歴を削除しない。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  '/groups/{group}/images/{image}':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: image, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getImage
+      summary: 認証付きWebP画像を取得
+      tags: [activities]
+      description: >-
+        同一家族・activeメンバーの活動の画像だけ。Cache-Control=private, no-store。画像実体がない場合も404。
+      responses:
+        '200':
+          description: 成功
+          content:
+            image/webp:
+              schema: {type: string, format: binary}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  '/groups/{group}/logs/{log}/like':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: log, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    put:
+      operationId: likeActivity
+      summary: 他者の活動へいいねを付与
+      tags: [activities]
+      description: >-
+        本文・queryは指定不可。本人の投稿は禁止。PUT/DELETEは冪等。ユーザー単位で既定2回/秒、超過はRetry-Afterに従う。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, properties: {data: {type: object, properties: {id: {$ref: '#/components/schemas/Id'}, likes_count: {type: integer, minimum: 0}, liked_by_me: {type: boolean}, can_like: {type: boolean}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+    delete:
+      operationId: unlikeActivity
+      summary: いいねを解除
+      tags: [activities]
+      description: >-
+        本文・queryは指定不可。本人の投稿は禁止。PUT/DELETEは冪等。ユーザー単位で既定2回/秒、超過はRetry-Afterに従う。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, properties: {data: {type: object, properties: {id: {$ref: '#/components/schemas/Id'}, likes_count: {type: integer, minimum: 0}, liked_by_me: {type: boolean}, can_like: {type: boolean}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  '/groups/{group}/rewards':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getRewards
+      summary: 対象者の条件と現在進捗を取得
+      tags: [rewards]
+      description: >-
+        下書き・削除済みは非表示。10件単位、終了日・ID順。adminは家族の対象者指定可、memberは本人のみ。集計中も閲覧可能。
+      parameters:
+        - {name: member_id, in: query, schema: {$ref: '#/components/schemas/Id'}, description: 省略時は本人の所属ID。admin以外は本人のみ}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - active
+              - stopped
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {allOf: [{allOf: [{$ref: '#/components/schemas/Page'}, {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Reward'}}}}]}, {type: object, properties: {sync_status: {type: string, enum: [idle, processing, complete, failed]}, limits: {type: object, properties: {active: {type: integer}, management: {type: integer}}}, counts: {type: object, properties: {active: {type: integer}, management: {type: integer}}}}}]}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+    post:
+      operationId: createReward
+      summary: 下書きリワードを作成
+      tags: [rewards]
+      description: >-
+        admin専用。下書き中は一切集計・達成判定しない。管理枠超過または集計中は409。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RewardInput'}
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Reward'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/rewards/manage':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: manageRewards
+      summary: 管理用リワード一覧を取得
+      tags: [rewards]
+      description: >-
+        admin専用。下書き・active・stoppedをID順、10件単位。削除済みは非表示。有効枠既定3／管理枠既定6は家族DB設定。limits・countsを返す。
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {allOf: [{allOf: [{$ref: '#/components/schemas/Page'}, {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Reward'}}}}]}, {type: object, properties: {sync_status: {type: string, enum: [idle, processing, complete, failed]}, limits: {type: object, properties: {active: {type: integer}, management: {type: integer}}}, counts: {type: object, properties: {active: {type: integer}, management: {type: integer}}}}}]}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/rewards/{reward}':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: reward, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    put:
+      operationId: updateReward
+      summary: リワード条件を更新・予約
+      tags: [rewards]
+      description: >-
+        admin専用。開始済みは次の非重複nか月サイクルから適用。下書き・開始前は即時適用。開始済みの期間設定と保存済みtimezoneは変更不可。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {allOf: [{$ref: '#/components/schemas/RewardInput'}, {required: [revision]}]}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Reward'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+    delete:
+      operationId: deleteReward
+      summary: 下書き・停止済みを削除
+      tags: [rewards]
+      description: >-
+        admin専用。下書きは物理削除。停止済みは論理削除で獲得履歴保持。activeは削除不可。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [revision], properties: {revision: {type: integer, minimum: 1}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Message'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/rewards/{reward}/status':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: reward, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    put:
+      operationId: updateRewardStatus
+      summary: 有効化・停止・再開
+      tags: [rewards]
+      description: >-
+        admin専用。下書き→停止は禁止。同状態指定は409。再開は同じ期間の停止中活動を含めて判定。獲得は1対象者・1定義・1期間1回。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [revision, status], properties: {revision: {type: integer, minimum: 1}, status: {type: string, enum: [active, stopped]}}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/Reward'}, message: {type: string}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/rewards/awards':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getAwards
+      summary: 獲得履歴を取得
+      tags: [rewards]
+      description: >-
+        10件単位、獲得日時・ID降順。確定時snapshotと定義削除済みフラグを返す。
+      parameters:
+        - {name: member_id, in: query, schema: {$ref: '#/components/schemas/Id'}, description: 省略時は本人の所属ID。admin以外は本人のみ}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {allOf: [{$ref: '#/components/schemas/Page'}, {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Award'}}}}]}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/rewards/notifications':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    post:
+      operationId: getRewardNotifications
+      summary: 本人の未読達成通知を取得して既読確定
+      tags: [rewards]
+      description: >-
+        本文・queryは禁止。本人の未読全件を先着処理で既読化して返す。応答のread_atは更新前のnull。応答喪失でも再表示されない。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Award'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/rewards/prepare':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    post:
+      operationId: prepareRewards
+      summary: 期間切替準備を開始・再試行
+      tags: [rewards]
+      description: >-
+        activeメンバーが実行可。処理中はprocessing。開始後は遅延処理で家族単位に集計する。2分以上経過した処理は再試行可能。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: {type: object, properties: {status: {type: string, enum: [processing, complete]}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Sanctum personal access token。ログイン時に同一ユーザーの既存トークンを失効し30日有効で発行。
+  schemas:
+    Id:
+      type: integer
+      minimum: 1
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message: {type: string}
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: {type: string}
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: {type: string}
+        code: {type: string}
+        limit: {type: integer}
+        count: {type: integer}
+    Username:
+      type: string
+      minLength: 3
+      maxLength: 50
+      pattern: '^[a-z0-9](?:[a-z0-9._-]{1,48}[a-z0-9])$'
+    Password:
+      type: string
+      minLength: 6
+      writeOnly: true
+    User:
+      type: object
+      required: [id, username, display_name]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        username: {type: string}
+        display_name: {type: string, maxLength: 50}
+        show_name_suffix: {type: boolean}
+        email: {type: [string, 'null'], format: email}
+        email_verified_at: {type: [string, 'null'], format: date-time}
+        pending_email: {type: [string, 'null'], format: email}
+        email_verification_expires_at: {type: [string, 'null'], format: date-time}
+    Group:
+      type: object
+      required: [id, name, type]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        name: {type: string, maxLength: 50}
+        type: {type: string, enum: [family]}
+        limits:
+          type: object
+          properties:
+            members: {type: integer, description: 既定10}
+            categories: {type: integer, description: 既定10}
+        images:
+          type: object
+          properties:
+            enabled: {type: boolean}
+            used_bytes: {type: integer}
+            quota_bytes: {type: integer}
+            max_files_per_activity: {type: integer, const: 1}
+            max_input_bytes: {type: integer, const: 31457280}
+    Membership:
+      type: object
+      required: [id, role, status, group]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        role: {type: string, enum: [admin, member]}
+        status: {type: string, enum: [active, inactive]}
+        group: {$ref: '#/components/schemas/Group'}
+    Identity:
+      type: object
+      required: [user, membership]
+      properties:
+        user: {$ref: '#/components/schemas/User'}
+        membership: {$ref: '#/components/schemas/Membership'}
+    Login:
+      allOf:
+        - $ref: '#/components/schemas/Identity'
+        - type: object
+          required: [access_token, token_type, message]
+          properties:
+            message: {type: string}
+            access_token: {type: string}
+            token_type: {type: string, const: Bearer}
+    Member:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          required: [membership_id, role]
+          properties:
+            membership_id: {$ref: '#/components/schemas/Id'}
+            role: {type: string, enum: [admin, member]}
+            status: {type: string, enum: [active, inactive], description: active一覧・作成応答では省略}
+    Category:
+      type: object
+      required: [id, group_id, name, color_code, sort_order]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        group_id: {$ref: '#/components/schemas/Id'}
+        name: {type: string, maxLength: 255}
+        color_code: {type: [string, 'null'], pattern: '^#[0-9A-Fa-f]{6}$'}
+        sort_order: {type: integer}
+    Image:
+      type: object
+      required: [id, bytes, width, height, mime]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        bytes: {type: integer}
+        width: {type: integer}
+        height: {type: integer}
+        mime: {type: string, const: image/webp}
+    Activity:
+      type: object
+      required: [id, group_id, user_id, category_id, activity_date, content, revision]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        group_id: {$ref: '#/components/schemas/Id'}
+        user_id: {$ref: '#/components/schemas/Id'}
+        category_id: {$ref: '#/components/schemas/Id'}
+        activity_date: {type: string, format: date}
+        activity_time: {type: [string, 'null'], description: 'HH:mm'}
+        content: {type: string, maxLength: 1000}
+        note: {type: [string, 'null'], maxLength: 1000}
+        revision: {type: integer, minimum: 1}
+        client_request_id: {type: [string, 'null'], format: uuid}
+        user:
+          type: object
+          properties:
+            id: {$ref: '#/components/schemas/Id'}
+            display_name: {type: string}
+        category:
+          type: object
+          properties:
+            id: {$ref: '#/components/schemas/Id'}
+            name: {type: string}
+            color_code: {type: [string, 'null']}
+            sort_order: {type: integer}
+        image:
+          anyOf:
+            - $ref: '#/components/schemas/Image'
+            - type: 'null'
+        likes_count: {type: integer, minimum: 0, description: ギャラリー応答では省略}
+        liked_by_me: {type: boolean, description: ギャラリー応答では省略}
+        can_like: {type: boolean, description: ギャラリー応答では省略}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    Page:
+      type: object
+      required: [data, current_page, last_page, total]
+      properties:
+        data: {type: array, items: {}}
+        current_page: {type: integer}
+        last_page: {type: integer}
+        total: {type: integer}
+        per_page: {type: integer}
+        from: {type: [integer, 'null']}
+        to: {type: [integer, 'null']}
+        next_page_url: {type: [string, 'null']}
+        prev_page_url: {type: [string, 'null']}
+    ActivityInput:
+      type: object
+      properties:
+        category_id: {$ref: '#/components/schemas/Id'}
+        activity_date: {type: string, format: date}
+        activity_time: {type: [string, 'null'], pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'}
+        content: {type: string, minLength: 1, maxLength: 1000}
+        note: {type: [string, 'null'], maxLength: 1000}
+    RewardInput:
+      type: object
+      additionalProperties: false
+      required: [name, description, metric, color, target_ids, start_month, cycle_months]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 50}
+        description: {type: string, minLength: 1, maxLength: 500}
+        metric: {type: string, enum: [activities, likes]}
+        color: {type: string, enum: [gold, silver, bronze]}
+        count_mode: {type: string, enum: [fixed, period_days], default: fixed}
+        required_count: {type: [integer, 'null'], minimum: 1, maximum: 10000, description: fixedでは1〜10000必須。period_daysでは省略またはnull（空扱い）のみ}
+        category_id: {type: [integer, 'null'], minimum: 1}
+        target_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/Id'}
+          description: activeな所属ID（user_idではない）。人数上限はFAMIE_MAX_GROUP_MEMBERS、既定10
+        start_month: {type: string, pattern: '^\d{4}-\d{2}$', description: 当月以降のYYYY-MM。開始後変更不可}
+        cycle_months: {type: integer, minimum: 1, maximum: 12}
+        timezone: {type: [string, 'null'], description: IANA timezone。省略時UTC、保存後固定}
+        revision: {type: integer, minimum: 1, description: 更新時のみ必須}
+      allOf:
+        - if:
+            properties:
+              count_mode:
+                const: period_days
+            required:
+              - count_mode
+          then:
+            properties:
+              required_count:
+                type: "null"
+          else:
+            required:
+              - required_count
+            properties:
+              required_count:
+                type: integer
+                minimum: 1
+                maximum: 10000
+    RewardVersion:
+      type: object
+      required: [id, name, description, metric, color, count_mode, required_count, effective_from]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        name: {type: string}
+        description: {type: string}
+        metric: {type: string, enum: [activities, likes]}
+        color: {type: string, enum: [gold, silver, bronze]}
+        count_mode: {type: string, enum: [fixed, period_days]}
+        required_count: {type: integer, description: 対象期間内日数を解決した値}
+        category_id: {type: [integer, 'null']}
+        category_name: {type: [string, 'null']}
+        target_ids: {type: array, items: {$ref: '#/components/schemas/Id'}, description: 管理APIのみ。対象者向け条件一覧では省略}
+        effective_from: {type: string, format: date}
+    Reward:
+      type: object
+      required: [id, status, revision, start_month, cycle_months, timezone, version, pending_version, starts_on, ends_on, started, progress, awarded, achieved_count]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        status: {type: string, enum: [draft, active, stopped]}
+        revision: {type: integer}
+        start_month: {type: string, format: date-time, description: 月初日を表す日時文字列。入力はYYYY-MMだが応答はCarbonの日付オブジェクトがJSON日時化される}
+        cycle_months: {type: integer}
+        timezone: {type: string}
+        version: {$ref: '#/components/schemas/RewardVersion'}
+        pending_version:
+          anyOf:
+            - $ref: '#/components/schemas/RewardVersion'
+            - type: 'null'
+        starts_on: {type: string, format: date}
+        ends_on: {type: string, format: date, description: 表示上の最終日を含む。内部の終了境界は翌日0時}
+        started: {type: boolean}
+        progress: {type: [integer, 'null']}
+        awarded: {type: boolean}
+        achieved_count: {type: [integer, 'null']}
+    Award:
+      type: object
+      required: [id, reward_id, awarded_at, read_at, achieved_count, snapshot]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        reward_id: {$ref: '#/components/schemas/Id'}
+        group_id: {$ref: '#/components/schemas/Id'}
+        group_member_id: {$ref: '#/components/schemas/Id'}
+        reward_period_id: {$ref: '#/components/schemas/Id'}
+        awarded_at: {type: string, format: date-time}
+        read_at: {type: [string, 'null'], format: date-time}
+        achieved_count: {type: integer}
+        deleted: {type: boolean, description: 獲得履歴一覧のみ。定義削除済みを示す}
+        snapshot:
+          type: object
+          properties:
+            name: {type: string}
+            description: {type: string}
+            metric: {type: string, enum: [activities, likes]}
+            color: {type: string, enum: [gold, silver, bronze]}
+            count_mode: {type: string, enum: [fixed, period_days]}
+            required_count: {type: integer}
+            category_name: {type: [string, 'null']}
+            starts_on: {type: string, format: date}
+            ends_on: {type: string, format: date}
+            timezone: {type: string}
+          required:
+            - name
+            - description
+            - metric
+            - color
+            - required_count
+            - category_name
+            - starts_on
+            - ends_on
+            - timezone
+  responses:
+    Unauthorized:
+      description: Bearer未指定・失効
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Forbidden:
+      description: IP制限、所属無効、別家族、役割／本人制約
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    NotFound:
+      description: 対象なし、別家族／無効メンバーの記録など可視範囲外
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Validation:
+      description: 入力・関連ID・状態・上限などの検証エラー
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Conflict:
+      description: revision競合・所属不整合・集計中・状態遷移／枠制約
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    RateLimited:
+      description: 操作頻度制限（メールの送信間隔エラーにはRetry-Afterが付かない場合がある）
+      headers:
+        Retry-After: {schema: {type: integer}, description: 再試行までの秒数、付与される場合のみ}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unavailable:
+      description: メンテナンス時はcode=maintenance。メール配送失敗も503（申請は保存済み）
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}

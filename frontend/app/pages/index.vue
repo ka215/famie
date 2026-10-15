@@ -20,6 +20,34 @@ const groupPath = (path: string) => `/groups/${groupId.value}${path}`
 const editIconStyle = { maskImage: `url("${editIcon}")` }
 const plusIconStyle = { maskImage: `url("${plusIcon}")` }
 
+const listReturn = useListReturn()
+const restoring = ref(true)
+const metadataReady = ref(false)
+let savedReturn = listReturn.current('/')
+const returnPage = ref(savedReturn?.page ?? 1)
+const openDetail = (event: MouseEvent, id: number) =>
+  listReturn.open(event, id, {
+    path: '/',
+    page: currentPage.value,
+    filters: {
+      period: filterPeriod.value,
+      from: filterFrom.value,
+      to: filterTo.value,
+      userId: filterUserId.value,
+      categoryId: filterCategoryId.value,
+      year: calendarYear.value,
+      month: calendarMonth.value,
+      selectedDate: selectedDate.value,
+      dayView: isDayView.value,
+    },
+  })
+const retryList = async () => {
+  if (!metadataReady.value) return initialize()
+  if (filterPeriod.value === 'month') await fetchMonthCounts()
+  if (!listReturn.isActive()) return
+  if (filterPeriod.value !== 'month' || isDayView.value) await fetchLogs(returnPage.value)
+  if (savedReturn && !errorMessage.value) await listReturn.restoreScroll(savedReturn)
+}
 const logs = ref<ActivityLog[]>([])
 const {
   operations: likeOperations,
@@ -78,6 +106,7 @@ const appendFilters = (params: URLSearchParams) => {
 }
 
 const fetchLogs = async (page = 1, day?: string | null) => {
+  if (!listReturn.isActive()) return
   const activeDay =
     day === undefined
       ? filterPeriod.value === 'this_week' || isDayView.value
@@ -107,8 +136,13 @@ const fetchLogs = async (page = 1, day?: string | null) => {
     )
     if (requestId !== logRequestId) return
     acceptLogs(res.data, likeReadRevision)
+    if (page > res.last_page && res.last_page > 0) {
+      await fetchLogs(res.last_page, day)
+      return
+    }
     logs.value = res.data
     currentPage.value = res.current_page
+    returnPage.value = res.current_page
     lastPage.value = res.last_page
     total.value = res.total
   } catch {
@@ -145,20 +179,26 @@ const fetchMonthCounts = async () => {
 const fetchCategories = async () => {
   try {
     categories.value = await fetchApi<Category[]>(groupPath('/categories'))
+    return true
   } catch {
     errorMessage.value = 'カテゴリの取得に失敗しました。'
+    return false
   }
 }
 
 const fetchMembers = async () => {
   try {
     familyMembers.value = await fetchApi<FamilyMember[]>(groupPath('/members'))
+    return true
   } catch {
     errorMessage.value = '家族メンバーの取得に失敗しました。'
+    return false
   }
 }
 
 const selectPeriod = (period: FilterPeriod) => {
+  savedReturn = undefined
+  returnPage.value = 1
   filterPeriod.value = period
   isDayView.value = false
   if (period === 'month') {
@@ -268,6 +308,9 @@ const refreshCurrentView = async () => {
 }
 
 watch([filterUserId, filterCategoryId], () => {
+  if (restoring.value) return
+  savedReturn = undefined
+  returnPage.value = 1
   if (filterPeriod.value === 'month') {
     fetchMonthCounts()
     if (isDayView.value && selectedDate.value) fetchLogs(1, selectedDate.value)
@@ -276,21 +319,57 @@ watch([filterUserId, filterCategoryId], () => {
   }
 })
 
-onMounted(async () => {
+const initialize = async () => {
+  restoring.value = true
   locale.value = getPreferredLocale(navigator.languages, navigator.language)
   firstDayOfWeek.value = getFirstDayOfWeek(locale.value)
   selectedDate.value = formatLocalDate(new Date())
   setPeriodRange()
-  await Promise.all([fetchCategories(), fetchMembers(), fetchLogs()])
+  const ready = await Promise.all([fetchCategories(), fetchMembers()])
+  if (!listReturn.isActive()) return
+  if (ready.some((value) => !value)) {
+    restoring.value = false
+    return
+  }
+  metadataReady.value = true
+  if (savedReturn) {
+    const filters =
+      savedReturn.filters as import('~/composables/useListReturn').TimelineReturnFilters
+    filterPeriod.value = filters.period
+    filterFrom.value = filters.from
+    filterTo.value = filters.to
+    calendarYear.value = filters.year
+    calendarMonth.value = filters.month
+    selectedDate.value = filters.selectedDate
+    isDayView.value = filters.dayView
+    filterUserId.value =
+      !filters.userId || familyMembers.value.some((member) => String(member.id) === filters.userId)
+        ? filters.userId
+        : String(user.value?.id ?? '')
+    filterCategoryId.value = categories.value.some(
+      (category) => String(category.id) === filters.categoryId
+    )
+      ? filters.categoryId
+      : ''
+  }
+  await nextTick()
+  await retryList()
+  restoring.value = false
+}
+onMounted(initialize)
+onBeforeUnmount(() => {
+  logRequestId++
+  calendarRequestId++
 })
 </script>
 
 <template>
   <div class="space-y-4">
-    <div v-if="errorMessage" class="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
+    <div v-if="errorMessage" role="alert" class="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
       {{ errorMessage }}
+      <button type="button" class="underline" @click="retryList">再試行</button>
     </div>
-    <div class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+    <fieldset :disabled="restoring" :aria-busy="restoring" class="min-w-0 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
       <div class="flex items-center justify-between">
         <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">表示期間</span>
         <div class="flex space-x-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
@@ -344,7 +423,7 @@ onMounted(async () => {
           </select>
         </div>
       </div>
-    </div>
+    </fieldset>
 
     <button
       class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md flex items-center justify-center space-x-2 transition"
@@ -410,8 +489,9 @@ onMounted(async () => {
           <article
             v-for="log in logs"
             :key="log.id"
+            :data-log-id="log.id"
             class="block bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-2 relative transition"
-            :class="log.user_id === user?.id ? 'hover:border-blue-300 dark:hover:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500' : ''"
+            :class="log.user_id === user?.id ? 'focus-within:ring-2 focus-within:ring-blue-500' : ''"
           >
             <div class="flex flex-wrap gap-2 items-center justify-between">
               <div class="flex flex-wrap gap-2 items-center">
@@ -436,10 +516,10 @@ onMounted(async () => {
             <p v-if="log.note" class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg">
               メモ: {{ log.note }}
             </p>
-            <ActivityImageView v-if="log.image" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" class="relative z-1" />
+            <ActivityImageView v-if="log.image" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" />
             <div class="flex items-center justify-between">
               <ActivityLikeButton :state="likeState(log)" :own="log.user_id === user?.id" :pending="likeOperations[log.id]?.pending" :uncertain="likeOperations[log.id]?.uncertain" :waiting="likesWaiting" @toggle="toggleLike(log)" />
-              <NuxtLink v-if="log.user_id === user?.id" :to="`/logs/${log.id}`" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-11 w-11 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">
+              <NuxtLink v-if="log.user_id === user?.id" :to="`/logs/${log.id}`" @click="openDetail($event, log.id)" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-11 w-11 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">
                 <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="editIconStyle" />
               </NuxtLink>
             </div>
@@ -481,12 +561,3 @@ onMounted(async () => {
     />
   </div>
 </template>
-
-<style scoped>
-.edit-link::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-}
-</style>
