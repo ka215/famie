@@ -51,7 +51,7 @@ test('楽観的更新は通信中に一度だけ送信し、正規化・解除�
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByLabel('受け取ったいいね：0件')).toBeVisible()
   await own.getByRole('link').click()
-  await expect(page).toHaveURL(/\/logs\/3$/)
+  await expect(page).toHaveURL(/\/logs\/3\?back=/)
 })
 
 test('確定エラーは表示を戻し、応答不明時は反転せず同じ希望状態を再送する', async ({

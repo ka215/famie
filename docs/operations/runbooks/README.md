@@ -14,3 +14,7 @@
 - [環境別IP制限](./ip-access-notes.md)：v0.9.0の商用解除、ステージング維持、旧版への復旧。
 
 リリース自動化の設計上の正本は[リリース自動化仕様](../release-automation-spec.md)である。日常の操作は`release-script-notes.md`から開始し、初期構築手順や過去の記録を通常リリースの代わりに使用しない。
+
+## 移管準備
+
+- [famie.coへの移管計画](domain-migration-plan.md)：v0.15.1では設計のみ。実際の切替は後続版。

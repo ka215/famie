@@ -112,7 +112,7 @@ test('A1・A2：実APIの定義前活動とカテゴリ別の日数を画面で�
   await expect(modal.getByRole('heading', { name: 'カテゴリ3日' })).toBeVisible()
   await modal.getByRole('button', { name: '閉じる', exact: true }).click()
   await expect(page.getByRole('article').filter({ hasText: '定義前10日' })).toContainText(
-    '獲得時 10'
+    '獲得済み'
   )
 })
 
@@ -152,7 +152,7 @@ test('A5・A10：いいね解除後の獲得維持と同名再作成を実APIで
   ).toBeTruthy()
   await page.reload()
   await expect(page.getByRole('article')).toContainText('現在 9/10')
-  await expect(page.getByRole('article')).toContainText('獲得済み（獲得時 10）')
+  await expect(page.getByRole('article')).toContainText('獲得済み')
   await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '90')
   await f.status(reward, 'stopped', 2)
   expect(
@@ -183,7 +183,7 @@ test('A6：停止中の編集を予約し、再開時に旧条件で達成する
   await page.getByRole('button', { name: '管理', exact: true }).click()
   await page.getByRole('button', { name: '編集', exact: true }).click()
   await page.getByRole('dialog').getByLabel('必要数', { exact: true }).fill('3')
-  await page.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: '変更を保存', exact: true }).click()
   await expect(page.getByText(/次期変更あり/)).toContainText('必要数 3')
   await page.goto('/settings')
   await f.log(1)
@@ -195,7 +195,7 @@ test('A6：停止中の編集を予約し、再開時に旧条件で達成する
   await page.getByRole('dialog').getByRole('button', { name: '閉じる', exact: true }).click()
   await page.getByRole('button', { name: '条件・進捗', exact: true }).click()
   await expect(page.getByRole('article')).toContainText('現在 2/2')
-  await expect(page.getByRole('article')).toContainText('獲得済み（獲得時 2）')
+  await expect(page.getByRole('article')).toContainText('獲得済み')
   await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
 })
 
@@ -220,13 +220,13 @@ test('A7・A14：別タイムゾーンの端末でも開始前編集と保存済
     ])
     const other = await otherContext.newPage()
     await other.goto('/rewards')
-    await expect(other.getByRole('article')).toContainText('Asia/Tokyo')
+    await expect(other.getByRole('article')).not.toContainText('Asia/Tokyo')
     await expect(other.getByRole('article')).toContainText('開始前')
     await other.getByRole('button', { name: '管理', exact: true }).click()
     await other.getByRole('button', { name: '編集', exact: true }).click()
     await expect(other.getByRole('dialog')).toContainText('タイムゾーン：Asia/Tokyo')
     await other.getByRole('dialog').getByLabel('必要数', { exact: true }).fill('4')
-    await other.getByRole('dialog').getByRole('button', { name: '保存', exact: true }).click()
+    await other.getByRole('dialog').getByRole('button', { name: '変更を保存', exact: true }).click()
     await expect(other.getByRole('dialog')).toHaveCount(0)
     await expect(other.getByRole('article')).toContainText('4日')
     await expect(other.getByText(/次期変更あり/)).toHaveCount(0)

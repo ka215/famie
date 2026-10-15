@@ -9,6 +9,43 @@ import {
 
 const { fetchApi } = useApi()
 const { groupId } = useAuth()
+const listReturn = useListReturn()
+let savedReturn = listReturn.current('/gallery')
+const restoring = ref(true)
+const metadataReady = ref(false)
+const openDetail = (event: MouseEvent, id: number) =>
+  listReturn.open(event, id, {
+    path: '/gallery',
+    page: currentPage.value,
+    filters: {
+      period: period.value,
+      anchor: anchor.value.toISOString(),
+      from: from.value,
+      to: to.value,
+      userId: userId.value,
+      categoryId: categoryId.value,
+    },
+  })
+const restoreList = async () => {
+  restoring.value = true
+  const target = savedReturn?.page ?? 1
+  if (!currentPage.value) await fetchPage(1)
+  while (
+    listReturn.isActive() &&
+    !error.value &&
+    currentPage.value < target &&
+    currentPage.value < lastPage.value
+  )
+    await fetchPage(currentPage.value + 1)
+  if (savedReturn && !error.value) await listReturn.restoreScroll(savedReturn)
+  restoring.value = false
+}
+const retryList = () =>
+  !metadataReady.value
+    ? initialize()
+    : savedReturn
+      ? restoreList()
+      : fetchPage(currentPage.value + 1)
 const logs = ref<ActivityLog[]>([])
 const members = ref<FamilyMember[]>([])
 const categories = ref<Category[]>([])
@@ -37,6 +74,7 @@ const range = computed(() => {
 })
 
 const fetchPage = async (page = 1) => {
+  if (!listReturn.isActive()) return
   if (isLoading.value || (page > 1 && page > lastPage.value)) return
   if (range.value.from && range.value.to && range.value.from > range.value.to) {
     error.value = '開始日は終了日以前にしてください。'
@@ -77,6 +115,7 @@ const fetchPage = async (page = 1) => {
 
 const loadMoreIfVisible = () => {
   if (
+    restoring.value ||
     isLoading.value ||
     error.value ||
     currentPage.value < 1 ||
@@ -95,6 +134,7 @@ const loadMoreIfVisible = () => {
 }
 
 const reset = () => {
+  savedReturn = undefined
   requestId++
   isLoading.value = false
   logs.value = []
@@ -110,17 +150,47 @@ const movePeriod = (offset: number) => {
   anchor.value = next
 }
 
-watch([period, anchor, userId, categoryId], reset)
-onMounted(async () => {
-  await Promise.all([
-    fetchApi<FamilyMember[]>(`/groups/${groupId.value}/members`).then((result) => {
-      members.value = result
-    }),
-    fetchApi<Category[]>(`/groups/${groupId.value}/categories`).then((result) => {
-      categories.value = result
-    }),
-  ])
-  reset()
+watch([period, anchor, userId, categoryId], () => {
+  if (!restoring.value) reset()
+})
+const initialize = async () => {
+  restoring.value = true
+  error.value = ''
+  try {
+    await Promise.all([
+      fetchApi<FamilyMember[]>(`/groups/${groupId.value}/members`).then((result) => {
+        members.value = result
+      }),
+      fetchApi<Category[]>(`/groups/${groupId.value}/categories`).then((result) => {
+        categories.value = result
+      }),
+    ])
+  } catch {
+    error.value = '表示条件を取得できませんでした。再試行してください。'
+    restoring.value = false
+    return
+  }
+  if (!listReturn.isActive()) return
+  metadataReady.value = true
+  if (savedReturn) {
+    const filters =
+      savedReturn.filters as import('~/composables/useListReturn').GalleryReturnFilters
+    period.value = filters.period
+    anchor.value = new Date(filters.anchor)
+    from.value = filters.from
+    to.value = filters.to
+    userId.value = members.value.some((member) => String(member.id) === filters.userId)
+      ? filters.userId
+      : ''
+    categoryId.value = categories.value.some(
+      (category) => String(category.id) === filters.categoryId
+    )
+      ? filters.categoryId
+      : ''
+  }
+  await nextTick()
+  await restoreList()
+  if (!listReturn.isActive()) return
   observer = new IntersectionObserver(
     (entries) => {
       if (entries[0]?.isIntersecting) loadMoreIfVisible()
@@ -128,7 +198,8 @@ onMounted(async () => {
     { root: document.querySelector('.app-scroll-area'), rootMargin: '200px' }
   )
   if (sentinel.value) observer.observe(sentinel.value)
-})
+}
+onMounted(initialize)
 onBeforeUnmount(() => {
   requestId++
   observer?.disconnect()
@@ -138,7 +209,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="space-y-4">
     <h1 class="text-lg font-bold">画像ギャラリー</h1>
-    <div class="space-y-3 rounded-xl bg-white p-3 dark:bg-slate-800">
+    <fieldset :disabled="restoring" :aria-busy="restoring" class="min-w-0 space-y-3 rounded-xl bg-white p-3 dark:bg-slate-800">
       <div class="flex gap-2">
         <button v-for="choice in (['week', 'month', 'custom'] as const)" :key="choice" type="button" :aria-pressed="period === choice" class="rounded-lg px-3 py-2 text-xs" :class="period === choice ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-700'" @click="period = choice">{{ choice === 'week' ? '週間' : choice === 'month' ? '月間' : '指定期間' }}</button>
       </div>
@@ -157,18 +228,18 @@ onBeforeUnmount(() => {
         <label class="text-xs">投稿者<select v-model="userId" class="mt-1 w-full rounded-lg border p-2 dark:bg-slate-800"><option value="">全員</option><option v-for="member in members" :key="member.id" :value="String(member.id)">{{ member.display_name }}</option></select></label>
         <label class="text-xs">カテゴリー<select v-model="categoryId" class="mt-1 w-full rounded-lg border p-2 dark:bg-slate-800"><option value="">全カテゴリー</option><option v-for="category in categories" :key="category.id" :value="String(category.id)">{{ category.name }}</option></select></label>
       </div>
-    </div>
+    </fieldset>
     <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
     <div class="grid grid-cols-2 gap-2">
-      <article v-for="log in logs" :key="log.id" class="min-w-0 rounded-xl bg-white p-2 dark:bg-slate-800">
+      <article v-for="log in logs" :key="log.id" :data-log-id="log.id" class="min-w-0 rounded-xl bg-white p-2 dark:bg-slate-800">
         <ActivityImageView v-if="log.image" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" square />
         <p class="mt-2 truncate text-xs">{{ log.user.display_name }} · {{ log.activity_date }}</p>
-        <NuxtLink :to="`/logs/${log.id}`" class="text-xs text-blue-600 dark:text-blue-300">アクティビティを見る</NuxtLink>
+        <NuxtLink :to="`/logs/${log.id}`" @click="openDetail($event, log.id)" class="text-xs text-blue-600 dark:text-blue-300">アクティビティを見る</NuxtLink>
       </article>
     </div>
     <p v-if="!logs.length && !isLoading && !error" class="py-8 text-center text-sm text-slate-500">画像はありません。</p>
     <div ref="sentinel" class="h-4" />
     <p v-if="isLoading" role="status" class="text-center text-xs">読み込み中...</p>
-    <button v-if="error" type="button" class="rounded-lg bg-blue-600 px-4 py-2 text-white" @click="fetchPage(currentPage + 1)">再試行</button>
+    <button v-if="error" type="button" class="rounded-lg bg-blue-600 px-4 py-2 text-white" @click="retryList">再試行</button>
   </div>
 </template>

@@ -582,6 +582,7 @@ onMounted(() => {
               <span>親（保護者）</span>
             </label>
           </div>
+          <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">親（保護者）は、家族メンバー・カテゴリ・リワードなどの管理者機能を利用できます。</p>
         </div>
 
         <button

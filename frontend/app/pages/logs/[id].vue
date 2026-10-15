@@ -3,6 +3,16 @@ import type { ActivityLog, ApiRequestError, Category, DataResponse, Group } from
 import { type ActivityLogForm, activityLogSchema } from '#shared/utils/activityLogSchema'
 
 const route = useRoute()
+const listReturn = useListReturn()
+const returnEntry = computed(() => listReturn.read(route.query.back))
+const returnTarget = computed(() =>
+  returnEntry.value
+    ? { path: returnEntry.value.path, query: { resume: String(route.query.back) } }
+    : { path: '/' }
+)
+const returnLabel = computed(() =>
+  returnEntry.value?.path === '/gallery' ? '← ギャラリーへ' : '← タイムラインへ'
+)
 const { fetchApi } = useApi()
 const { prepareFile } = useActivityImage()
 const { user, groupId } = useAuth()
@@ -124,7 +134,7 @@ const handleUpdate = async () => {
         },
       })
     }
-    await navigateTo('/')
+    await navigateTo(returnTarget.value)
   } catch (error: unknown) {
     const apiError = error as ApiRequestError
     errorMessage.value =
@@ -146,7 +156,7 @@ const handleDelete = async () => {
 
   try {
     await fetchApi(groupPath(`/logs/${route.params.id}`), { method: 'DELETE' })
-    await navigateTo('/')
+    await navigateTo(returnTarget.value)
   } catch (error: unknown) {
     const apiError = error as ApiRequestError
     errorMessage.value = apiError.data?.message || '記録の削除に失敗しました。'
@@ -161,7 +171,7 @@ onMounted(loadLog)
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <NuxtLink to="/" class="text-sm text-blue-600 dark:text-blue-300">← タイムラインへ</NuxtLink>
+      <NuxtLink :to="returnTarget" class="text-sm text-blue-600 dark:text-blue-300">{{ returnLabel }}</NuxtLink>
       <span v-if="log" class="text-xs text-slate-500 dark:text-slate-400">{{ log.user.display_name }}さんの記録</span>
     </div>
 
@@ -174,7 +184,7 @@ onMounted(loadLog)
 
     <div v-if="isLoading" class="text-center py-8 text-slate-400 dark:text-slate-400 text-sm">読み込み中...</div>
 
-    <form v-else-if="log" class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4" novalidate @submit.prevent="handleUpdate">
+    <form v-else-if="log" class="activity-detail bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4" novalidate @submit.prevent="handleUpdate">
       <div>
         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">カテゴリ</label>
         <select
@@ -237,3 +247,25 @@ onMounted(loadLog)
     </form>
   </div>
 </template>
+
+<style scoped>
+.activity-detail :is(input, select, textarea) {
+  background-color: var(--color-white);
+  color: var(--color-slate-800);
+}
+.activity-detail :is(input, select, textarea):disabled {
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-700);
+  -webkit-text-fill-color: var(--color-slate-700);
+  opacity: 1;
+}
+[data-theme='dark'] .activity-detail :is(input, select, textarea) {
+  background-color: var(--color-slate-800);
+  color: var(--color-slate-100);
+}
+[data-theme='dark'] .activity-detail :is(input, select, textarea):disabled {
+  background-color: var(--color-slate-900);
+  color: var(--color-slate-200);
+  -webkit-text-fill-color: var(--color-slate-200);
+}
+</style>

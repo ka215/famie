@@ -19,6 +19,7 @@ onMounted(() => {
     })
 })
 const route = useRoute()
+const { clear: clearListReturn } = useListReturn()
 const iconStyles = {
   timeline: { maskImage: `url("${timelineIcon}")` },
   trophy: { maskImage: `url("${trophyIcon}")` },
@@ -44,7 +45,7 @@ const iconStyles = {
 
     <nav aria-label="メインメニュー" class="shrink-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 pb-[env(safe-area-inset-bottom)] z-10">
       <div class="grid max-w-md mx-auto" :class="galleryVisible ? 'grid-cols-4' : 'grid-cols-3'">
-      <NuxtLink to="/" :aria-current="route.path === '/' || route.path.startsWith('/logs/') ? 'page' : undefined" class="footer-item" :class="route.path === '/' || route.path.startsWith('/logs/') ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
+      <NuxtLink to="/" @click="clearListReturn" :aria-current="route.path === '/' || route.path.startsWith('/logs/') ? 'page' : undefined" class="footer-item" :class="route.path === '/' || route.path.startsWith('/logs/') ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.timeline" />
         <span class="text-xs font-medium">タイムライン</span>
       </NuxtLink>
@@ -52,7 +53,7 @@ const iconStyles = {
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.trophy" />
         <span class="text-xs font-medium">リワード</span>
       </NuxtLink>
-      <NuxtLink v-if="galleryVisible" to="/gallery" class="footer-item" :class="route.path === '/gallery' ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
+      <NuxtLink v-if="galleryVisible" to="/gallery" @click="clearListReturn" class="footer-item" :class="route.path === '/gallery' ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.gallery" />
         <span class="text-xs font-medium">ギャラリー</span>
       </NuxtLink>

@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test'
 
 for (const role of ['parent', 'child']) {
-  test(`${role}: 自分のカードだけ編集へ遷移し、他人の記録は閲覧のみ`, async ({ page, context }) => {
+  test(`${role}: 自分の編集アイコンだけで遷移し、他人の記録は閲覧のみ`, async ({
+    page,
+    context,
+  }) => {
     const owner = { id: 1, username: 'owner', display_name: '自分', role }
     const category = { id: 1, name: '家事', color_code: '#10B981' }
     const logs = [1, 2].map((id) => ({
@@ -36,7 +39,9 @@ for (const role of ['parent', 'child']) {
     await otherCard.getByText('他人の記録').click()
     await expect(page).toHaveURL(/\/$/)
     await ownCard.click({ position: { x: 20, y: 65 } })
-    await expect(page).toHaveURL(/\/logs\/1$/)
+    await expect(page).toHaveURL(/\/$/)
+    await ownCard.getByRole('link', { name: '2026-09-25の記録を編集' }).click()
+    await expect(page).toHaveURL(/\/logs\/1\?back=/)
     await expect(page.getByRole('button', { name: '更新する' })).toBeVisible()
     await page.goto('/logs/2')
     await expect(page.getByText('この記録は閲覧のみ可能です。')).toBeVisible()

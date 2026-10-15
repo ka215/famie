@@ -59,6 +59,15 @@ jobs:
       - name: Unit tests
         working-directory: frontend
         run: pnpm test:unit
+      - name: Install pinned yq
+        shell: bash
+        run: |-
+          curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64 -o "$RUNNER_TEMP/yq"
+          chmod +x "$RUNNER_TEMP/yq"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Verify OpenAPI contract
+        working-directory: frontend
+        run: pnpm test:api
       - name: Backend tests
         working-directory: backend
         run: |

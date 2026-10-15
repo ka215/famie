@@ -210,14 +210,13 @@ onBeforeUnmount(() => {
     <template v-if="mode !== 'awards'">
       <p v-if="!busy && !error && !rewards.length" class="py-8 text-center text-sm text-slate-500">{{ mode === 'manage' ? 'リワードがまだありません。' : '対象のリワードはまだありません。' }}</p>
       <article v-for="reward in rewards" :key="reward.id" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-2">
-        <div class="flex flex-wrap items-center gap-2"><RewardTrophy :color="reward.version.color" label-only badge /><span class="rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap" :class="reward.status === 'draft' ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200' : reward.status === 'stopped' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' : 'bg-green-100 text-green-800 dark:bg-green-600 dark:text-green-50'">{{ reward.status === 'draft' ? '下書き' : reward.status === 'stopped' ? '停止' : !reward.started ? '有効（開始前）' : '有効' }}</span></div>
+        <div class="flex flex-wrap items-center gap-2"><RewardTrophy :color="reward.version.color" label-only badge /><span class="rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap" :class="reward.status === 'draft' ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200' : reward.status === 'stopped' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' : 'bg-green-100 text-green-800 dark:bg-green-600 dark:text-green-50'">{{ reward.status === 'draft' ? '下書き' : reward.status === 'stopped' ? '停止' : !reward.started ? '有効（開始前）' : '有効' }}</span><span v-if="mode === 'conditions' && reward.started && reward.awarded" class="rounded-full bg-red-600 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-white">獲得済み</span></div>
         <h3 class="flex items-start gap-2 font-bold break-all"><RewardTrophy :color="reward.version.color" icon-only /><span class="min-w-0">{{ reward.version.name }}</span></h3>
         <p class="text-sm whitespace-pre-wrap break-all">{{ reward.version.description }}</p>
-        <p class="text-xs text-slate-600 dark:text-slate-300">{{ reward.starts_on }}〜{{ reward.ends_on }}（{{ reward.timezone }}）・{{ reward.cycle_months }}か月周期</p>
+        <p class="text-xs text-slate-600 dark:text-slate-300">{{ reward.starts_on }}〜{{ reward.ends_on }}・{{ reward.cycle_months }}か月周期</p>
         <p class="text-sm">{{ reward.version.count_mode === 'period_days' ? '期間内日数・' : '' }}{{ reward.version.category_name || '全カテゴリ' }}・{{ reward.version.metric === 'activities' ? '活動日数（1日1回）' : '受信いいね数' }} {{ reward.version.required_count }}{{ reward.version.metric === 'activities' ? '日' : '件' }}</p>
         <template v-if="mode === 'conditions'">
           <RewardProgress v-if="reward.started" :current="reward.progress" :required-count="reward.version.required_count" />
-          <p v-if="reward.started && reward.awarded" class="text-xs">獲得済み（獲得時 {{ reward.achieved_count }}）</p>
           <p v-if="reward.status === 'stopped'" class="text-xs">停止中は達成判定を行いません。再開時に現在期間の活動を再集計します。</p>
         </template>
         <template v-else>

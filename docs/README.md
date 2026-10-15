@@ -30,3 +30,7 @@ docs/
 - 本番作業の手順は `operations/runbooks/`、実施履歴は `operations/change-log/`、バックアップ運用は `operations/backup/` に記録する。
 - 通常リリースの操作は[リリース自動化 運用手順](operations/runbooks/release-script-notes.md)を入口とする。
 - 課題の最新状態は`issues/summary.md`、確定した版別要件は`issues/vX.Y.Z.md`を参照する。
+
+## API契約
+
+- [現行API契約（OpenAPI）](api/README.md)：入力・応答・権限と保守・検証方法。
