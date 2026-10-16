@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Services\AccountEmailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -145,6 +146,8 @@ class PostgresConcurrencyTest extends TestCase
         $statuses = array_column($results, 'status');
         sort($statuses);
         $this->assertSame([200, 422], $statuses, json_encode($results));
+        $loser = collect($results)->firstWhere('status', 422);
+        $this->assertSame(AccountEmailService::INVALID_LINK, $loser['body']['message']);
         $this->assertSame(1, DB::table('users')->where('email', $email)->count());
     }
 

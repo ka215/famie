@@ -229,7 +229,7 @@ class AccountEmailTest extends TestCase
         config(['famie.mail_allowed_recipients' => ['allowed@example.test']]);
         $user = $this->member(['email_verified_at' => now()]);
         Sanctum::actingAs($user);
-        $this->postJson('/v1/auth/me/email', ['email' => 'blocked@example.test', 'current_password' => 'password'])->assertServiceUnavailable();
+        $this->postJson('/v1/auth/me/email', ['email' => 'blocked@example.test', 'current_password' => 'password'])->assertOk();
         $this->assertSame('blocked@example.test', $user->fresh()->pending_email);
         $this->travel(61)->seconds();
         $this->postJson('/v1/auth/password/forgot', ['email' => $user->email])->assertOk();
@@ -265,7 +265,7 @@ class AccountEmailTest extends TestCase
         config(['mail.default' => 'log']);
         $user = $this->member();
         Sanctum::actingAs($user);
-        $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertServiceUnavailable();
+        $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertOk();
         Mail::assertNothingSent();
     }
 
@@ -276,7 +276,8 @@ class AccountEmailTest extends TestCase
         $other = $this->member(['email' => 'other@example.test']);
         Sanctum::actingAs($user);
         $this->postJson('/v1/auth/me/email', ['email' => $user->email, 'current_password' => 'password'])->assertUnprocessable();
-        $this->postJson('/v1/auth/me/email', ['email' => 'OTHER@example.test', 'current_password' => 'password'])->assertUnprocessable();
+        $this->postJson('/v1/auth/me/email', ['email' => 'OTHER@example.test', 'current_password' => 'password'])->assertOk();
+        $this->travel(61)->seconds();
         $this->postJson('/v1/auth/me/email', ['email' => 'new@example.test', 'current_password' => 'password'])->assertOk();
         $link = $this->linkData('メールアドレスを確認');
         $link['id'] = $other->id;
@@ -305,7 +306,7 @@ class AccountEmailTest extends TestCase
         $user = $this->member();
         Sanctum::actingAs($user);
 
-        $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertServiceUnavailable();
+        $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertOk();
 
         $this->assertSame('next@example.test', $user->fresh()->pending_email);
         Mail::assertNothingSent();
