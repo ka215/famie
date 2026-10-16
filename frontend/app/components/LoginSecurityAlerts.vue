@@ -39,6 +39,7 @@ async function refresh() {
     const result = await fetchApi<{ data: SecurityAlert[] }>(
       `/groups/${groupId.value}/security-alerts`
     )
+    if (!Array.isArray(result?.data)) return
     if (requestOwner === owner.value && enabled.value) {
       alerts.value = result.data
       error.value = ''
