@@ -104,13 +104,28 @@ test('親への安全性通知からメンバー管理へ移動し、確認済�
     return route.fulfill({ json: { message: '通知を確認済みにしました。' } })
   })
   await login(page, family.username)
-  const notice = page.getByRole('complementary', { name: 'ログインの安全性に関する通知' })
+  const notice = page.getByRole('dialog', { name: 'ログインの安全性に関する通知' })
   await expect(notice).toContainText('本人の入力間違いの可能性もあります')
   await expect(notice).toContainText('通知対象<script>')
   await expect(notice.locator('script')).toHaveCount(0)
+  const position = await notice.evaluate((element) => {
+    const bounds = element.getBoundingClientRect()
+    return {
+      x: bounds.x + bounds.width / 2 - window.innerWidth / 2,
+      y: bounds.y + bounds.height / 2 - window.innerHeight / 2,
+      modal: element.matches(':modal'),
+    }
+  })
+  expect(position.modal).toBe(true)
+  expect(Math.abs(position.x)).toBeLessThanOrEqual(1)
+  expect(Math.abs(position.y)).toBeLessThanOrEqual(1)
   await notice.getByRole('link', { name: 'メンバー管理を開く' }).click()
   await expect(page).toHaveURL(/\/settings#family-members$/)
   await expect(page.getByRole('button', { name: '復旧確認の親を管理', exact: true })).toBeVisible()
+  await expect(notice).toHaveCount(0)
+  expect(unread).toBe(true)
+  await page.reload()
+  await expect(notice).toBeVisible()
   await notice.getByRole('button', { name: '確認済みにする' }).click()
   await expect(notice).toHaveCount(0)
   await page.reload()
