@@ -8,11 +8,13 @@ export default defineConfig({
   retries: 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://127.0.0.1:3100',
+    baseURL: 'https://127.0.0.1:3100',
+    ignoreHTTPSErrors: true,
     locale: 'ja-JP',
     timezoneId: 'Asia/Tokyo',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    serviceWorkers: 'block',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
@@ -26,9 +28,11 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'pnpm dev --host 127.0.0.1 --port 3100',
-      url: 'http://127.0.0.1:3100/login',
-      env: { FAMIE_E2E: '1', NUXT_DEV_API_BASE: '/api/v1' },
+      command:
+        'pnpm build --extends ./tests/support/e2e-layer && node tests/support/start-static.mjs .cache/e2e-output/public 3100 http://127.0.0.1:8100 tests/support/tls/key.pem tests/support/tls/cert.pem',
+      url: 'https://127.0.0.1:3100/login',
+      ignoreHTTPSErrors: true,
+      env: { FAMIE_E2E: '1' },
       reuseExistingServer: false,
       timeout: 120_000,
     },

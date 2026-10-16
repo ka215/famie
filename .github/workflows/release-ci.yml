@@ -112,7 +112,7 @@ jobs:
           - 5432:5432
         options: --health-cmd "pg_isready -U famie_test -d famie_test" --health-interval 5s --health-timeout 5s --health-retries 10
   e2e:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -160,10 +160,8 @@ jobs:
         include:
           - project: chromium
             browser: chromium
-            os: ubuntu-latest
           - project: iphone-webkit
             browser: webkit
-            os: macos-15-intel
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
