@@ -57,11 +57,11 @@ async function submit() {
       <form class="space-y-4" @submit.prevent="submit">
         <div>
           <label for="reset-password" class="block text-sm">新しいパスワード</label>
-          <PasswordInput id="reset-password" v-model="password" label="新しいパスワード" autocomplete="new-password" required minlength="6" :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
+          <PasswordInput id="reset-password" v-model="password" strength label="新しいパスワード" autocomplete="new-password" required minlength="15" :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
         </div>
         <div>
           <label for="reset-confirmation" class="block text-sm">新しいパスワード（確認）</label>
-          <PasswordInput id="reset-confirmation" v-model="confirmation" label="新しいパスワード（確認）" autocomplete="new-password" required minlength="6" :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
+          <PasswordInput id="reset-confirmation" v-model="confirmation" label="新しいパスワード（確認）" autocomplete="new-password" required minlength="15" :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
         </div>
         <button type="submit" :disabled="busy || !valid" class="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">{{ busy ? '更新中...' : 'パスワードを再設定' }}</button>
       </form>

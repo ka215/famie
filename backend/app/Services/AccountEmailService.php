@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class AccountEmailService
@@ -38,11 +37,9 @@ class AccountEmailService
         $user->forceFill(['pending_email' => null, 'email_verification_token' => null, 'email_verification_expires_at' => null])->save();
     }
 
-    public function ensureAvailable(string $email, User $user): void
+    public function isAvailable(string $email, User $user): bool
     {
-        if (User::query()->whereRaw('LOWER(email) = ?', [$email])->where('id', '!=', $user->id)->exists()) {
-            throw ValidationException::withMessages(['email' => ['このメールアドレスは使用できません。']]);
-        }
+        return ! User::query()->whereRaw('LOWER(email) = ?', [$email])->where('id', '!=', $user->id)->exists();
     }
 
     public function consumeDelivery(string $email, ?int $userId = null): bool

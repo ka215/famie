@@ -163,15 +163,15 @@ class AccountEmailTest extends TestCase
         $user->createToken('first');
         $user->createToken('second');
         $this->postJson('/v1/auth/password/forgot', ['email' => $user->email])->assertOk();
-        $data = $this->linkData('パスワードを再設定') + ['password' => 'new-password', 'password_confirmation' => 'new-password'];
+        $data = $this->linkData('パスワードを再設定') + ['password' => 'River-otter-password-2026!', 'password_confirmation' => 'River-otter-password-2026!'];
         $this->postJson('/v1/auth/password/reset', $data)->assertOk();
-        $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
+        $this->assertTrue(Hash::check('River-otter-password-2026!', $user->fresh()->password));
         $this->assertSame(0, $user->tokens()->count());
         $this->assertNull($user->fresh()->pending_email);
         $this->postJson('/v1/auth/password/reset', $data)->assertUnprocessable();
         Mail::assertSent(AccountMail::class, fn (AccountMail $mail) => $mail->title === 'パスワード再設定完了');
         $this->postJson('/v1/auth/login', ['login' => $user->username, 'password' => 'password'])->assertUnprocessable();
-        $this->postJson('/v1/auth/login', ['login' => $user->username, 'password' => 'new-password'])->assertOk();
+        $this->postJson('/v1/auth/login', ['login' => $user->username, 'password' => 'River-otter-password-2026!'])->assertOk();
     }
 
     public function test_reset_resend_invalidates_old_token_and_expires_after_thirty_minutes(): void
@@ -185,7 +185,7 @@ class AccountEmailTest extends TestCase
         $this->travel(61)->seconds();
         $this->postJson('/v1/auth/password/forgot', ['email' => $user->email])->assertOk();
         $latest = $this->linkData('パスワードを再設定');
-        $password = ['password' => 'new-password', 'password_confirmation' => 'new-password'];
+        $password = ['password' => 'River-otter-password-2026!', 'password_confirmation' => 'River-otter-password-2026!'];
         $this->postJson('/v1/auth/password/reset', $old + $password)->assertUnprocessable();
         $this->travel(31)->minutes();
         $this->postJson('/v1/auth/password/reset', $latest + $password)->assertUnprocessable();
@@ -199,7 +199,7 @@ class AccountEmailTest extends TestCase
         $user = $this->member(['email_verified_at' => now(), 'pending_email' => 'next@example.test']);
         $token = Password::createToken($user);
         Sanctum::actingAs($user);
-        $this->putJson('/v1/auth/me/password', ['current_password' => 'password', 'new_password' => 'new-password', 'new_password_confirmation' => 'new-password'])->assertOk();
+        $this->putJson('/v1/auth/me/password', ['current_password' => 'password', 'new_password' => 'River-otter-password-2026!', 'new_password_confirmation' => 'River-otter-password-2026!'])->assertOk();
         $this->assertFalse(Password::tokenExists($user, $token));
         $this->assertNull($user->fresh()->pending_email);
         Mail::assertNothingSent();
@@ -229,7 +229,7 @@ class AccountEmailTest extends TestCase
         config(['famie.mail_allowed_recipients' => ['allowed@example.test']]);
         $user = $this->member(['email_verified_at' => now()]);
         Sanctum::actingAs($user);
-        $this->postJson('/v1/auth/me/email', ['email' => 'blocked@example.test', 'current_password' => 'password'])->assertServiceUnavailable();
+        $this->postJson('/v1/auth/me/email', ['email' => 'blocked@example.test', 'current_password' => 'password'])->assertOk();
         $this->assertSame('blocked@example.test', $user->fresh()->pending_email);
         $this->travel(61)->seconds();
         $this->postJson('/v1/auth/password/forgot', ['email' => $user->email])->assertOk();
@@ -253,9 +253,9 @@ class AccountEmailTest extends TestCase
         Mail::shouldReceive('to')->once()->with($user->email)->andThrow(new \RuntimeException('secret-token-and-smtp-password'));
         Log::shouldReceive('warning')->once()->with('Account mail delivery failed.', ['exception_type' => \RuntimeException::class]);
 
-        $this->postJson('/v1/auth/password/reset', ['id' => $user->id, 'token' => $token, 'password' => 'new-password', 'password_confirmation' => 'new-password'])->assertOk();
+        $this->postJson('/v1/auth/password/reset', ['id' => $user->id, 'token' => $token, 'password' => 'River-otter-password-2026!', 'password_confirmation' => 'River-otter-password-2026!'])->assertOk();
 
-        $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
+        $this->assertTrue(Hash::check('River-otter-password-2026!', $user->fresh()->password));
         $this->assertFalse(Password::tokenExists($user, $token));
     }
 
@@ -265,7 +265,7 @@ class AccountEmailTest extends TestCase
         config(['mail.default' => 'log']);
         $user = $this->member();
         Sanctum::actingAs($user);
-        $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertServiceUnavailable();
+        $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertOk();
         Mail::assertNothingSent();
     }
 
@@ -276,7 +276,8 @@ class AccountEmailTest extends TestCase
         $other = $this->member(['email' => 'other@example.test']);
         Sanctum::actingAs($user);
         $this->postJson('/v1/auth/me/email', ['email' => $user->email, 'current_password' => 'password'])->assertUnprocessable();
-        $this->postJson('/v1/auth/me/email', ['email' => 'OTHER@example.test', 'current_password' => 'password'])->assertUnprocessable();
+        $this->postJson('/v1/auth/me/email', ['email' => 'OTHER@example.test', 'current_password' => 'password'])->assertOk();
+        $this->travel(61)->seconds();
         $this->postJson('/v1/auth/me/email', ['email' => 'new@example.test', 'current_password' => 'password'])->assertOk();
         $link = $this->linkData('メールアドレスを確認');
         $link['id'] = $other->id;
@@ -286,7 +287,7 @@ class AccountEmailTest extends TestCase
     }
 
     #[TestWith(['short', 'short'])]
-    #[TestWith(['new-password', 'different-password'])]
+    #[TestWith(['River-otter-password-2026!', 'different-password'])]
     public function test_invalid_new_password_does_not_consume_reset_link(string $password, string $confirmation): void
     {
         Mail::fake();
@@ -305,7 +306,7 @@ class AccountEmailTest extends TestCase
         $user = $this->member();
         Sanctum::actingAs($user);
 
-        $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertServiceUnavailable();
+        $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertOk();
 
         $this->assertSame('next@example.test', $user->fresh()->pending_email);
         Mail::assertNothingSent();

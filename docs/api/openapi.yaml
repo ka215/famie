@@ -53,7 +53,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {type: object, required: [login, password], properties: {login: {type: string}, password: {type: string}}}
+            schema: {type: object, required: [login, password], properties: {login: {type: string, maxLength: 255}, password: {type: string, maxLength: 4096}}}
       responses:
         '200':
           description: 成功
@@ -64,6 +64,9 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '409': {$ref: '#/components/responses/Conflict'}
+        "429":
+          $ref: '#/components/responses/RateLimited'
+      description: 同一アカウント＋IPで10分間に5回失敗すると10分停止。ログインIDとメールは同一アカウントとして計数。IP全体は60回/分。成功時に失敗回数を消去し、既存パスワードの強度を判定する。値はサーバー設定で変更可能。
   '/auth/register':
     post:
       operationId: register
@@ -167,7 +170,7 @@ paths:
       summary: 本人パスワードを変更
       tags: [auth]
       description: >-
-        現在のログインは維持。メール確認・再設定の未使用リンクを無効化。
+        現在のログインは維持。他端末のトークンとメール確認・再設定の未使用リンクを無効化し、強度警告と通知抑制期限を解除。10回/分/ユーザー。
       requestBody:
         required: true
         content:
@@ -184,13 +187,15 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "429":
+          $ref: '#/components/responses/RateLimited'
   '/auth/me/email':
     post:
       operationId: requestEmail
       summary: 確認メールを申請
       tags: [auth]
       description: >-
-        IP毎10回/分、アドレス・ユーザー毎60秒間隔。確認リンク60分有効。配送失敗時も申請は保存される。
+        IP毎10回/分、本人の申請・再送は60秒間隔。確認待ち状態とHTTP 200の受付文言は宛先の利用状況・配送成否によらず同じ。配送と宛先単位の抑制は応答後に実行する。他人のemail欄（旧未認証メールを含む）へは送信しない。pending_emailのみの他人の申請は予約とせず、今回も申請・配送可能。確認リンク60分有効。
       requestBody:
         required: true
         content:
@@ -229,7 +234,7 @@ paths:
       summary: 確認メールを再送
       tags: [auth]
       description: >-
-        確認待ちの申請が必要。IP毎10回/分、60秒間隔。有効な確認リンクを更新する。
+        本人の確認待ち申請が必要。IP毎10回/分、本人単位60秒間隔。新トークンと期限を保存し、他アカウントでの利用状況・配送成否・宛先単位の配送抑制を受付応答へ反映しない。配送はHTTP応答後。
       responses:
         '200':
           description: 成功
@@ -248,7 +253,7 @@ paths:
       tags: [auth]
       security: []
       description: >-
-        20回/分/IP。旧メールからの変更時には旧アドレスへ通知。
+        20回/分/IP。先に確認を完了した申請だけがメールを確定し、他アカウントの登録先を上書きしない。一意制約競合・利用済み宛先・失効等は同じリンク無効メッセージ。旧メールからの変更時には旧アドレスへ通知。
       requestBody:
         required: true
         content:
@@ -1025,6 +1030,149 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /auth/me/password-warning/snooze:
+    post:
+      operationId: snoozePasswordWarning
+      summary: パスワード警告を日本時間の翌日0時まで抑制
+      tags:
+        - auth
+      description: 本人のみ。要求ボディは空にし、ユーザーIDや停止期限を指定できない。10回/分/ユーザー。強度判定が未実施の場合はunknownとして返す。
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identity'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "422":
+          $ref: '#/components/responses/Validation'
+        "429":
+          $ref: '#/components/responses/RateLimited'
+        "503":
+          $ref: '#/components/responses/Unavailable'
+  /groups/{group}/members/{member}/password:
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: member, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    put:
+      operationId: reissueMemberPassword
+      summary: 親が自分以外の有効メンバーのパスワードを再発行
+      tags: [groups]
+      description: admin専用。親自身の現在のパスワードで確認。同一家族の自分以外の有効メンバー（他の親を含む）が対象。メール登録不要。対象の全トークン・再設定リンク・メール確認申請を失効。旧パスワードのアカウント＋IP停止は引き継がず、IP全体制限は維持。親ユーザーごと5回/10分。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [current_password, new_password, new_password_confirmation]
+              properties:
+                current_password:
+                  type: string
+                  maxLength: 4096
+                  writeOnly: true
+                new_password:
+                  $ref: '#/components/schemas/Password'
+                new_password_confirmation:
+                  $ref: '#/components/schemas/Password'
+      responses:
+        '200':
+          description: 再発行完了。親が本人へ新しいパスワードを伝える。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /groups/{group}/security-alerts:
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+    get:
+      operationId: getLoginSecurityAlerts
+      summary: 親本人宛ての未確認ログイン安全性通知を取得
+      tags: [groups]
+      description: admin専用。同一アカウントで24時間以内にアカウント＋IP停止が2回発生すると、その時点の有効な親全員へ通知。IP変更やログイン成功を挟んでも集計し、対象アカウントごと24時間に1回まで通知する。未確認を新しい順に最大20件返す。自動無効化・メール送信は行わない。
+      responses:
+        '200':
+          description: 未確認通知
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 20
+                    items:
+                      type: object
+                      required: [id, group_id, membership_id, display_name, username, occurred_at]
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        group_id:
+                          $ref: '#/components/schemas/Id'
+                        membership_id:
+                          $ref: '#/components/schemas/Id'
+                        display_name:
+                          type: string
+                        username:
+                          type: string
+                        occurred_at:
+                          type: string
+                          format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /groups/{group}/security-alerts/{alert}/read:
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: alert, in: path, required: true, schema: {type: string, format: uuid}}
+    put:
+      operationId: markLoginSecurityAlertRead
+      summary: 親本人宛ての通知を確認済みにする
+      tags: [groups]
+      description: admin専用。本文なし。別の親宛て通知は変更できず、他の親の確認状態には影響しない。
+      responses:
+        '200':
+          description: 確認済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '503':
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -1060,8 +1208,10 @@ components:
       pattern: '^[a-z0-9](?:[a-z0-9._-]{1,48}[a-z0-9])$'
     Password:
       type: string
-      minLength: 6
+      minLength: 15
       writeOnly: true
+      maxLength: 72
+      description: 15文字以上・UTF-8で72バイト以内。よく使われる語、単純な繰り返し・連番・制御文字は禁止。文字種の組合せは強制しない。ログイン時の既存パスワードには適用しない。
     User:
       type: object
       required: [id, username, display_name]
@@ -1074,6 +1224,23 @@ components:
         email_verified_at: {type: [string, 'null'], format: date-time}
         pending_email: {type: [string, 'null'], format: email}
         email_verification_expires_at: {type: [string, 'null'], format: date-time}
+        password_security:
+          type: object
+          required:
+            - status
+            - snoozed_until
+          properties:
+            status:
+              type: string
+              enum:
+                - unknown
+                - weak
+                - ok
+            snoozed_until:
+              type:
+                - string
+                - "null"
+              format: date-time
     Group:
       type: object
       required: [id, name, type]

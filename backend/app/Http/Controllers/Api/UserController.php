@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
+use App\Rules\StrongPassword;
 use App\Services\GroupMembershipService;
 use App\Support\UsernameRules;
 use Illuminate\Http\JsonResponse;
@@ -40,7 +41,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'username' => UsernameRules::create(),
             'display_name' => ['required', 'string', 'max:50'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'password' => ['required', 'string', new StrongPassword, 'confirmed'],
             'role' => ['required', Rule::in([GroupMember::ROLE_ADMIN, GroupMember::ROLE_MEMBER])],
         ], UsernameRules::messages());
 
@@ -55,6 +56,7 @@ class UserController extends Controller
                 'username' => $validated['username'], 'display_name' => $validated['display_name'],
                 'email' => null, 'password' => Hash::make($validated['password']),
             ]);
+            $user->forceFill(['password_is_weak' => false])->save();
             $newMembership = $group->memberships()->create([
                 'user_id' => $user->id, 'role' => $validated['role'], 'status' => GroupMember::STATUS_ACTIVE,
             ]);
@@ -117,6 +119,20 @@ class UserController extends Controller
     {
         $membership = $request->attributes->get('group_membership');
         abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, 'メンバーの管理権限がありません。');
+    }
+
+    public function resetPassword(Request $request, Group $group, int $member, GroupMembershipService $service): JsonResponse
+    {
+        $this->authorizeAdmin($request);
+        $target = $group->memberships()->findOrFail($member);
+        $this->rejectUnexpectedFields($request, ['current_password', 'new_password', 'new_password_confirmation']);
+        $validated = $request->validate([
+            'current_password' => ['required', 'string', 'max:4096'],
+            'new_password' => ['required', 'string', new StrongPassword, 'confirmed'],
+        ]);
+        $service->resetPassword($request->user(), $target, $validated['current_password'], $validated['new_password']);
+
+        return response()->json(['message' => 'パスワードを再発行しました。新しいパスワードを本人へ伝えてください。']);
     }
 
     /** @param array<int, string> $allowed */

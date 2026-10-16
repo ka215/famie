@@ -116,12 +116,12 @@ const handleRegister = async () => {
         </div>
         <div>
           <label for="register-password" class="block text-sm text-slate-700 dark:text-slate-200">パスワード</label>
-          <PasswordInput id="register-password" v-model="form.password" label="パスワード" autocomplete="new-password" required minlength="6" placeholder="6文字以上" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
-          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">6文字以上で入力してください。</p>
+          <PasswordInput id="register-password" v-model="form.password" strength label="パスワード" autocomplete="new-password" required minlength="15" placeholder="15文字以上" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
+          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">日本語のフレーズも使用できます。</p>
         </div>
         <div>
           <label for="register-password-confirmation" class="block text-sm text-slate-700 dark:text-slate-200">パスワード（確認）</label>
-          <PasswordInput id="register-password-confirmation" v-model="form.password_confirmation" label="パスワード（確認）" autocomplete="new-password" required minlength="6" placeholder="同じパスワードを再入力" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
+          <PasswordInput id="register-password-confirmation" v-model="form.password_confirmation" label="パスワード（確認）" autocomplete="new-password" required minlength="15" placeholder="同じパスワードを再入力" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
         </div>
         <button type="submit" :disabled="isLoading" class="w-full rounded-lg bg-blue-600 py-3 font-medium text-white disabled:opacity-50">
           {{ isLoading ? '登録中...' : '家族を登録する' }}

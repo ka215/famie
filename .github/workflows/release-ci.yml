@@ -19,17 +19,13 @@ concurrency:
   group: release-ci-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  verify:
+  checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      CI: 'true'
-      DEBUG: ''
-      NUXT_DEBUG_PERF: ''
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - uses: pnpm/action-setup@v4
         with:
           version: 11.20.0
@@ -85,12 +81,113 @@ jobs:
           DB_PASSWORD: famie-ci-only
           FAMIE_REWARD_PG_TEST: "1"
         run: php artisan test --filter=RewardPostgresTest
+      - name: Authentication PostgreSQL acceptance
+        working-directory: backend
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_DATABASE: famie_test
+          DB_USERNAME: famie_test
+          DB_PASSWORD: famie-ci-only
+        run: php artisan test --filter="MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest"
+      - name: Email ownership PostgreSQL acceptance
+        working-directory: backend
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_DATABASE: famie_test
+          DB_USERNAME: famie_test
+          DB_PASSWORD: famie-ci-only
+        run: php artisan test --filter="AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest::test_two_families_cannot_confirm_the_same_email"
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: famie_test
+          POSTGRES_PASSWORD: famie-ci-only
+          POSTGRES_DB: famie_test
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready -U famie_test -d famie_test" --health-interval 5s --health-timeout 5s --health-retries 10
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:2.8.10
+          coverage: none
+          extensions: pdo_sqlite
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Install backend dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+      - name: Application E2E
+        working-directory: frontend
+        run: pnpm test:e2e --project=${{ matrix.project }}
+      - name: Upload Playwright reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e-${{ matrix.project }}-${{ github.run_id }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: chromium
+            browser: chromium
+          - project: iphone-webkit
+            browser: webkit
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require all verification jobs
+        env:
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+        run: '[[ "$CHECKS_RESULT" == success && "$E2E_RESULT" == success ]]'
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium webkit
-      - name: Application E2E
-        working-directory: frontend
-        run: pnpm test:e2e
       - name: Clean release build
         working-directory: frontend
         run: |
@@ -105,9 +202,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-failure-${{ github.run_id }}
+          name: playwright-release-${{ github.run_id }}
           path: |
-            frontend/playwright-report
             frontend/playwright-release-report
             frontend/test-results
           if-no-files-found: ignore
@@ -137,13 +233,11 @@ jobs:
           path: release-dist/
           if-no-files-found: error
           retention-days: 30
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: famie_test
-          POSTGRES_PASSWORD: famie-ci-only
-          POSTGRES_DB: famie_test
-        ports:
-          - 5432:5432
-        options: --health-cmd "pg_isready -U famie_test -d famie_test" --health-interval 5s --health-timeout 5s --health-retries 10
+    needs:
+      - checks
+      - e2e
+    if: ${{ always() }}
+env:
+  CI: 'true'
+  DEBUG: ''
+  NUXT_DEBUG_PERF: ''

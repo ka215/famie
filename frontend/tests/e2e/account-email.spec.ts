@@ -26,7 +26,12 @@ for (const account of ['parent1', 'child1']) {
           current_password: 'password',
         })
         pending = 'new@example.test'
-        await route.fulfill({ json: { message: '確認メールを送信しました。' } })
+        await route.fulfill({
+          json: {
+            message:
+              '申請を受け付けました。確認メールが届いた場合は、メール内の案内に従ってください。',
+          },
+        })
       }
     })
     await page.route('**/auth/me/email/resend', (route) =>
@@ -40,7 +45,7 @@ for (const account of ['parent1', 'child1']) {
     await page.getByLabel('メール変更確認用パスワード', { exact: true }).fill('password')
     await page.getByRole('button', { name: '確認メールを送信', exact: true }).click()
     await expect(page.getByRole('status').filter({ hasText: /.+/ })).toContainText(
-      '確認メールを送信しました。'
+      '申請を受け付けました。'
     )
     await expect(page.getByText('確認待ち：new@example.test')).toBeVisible()
     await expect(page.getByLabel('メール変更確認用パスワード', { exact: true })).toHaveValue('')
@@ -100,12 +105,14 @@ test('再設定の不一致・APIエラー・成功を表示する', async ({ pa
     )
   })
   await page.goto(`/reset-password#id=123&token=${token}`)
-  await page.getByLabel('新しいパスワード', { exact: true }).fill('new-password')
+  await page.getByLabel('新しいパスワード', { exact: true }).fill('River-otter-password-2026!')
   await page.getByLabel('新しいパスワード（確認）', { exact: true }).fill('different-password')
   await page.getByRole('button', { name: 'パスワードを再設定', exact: true }).click()
   await expect(page.getByRole('alert')).toHaveText('パスワードが一致しません。')
   expect(requests).toBe(0)
-  await page.getByLabel('新しいパスワード（確認）', { exact: true }).fill('new-password')
+  await page
+    .getByLabel('新しいパスワード（確認）', { exact: true })
+    .fill('River-otter-password-2026!')
   await page.getByRole('button', { name: 'パスワードを再設定', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('リンクが無効')
   await page.getByRole('button', { name: 'パスワードを再設定', exact: true }).click()

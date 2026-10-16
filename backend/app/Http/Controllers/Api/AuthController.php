@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
+use App\Rules\StrongPassword;
 use App\Services\AccountEmailService;
+use App\Services\LoginThrottle;
 use App\Support\InitialCategories;
+use App\Support\PasswordStrength;
 use App\Support\UsernameRules;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -16,33 +19,43 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
-    public function login(Request $request): JsonResponse
+    public function login(Request $request, LoginThrottle $throttle): JsonResponse
     {
-        $request->validate(['login' => ['required', 'string'], 'password' => ['required', 'string']]);
+        $request->validate(['login' => ['required', 'string', 'max:255'], 'password' => ['required', 'string', 'max:4096']]);
         $user = User::query()->where('username', $request->string('login'))->orWhereRaw('LOWER(email) = ?', [strtolower((string) $request->string('login'))])->first();
 
-        if (! $user || ! Hash::check($request->string('password'), $user->password)) {
-            throw ValidationException::withMessages(['login' => ['ログインIDまたはパスワードが正しくありません。']]);
-        }
+        $identity = $user ? 'user:'.$user->id : 'unknown:'.mb_strtolower((string) $request->string('login'));
 
-        return $this->withMembershipLock($user, function (GroupMember $membership) use ($user, $request): JsonResponse {
-            $user->refresh();
-            if (! Hash::check($request->string('password'), $user->password)
-                || ($user->username !== (string) $request->string('login') && strtolower((string) $user->email) !== strtolower((string) $request->string('login')))) {
+        return $throttle->run($request, $identity, function () use ($user, $request): JsonResponse {
+            $hash = $user?->password ?? Cache::rememberForever('login:dummy:'.config('hashing.driver').':'.config('hashing.bcrypt.rounds'), fn () => Hash::make(Str::random(48)));
+            $matches = Hash::check((string) $request->string('password'), $hash);
+            if (! $user || ! $matches) {
                 throw ValidationException::withMessages(['login' => ['ログインIDまたはパスワードが正しくありません。']]);
             }
-            $user->tokens()->delete();
-            $token = $user->createToken('auth_token', expiresAt: now()->addDays(30))->plainTextToken;
 
-            return response()->json([
-                'message' => 'ログインに成功しました。', 'access_token' => $token, 'token_type' => 'Bearer',
-                ...$this->identityPayload($user, $membership),
-            ]);
-        });
+            return $this->withMembershipLock($user, function (GroupMember $membership) use ($user, $request): JsonResponse {
+                $user->refresh();
+                if (! Hash::check((string) $request->string('password'), $user->password)
+                    || ($user->username !== (string) $request->string('login') && strtolower((string) $user->email) !== strtolower((string) $request->string('login')))) {
+                    throw ValidationException::withMessages(['login' => ['ログインIDまたはパスワードが正しくありません。']]);
+                }
+                $weak = ! PasswordStrength::acceptable((string) $request->string('password'));
+                $user->forceFill(['password_is_weak' => $weak, ...(! $weak ? ['password_warning_snoozed_until' => null] : [])])->save();
+                $user->tokens()->delete();
+                $token = $user->createToken('auth_token', expiresAt: now()->addDays(30))->plainTextToken;
+
+                return response()->json([
+                    'message' => 'ログインに成功しました。', 'access_token' => $token, 'token_type' => 'Bearer',
+                    ...$this->identityPayload($user, $membership),
+                ]);
+            });
+        }, $user);
     }
 
     public function register(Request $request): JsonResponse
@@ -58,7 +71,7 @@ class AuthController extends Controller
             'group_name' => ['required', 'string', 'max:50'],
             'username' => UsernameRules::create(),
             'display_name' => ['required', 'string', 'max:50'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'password' => ['required', 'string', new StrongPassword, 'confirmed'],
         ], UsernameRules::messages());
 
         [$user, $membership] = DB::transaction(function () use ($validated): array {
@@ -66,6 +79,7 @@ class AuthController extends Controller
                 'username' => $validated['username'], 'display_name' => $validated['display_name'],
                 'email' => null, 'password' => Hash::make($validated['password']),
             ]);
+            $user->forceFill(['password_is_weak' => false])->save();
             $group = Group::query()->create(['name' => $validated['group_name'], 'type' => Group::TYPE_FAMILY]);
             $membership = $group->memberships()->create([
                 'user_id' => $user->id, 'role' => GroupMember::ROLE_ADMIN, 'status' => GroupMember::STATUS_ACTIVE,
@@ -133,7 +147,7 @@ class AuthController extends Controller
     {
         $this->activeMembership($request->user());
         $validated = $request->validate([
-            'current_password' => ['required', 'string'], 'new_password' => ['required', 'string', 'min:6', 'confirmed'],
+            'current_password' => ['required', 'string', 'max:4096'], 'new_password' => ['required', 'string', new StrongPassword, 'confirmed'],
         ]);
 
         return $this->withMembershipLock($request->user(), function () use ($request, $validated, $emails): JsonResponse {
@@ -141,10 +155,24 @@ class AuthController extends Controller
             if (! Hash::check($validated['current_password'], $user->password)) {
                 return response()->json(['message' => '現在のパスワードが正しくありません。'], 422);
             }
-            $user->update(['password' => Hash::make($validated['new_password'])]);
+            $user->forceFill(['password' => Hash::make($validated['new_password']), 'password_is_weak' => false, 'password_warning_snoozed_until' => null])->save();
             $emails->clearChallenges($user);
+            $currentToken = $request->user()->currentAccessToken();
+            $user->tokens()->when($currentToken instanceof PersonalAccessToken, fn ($query) => $query->whereKeyNot($currentToken->getKey()))->delete();
 
             return response()->json(['message' => 'パスワードを変更しました。']);
+        });
+    }
+
+    public function snoozePasswordWarning(Request $request): JsonResponse
+    {
+        abort_if($request->all() !== [], 422, '通知の停止期限は指定できません。');
+
+        return $this->withMembershipLock($request->user(), function (GroupMember $membership) use ($request): JsonResponse {
+            $user = $request->user()->fresh();
+            $user->forceFill(['password_warning_snoozed_until' => now('Asia/Tokyo')->addDay()->startOfDay()->utc()])->save();
+
+            return response()->json($this->identityPayload($user, $membership));
         });
     }
 
@@ -172,7 +200,13 @@ class AuthController extends Controller
     private function identityPayload(User $user, GroupMember $membership): array
     {
         return [
-            'user' => $user->fresh()->only(['id', 'username', 'display_name', 'show_name_suffix', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
+            'user' => [
+                ...$user->fresh()->only(['id', 'username', 'display_name', 'show_name_suffix', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
+                'password_security' => [
+                    'status' => $user->password_is_weak === null ? 'unknown' : ($user->password_is_weak ? 'weak' : 'ok'),
+                    'snoozed_until' => $user->password_warning_snoozed_until?->toIso8601String(),
+                ],
+            ],
             'membership' => [
                 'id' => $membership->id, 'role' => $membership->role, 'status' => $membership->status,
                 'group' => $membership->group->only(['id', 'name', 'type']),
