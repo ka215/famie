@@ -91,6 +91,16 @@ jobs:
           DB_USERNAME: famie_test
           DB_PASSWORD: famie-ci-only
         run: php artisan test --filter="MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest"
+      - name: Email ownership PostgreSQL acceptance
+        working-directory: backend
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_DATABASE: famie_test
+          DB_USERNAME: famie_test
+          DB_PASSWORD: famie-ci-only
+        run: php artisan test --filter="AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest::test_two_families_cannot_confirm_the_same_email"
     services:
       postgres:
         image: postgres:14

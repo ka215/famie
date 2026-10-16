@@ -51,7 +51,8 @@ async function submit(action: 'request' | 'resend' | 'cancel') {
     <p v-if="refreshError" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ refreshError }}</p>
     <div v-if="user?.pending_email" class="space-y-2 rounded-lg bg-slate-100 p-3 text-sm dark:bg-slate-900">
       <p class="break-all">確認待ち：{{ user.pending_email }}</p>
-      <p>リンクの有効期限は送信から60分です。再送後は古いリンクを使用できません。</p>
+      <p>確認メールが届いた場合、リンクの有効期限は申請から60分です。再送後は古いリンクを使用できません。</p>
+      <p>届かない場合は迷惑メールや入力内容を確認し、60秒以上待って再試行してください。他のアカウントで使用中など、登録できない場合は送信されません。</p>
       <div class="flex flex-wrap gap-4">
         <button type="button" :disabled="busy" class="text-blue-600 disabled:opacity-50 dark:text-blue-300" @click="submit('resend')">確認メールを再送</button>
         <button type="button" :disabled="busy" class="text-red-600 disabled:opacity-50 dark:text-red-300" @click="submit('cancel')">申請を取り消す</button>
