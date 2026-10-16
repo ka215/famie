@@ -39,7 +39,7 @@ check_environment() {
 }
 select_environment() {
   case $environment in
-    production) app_name=famie; domain=famie.ka2.org; database=ka2_famie ;;
+    production) app_name=famie; domain=famie.co; database=ka2_famie ;;
     staging) app_name=famie-stg; domain=stg-famie.ka2.org; database=ka2_famiestg ;;
     *) fail 'Environment must be production or staging.' ;;
   esac

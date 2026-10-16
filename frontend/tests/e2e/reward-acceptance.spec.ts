@@ -211,7 +211,9 @@ test('A7・A14：別タイムゾーンの端末でも開始前編集と保存済
   const reward = await f.definition('未来開始', { start_month: startMonth, timezone: 'Asia/Tokyo' })
   await f.status(reward, 'active', 1)
   const otherContext = await browser.newContext({
-    baseURL: 'http://127.0.0.1:3100',
+    baseURL: 'https://127.0.0.1:3100',
+    ignoreHTTPSErrors: true,
+    serviceWorkers: 'block',
     timezoneId: 'America/Los_Angeles',
   })
   try {
@@ -279,7 +281,9 @@ test('A12：二つのブラウザで通知は一方だけ、応答喪失後も�
   await f.status(reward, 'active', 1)
   await f.log(1)
   const second = await browser.newContext({
-    baseURL: 'http://127.0.0.1:3100',
+    baseURL: 'https://127.0.0.1:3100',
+    ignoreHTTPSErrors: true,
+    serviceWorkers: 'block',
     timezoneId: 'America/Los_Angeles',
   })
   try {

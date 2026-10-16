@@ -4,7 +4,7 @@
 
 Famie is a simple place to record everyday activities, see what your family has been doing, and encourage one another with a heart. From finishing homework to helping with dinner, ordinary moments deserve a little recognition.
 
-**Visit Famie: [famie.ka2.org](https://famie.ka2.org)**
+**Visit Famie: [famie.co](https://famie.co)**
 
 ## A little encouragement, every day
 

@@ -12,10 +12,10 @@ reject() {
   [[ $output == *"$expected"* ]] || fail "Unexpected failure: $output"
 }
 environment=production; select_environment
-[[ $repo == "$original_home/famie" && $database == ka2_famie && $base_url == https://famie.ka2.org ]] || fail 'Production mapping'
+[[ $repo == "$original_home/famie" && $database == ka2_famie && $base_url == https://famie.co && $docroot == "$original_home/public_html/famie.co" ]] || fail 'Production mapping'
 production_backups=$backup_root
 environment=staging; select_environment
-[[ $repo == "$original_home/famie-stg" && $database == ka2_famiestg && $base_url == https://stg-famie.ka2.org && $backup_root != "$production_backups" ]] || fail 'Staging mapping'
+[[ $repo == "$original_home/famie-stg" && $database == ka2_famiestg && $base_url == https://stg-famie.ka2.org && $docroot == "$original_home/public_html/stg-famie.ka2.org" && $backup_root != "$production_backups" ]] || fail 'Staging mapping'
 reject 'Environment must' bash "$script_dir/deploy.sh" --env staging-typo
 reject 'Specify --env once' bash "$script_dir/deploy.sh" --env
 reject 'Specify --env once' bash "$script_dir/deploy.sh" --env staging --env production

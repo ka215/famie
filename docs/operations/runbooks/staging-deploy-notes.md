@@ -33,8 +33,8 @@ pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging -ConfirmSta
 | 項目 | production | staging |
 | --- | --- | --- |
 | バックエンド | `~/famie/backend` | `~/famie-stg/backend` |
-| 公開先 | `~/public_html/famie.ka2.org` | `~/public_html/stg-famie.ka2.org` |
-| URL | `https://famie.ka2.org` | `https://stg-famie.ka2.org` |
+| 公開先 | `~/public_html/famie.co` | `~/public_html/stg-famie.ka2.org` |
+| URL | `https://famie.co` | `https://stg-famie.ka2.org` |
 | DB・user・schema | `ka2_famie` | `ka2_famiestg` |
 | backup root | `~/famie-release-backups` | `~/famie-stg-release-backups` |
 

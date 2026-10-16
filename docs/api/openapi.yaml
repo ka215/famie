@@ -9,8 +9,8 @@ info:
     認証済み家族APIアクセスはリワード期間準備を開始し、活動・いいね変更は達成判定を行う場合がある。
     グループ内の更新は直列化される。設定値に依存する上限は家族情報と運用設定を参照する。
 servers:
-  - url: https://famie.ka2.org/api/v1
-    description: 本番（専用ドメインへの切替は未実施）
+  - url: https://famie.co/api/v1
+    description: 本番
   - url: https://stg-famie.ka2.org/api/v1
     description: ステージング（IP制限あり）
   - url: http://localhost:8000/v1

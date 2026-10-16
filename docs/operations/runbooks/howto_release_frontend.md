@@ -4,13 +4,15 @@
 
 Nuxt SPA をGitHub Actionsで静的生成し、検証済み成果物をCoreServerへ配置する。CoreServerではNode.jsを起動せず、Apacheが静的ファイルを配信する。
 
+2026-10-17に現行0.15.2のまま [famie.coへ移管](../change-log/2026-10-17-domain-migration-notes.md)。旧公開先は切り戻し用に保持し、通常配置先にしない。通常リリースは従来のメンテナンスありの処理を維持する。
+
 | 項目 | 値 |
 | --- | --- |
-| 公開 URL | `https://famie.ka2.org` |
+| 公開 URL | `https://famie.co` |
 | サーバー上のアプリ | `~/famie` |
 | 静的生成物 | GitHub Actionsのリリース成果物内 `frontend/public/` |
-| ドキュメントルート | `~/public_html/famie.ka2.org/` |
-| API 公開パス | `~/public_html/famie.ka2.org/api` → `~/famie/backend/public` |
+| ドキュメントルート | `~/public_html/famie.co/` |
+| API 公開パス | `~/public_html/famie.co/api` → `~/famie/backend/public` |
 
 `frontend/.output` はGit管理しない。CIが対象コミットから一度だけ生成し、SHA256で固定した成果物をステージングと商用で共用する。
 
@@ -20,25 +22,25 @@ Nuxt SPA をGitHub Actionsで静的生成し、検証済み成果物をCoreServe
 - CoreServer 上の `~/famie` が配置先として初期化済みで、永続化する設定・storageを保持できる。
 - ローカル環境でPowerShell、Node.js、pnpm、Git、GitHub CLI、jqを利用できる。
 - 通常リリースでは作業ブランチから`prepare-release.ps1`を開始できる。事前に`main`へ直接pushしない。
-- `famie.ka2.org` のAレコードがCoreServerのIPアドレスを向いている。
-- CoreServerのサイト設定で `famie.ka2.org` の無料SSLが有効であり、同FQDNをSANに含む証明書が配信されている。
+- `famie.co` のAレコードがCoreServerのIPアドレスを向いている。
+- CoreServerのサイト設定で `famie.co` の無料SSLが有効であり、同FQDNをSANに含む証明書が配信されている。
 - `.htaccess`のアクセス設定が対象環境に合っている。v0.9.0以降の商用はIP制限を解除し、ステージングは許可リストを維持する。[IP制限変更手順](ip-access-notes.md)を参照する。
 - CoreServer でドキュメントルートから `~/famie/backend/public` へのシンボリックリンクを利用できることを確認済みである。
 
 ### 2.1 初回のSSL設定
 
-CoreServer V1のコントロールパネルで、設定済みサイト `famie.ka2.org` の設定変更を開き、「無料SSL」を選択して保存する。DNSのAレコードがCoreServerを向いていない状態では証明書を取得できない。
+CoreServer V1のコントロールパネルで、設定済みサイト `famie.co` の設定変更を開き、「無料SSL」を選択して保存する。DNSのAレコードがCoreServerを向いていない状態では証明書を取得できない。
 
 設定後、数分待ってから証明書を確認する。
 
 ```sh
-openssl s_client -connect famie.ka2.org:443 \
-  -servername famie.ka2.org </dev/null 2>/dev/null \
+openssl s_client -connect famie.co:443 \
+  -servername famie.co </dev/null 2>/dev/null \
   | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
-curl -I https://famie.ka2.org/
+curl -I https://famie.co/
 ```
 
-`subjectAltName` に `DNS:famie.ka2.org` または同ドメインを包含するワイルドカード名があり、`curl` が証明書エラーにならないことを確認する。`CN=*.coreserver.jp` の証明書が返る場合は、独自ドメイン用SSLがまだ割り当てられていないため、アプリの確認へ進まない。
+`subjectAltName` に `DNS:famie.co` または同ドメインを包含するワイルドカード名があり、`curl` が証明書エラーにならないことを確認する。`CN=*.coreserver.jp` の証明書が返る場合は、独自ドメイン用SSLがまだ割り当てられていないため、アプリの確認へ進まない。
 
 ## 3. ローカルでの生成と検証
 
@@ -54,8 +56,8 @@ curl -I https://famie.ka2.org/
 
 ```sh
 cp "$HOME/famie/frontend/public/.htaccess" \
-  "$HOME/public_html/famie.ka2.org/.htaccess"
-chmod 604 "$HOME/public_html/famie.ka2.org/.htaccess"
+  "$HOME/public_html/famie.co/.htaccess"
+chmod 604 "$HOME/public_html/famie.co/.htaccess"
 ```
 
 ```apacheconf
@@ -87,7 +89,7 @@ API のリンクも初回だけ作成する。
 
 ```sh
 REPO_DIR="$HOME/famie"
-DOCROOT="$HOME/public_html/famie.ka2.org"
+DOCROOT="$HOME/public_html/famie.co"
 
 test ! -e "$DOCROOT/api" || exit 1
 ln -s "$REPO_DIR/backend/public" "$DOCROOT/api"
@@ -99,14 +101,14 @@ test "$(readlink "$DOCROOT/api")" = "$REPO_DIR/backend/public" || exit 1
 商用は従来の許可外IPからも、ステージングは許可IPから確認する。
 
 ```sh
-curl -I https://famie.ka2.org/
-curl -I https://famie.ka2.org/login
-curl -I https://famie.ka2.org/login/
+curl -I https://famie.co/
+curl -I https://famie.co/login
+curl -I https://famie.co/login/
 curl -i \
   -H 'Accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{}' \
-  https://famie.ka2.org/api/v1/auth/login
+  https://famie.co/api/v1/auth/login
 ```
 
 次をすべて満たすことを確認する。

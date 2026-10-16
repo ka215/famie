@@ -6,10 +6,10 @@ Laravel API を CoreServer の PHP 8.4、PostgreSQL 14.13、Apache で稼働さ�
 
 | 項目 | 値 |
 | --- | --- |
-| API URL | `https://famie.ka2.org/api/v1` |
+| API URL | `https://famie.co/api/v1` |
 | サーバー上のアプリ | `~/famie/backend` |
 | Web 公開ディレクトリ | `~/famie/backend/public` |
-| ドキュメントルートからの参照 | `~/public_html/famie.ka2.org/api` |
+| ドキュメントルートからの参照 | `~/public_html/famie.co/api` |
 | DB | PostgreSQL 14.13 |
 
 DB 本体とDBユーザーは CoreServer の管理画面で作成する。テーブル、インデックス、制約はLaravel migrationを正本とし、別の初期DDLは作成しない。
@@ -88,7 +88,7 @@ APP_NAME=Famie
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
-APP_URL=https://famie.ka2.org
+APP_URL=https://famie.co
 
 LOG_CHANNEL=stack
 LOG_LEVEL=warning
@@ -103,7 +103,7 @@ DB_SCHEMA=ka2_famie
 
 IP_RESTRICTION_ENABLED=false
 ALLOWED_IPS=<ROLLBACK_ALLOWED_IP_ADDRESS_1>,<ROLLBACK_ALLOWED_IP_ADDRESS_2>
-CORS_ALLOWED_ORIGINS=https://famie.ka2.org
+CORS_ALLOWED_ORIGINS=https://famie.co
 
 SESSION_DRIVER=database
 SESSION_DOMAIN=null
@@ -215,7 +215,7 @@ exit
 フロントエンド手順の「初回のみ行う Apache 設定」に従い、次のリンクを作成する。
 
 ```text
-~/public_html/famie.ka2.org/api -> ~/famie/backend/public
+~/public_html/famie.co/api -> ~/famie/backend/public
 ```
 
 Laravel のプロジェクトルートを公開せず、`public` ディレクトリだけをApacheから参照させる。
@@ -246,7 +246,7 @@ curl -i \
   -H 'Accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{}' \
-  https://famie.ka2.org/api/v1/auth/login
+  https://famie.co/api/v1/auth/login
 ```
 
 次を確認する。
