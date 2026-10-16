@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
@@ -12,11 +13,12 @@ use Illuminate\Validation\ValidationException;
 
 class LoginThrottle
 {
-    public function run(Request $request, string $identity, Closure $authenticate): JsonResponse
+    public function run(Request $request, string $identity, Closure $authenticate, ?User $user = null): JsonResponse
     {
-        $key = 'login:'.hash_hmac('sha256', $identity.'|'.$request->ip(), config('app.key'));
+        // パスワード再発行後は、変更前の試行による停止を引き継がない。
+        $key = 'login:'.hash_hmac('sha256', $identity.'|'.($user?->password ?? '').'|'.$request->ip(), config('app.key'));
         try {
-            return Cache::lock($key.':lock', 10)->block(2, function () use ($key, $authenticate): JsonResponse {
+            return Cache::lock($key.':lock', 10)->block(2, function () use ($key, $authenticate, $user): JsonResponse {
                 if (RateLimiter::tooManyAttempts($key.':blocked', 1)) {
                     return $this->blocked(RateLimiter::availableIn($key.':blocked'));
                 }
@@ -27,6 +29,9 @@ class LoginThrottle
                     if ($attempts >= config('famie.login_max_attempts')) {
                         RateLimiter::hit($key.':blocked', config('famie.login_cooldown_seconds'));
                         RateLimiter::clear($key);
+                        if ($user) {
+                            app(LoginSecurityService::class)->recordLockout($user);
+                        }
                     }
                     throw $exception;
                 }

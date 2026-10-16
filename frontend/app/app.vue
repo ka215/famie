@@ -11,6 +11,7 @@ useHead(() => ({
     <NuxtRouteAnnouncer />
     <MaintenanceNotice v-if="isMaintenance" />
     <div v-show="!isMaintenance" :inert="isMaintenance">
+      <LoginSecurityAlerts />
       <NuxtLayout>
         <NuxtPage />
       </NuxtLayout>

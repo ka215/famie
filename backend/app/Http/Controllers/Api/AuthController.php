@@ -55,7 +55,7 @@ class AuthController extends Controller
                     ...$this->identityPayload($user, $membership),
                 ]);
             });
-        });
+        }, $user);
     }
 
     public function register(Request $request): JsonResponse

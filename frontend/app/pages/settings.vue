@@ -12,6 +12,7 @@ import { categoryStyle } from '#shared/utils/categoryColor'
 import { type ProfileForm, profileSchema } from '#shared/utils/profileSchema'
 
 const { user, membership, groupId, isParent, logout, token } = useAuth()
+const route = useRoute()
 const groupPath = (path = '') => `/groups/${groupId.value}${path}`
 const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
@@ -435,7 +436,7 @@ onMounted(() => {
       </div>
     </SettingsCard>
 
-    <SettingsCard title="家族メンバー">
+    <SettingsCard id="family-members" title="家族メンバー" :initial-open="route.hash === '#family-members'">
       <div class="divide-y divide-slate-100 dark:divide-slate-700">
         <div v-for="member in familyMembers" :key="member.id" class="py-2.5 flex justify-between items-center first:pt-0 last:pb-0">
           <div class="min-w-0 break-all">
