@@ -32,12 +32,16 @@ test('認証確認の通信断では再試行しても保護画面へ進まず�
   await page.route('**/api/v1/auth/me', (route) => route.abort('failed'))
   await page.reload()
   await expect(
-    page.getByText('認証情報を確認できませんでした。通信環境を確認してください。')
+    page
+      .locator('#__nuxt')
+      .getByText('認証情報を確認できませんでした。通信環境を確認してください。')
   ).toBeVisible()
   await expect(page.getByRole('button', { name: 'ホームへ戻る' })).toHaveCount(0)
   await page.getByRole('button', { name: '再試行', exact: true }).click()
   await expect(
-    page.getByText('認証情報を確認できませんでした。通信環境を確認してください。')
+    page
+      .locator('#__nuxt')
+      .getByText('認証情報を確認できませんでした。通信環境を確認してください。')
   ).toBeVisible()
   await expect(page.getByRole('button', { name: 'アクティビティを記録する' })).toHaveCount(0)
   expect(protectedRequests).toBe(0)
@@ -53,7 +57,9 @@ test('未ログイン起動の通信断はログイン画面を開かず、復�
   await page.route('**/api/v1/status', (route) => route.abort('failed'))
   await page.goto('/login')
   await expect(
-    page.getByText('サービスの状態を確認できませんでした。通信環境を確認してください。')
+    page
+      .locator('#__nuxt')
+      .getByText('サービスの状態を確認できませんでした。通信環境を確認してください。')
   ).toBeVisible()
   await expect(page.getByRole('button', { name: 'ログイン', exact: true })).toHaveCount(0)
   await page.unroute('**/api/v1/status')
