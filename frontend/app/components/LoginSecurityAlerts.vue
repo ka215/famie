@@ -8,6 +8,18 @@ interface SecurityAlert {
   occurred_at: string
 }
 
+function isSecurityAlert(value: unknown): value is SecurityAlert {
+  if (!value || typeof value !== 'object') return false
+  const alert = value as Record<string, unknown>
+  return (
+    typeof alert.id === 'string' &&
+    typeof alert.display_name === 'string' &&
+    typeof alert.username === 'string' &&
+    typeof alert.occurred_at === 'string' &&
+    !Number.isNaN(Date.parse(alert.occurred_at))
+  )
+}
+
 const { user, token, groupId, isParent } = useAuth()
 const { fetchApi } = useApi()
 const { isMaintenance } = useMaintenance()
@@ -62,7 +74,7 @@ async function refresh() {
     )
     if (!Array.isArray(result?.data)) return
     if (requestOwner === owner.value && enabled.value) {
-      alerts.value = result.data
+      alerts.value = result.data.filter(isSecurityAlert)
       error.value = ''
     }
   } catch {
