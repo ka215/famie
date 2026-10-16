@@ -348,7 +348,12 @@ test('A13・A15：集計中の閲覧・編集禁止と失敗後の再試行表�
   for (const name of ['編集', '停止', 'リワードを作成'])
     await expect(page.getByRole('button', { name, exact: true })).toBeDisabled()
   state = 'failed'
+  // The member watcher can render the failure before onMounted calls prepare.
+  const failedPreparation = page.waitForResponse((response) =>
+    response.url().endsWith('/rewards/prepare')
+  )
   await page.reload()
+  expect((await (await failedPreparation).json()).status).toBe('failed')
   await expect(page.getByRole('alert')).toContainText('集計に失敗しました')
   recoverOnRetry = true
   await page.getByRole('button', { name: '再試行', exact: true }).click()

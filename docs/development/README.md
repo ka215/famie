@@ -11,6 +11,7 @@
 - [グループモデル移行・検証計画](group-model-extension-plan.md)：段階移行、復旧、後続タスクと完了条件。
 
 - [E2E テスト](knowledge/e2e-test-notes.md)：実行方法、専用DB、対象範囲。
+- [Release CI の高速化](knowledge/ci-performance-notes.md)：計測結果、並列実行の構成、キャッシュ施策の採否。
 - [ブランチ運用ルール](decisions/2026-09-23-branch-strategy.md)：作業ブランチ、PR、リリース、緊急修正の運用。
 
 ## 記録の配置
