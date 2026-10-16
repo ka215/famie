@@ -1,0 +1,33 @@
+# Install only in ~/public_html/famie.ka2.org after preserving its .htaccess.
+# Never place this file in the new production document root.
+Options -MultiViews -Indexes
+RewriteEngine On
+
+Header always set Cache-Control "no-store, max-age=0"
+ErrorDocument 410 /domain-moved.json
+<Files "domain-moved.json">
+    ForceType application/json
+</Files>
+
+# The local error document must remain accessible during the internal redirect.
+RewriteCond %{HTTP_HOST} ^famie\.ka2\.org(?::[0-9]+)?$ [NC]
+RewriteRule ^domain-moved\.json$ - [END]
+
+# Stop every API method before following the existing backend symlink.
+RewriteCond %{HTTP_HOST} ^famie\.ka2\.org(?::[0-9]+)?$ [NC]
+RewriteRule ^api(?:/|$) - [G,END,NC]
+<If "%{HTTP_HOST} =~ m#^famie\.ka2\.org(?::[0-9]+)?$#i && %{REQUEST_URI} =~ m#^/api(?:/|$)#i">
+    Redirect 410 /
+</If>
+
+<If "%{HTTP_HOST} =~ m#^famie\.ka2\.org(?::[0-9]+)?$#i && %{REQUEST_METHOD} !~ m#^(GET|HEAD)$# && %{REQUEST_URI} != '/domain-moved.json'">
+    Redirect 410 /
+</If>
+
+# Fixed destination origin; Apache retains the original query string.
+# Browser handling of email-link fragments must also be verified.
+RewriteCond %{HTTP_HOST} ^famie\.ka2\.org(?::[0-9]+)?$ [NC]
+RewriteCond %{REQUEST_METHOD} !^(GET|HEAD)$
+RewriteRule ^ - [G,END]
+RewriteCond %{HTTP_HOST} ^famie\.ka2\.org(?::[0-9]+)?$ [NC]
+RewriteRule ^ https://famie.co%{REQUEST_URI} [R=302,END,NE]

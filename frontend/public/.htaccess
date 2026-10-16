@@ -1,4 +1,9 @@
 Options -MultiViews
+
+# Canonical production origin, including requests below the API symlink.
+<If "%{HTTP_HOST} =~ m#^famie\.co(?::[0-9]+)?$#i && %{HTTPS} != 'on'">
+    Redirect 307 / https://famie.co/
+</If>
 RewriteEngine On
 
 # BEGIN FAMIE MAINTENANCE

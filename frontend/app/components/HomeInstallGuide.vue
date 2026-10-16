@@ -48,7 +48,7 @@ const installApp = async () => {
     <figure class="flex flex-col items-center gap-2">
       <img :src="qrCode" width="160" height="160" alt="Famieのトップページを開くQRコード" class="bg-white">
       <figcaption class="text-xs text-slate-500 dark:text-slate-400">別の端末で開く場合は読み取ってください。</figcaption>
-      <a href="https://famie.ka2.org/" class="text-sm text-blue-600 dark:text-blue-300 underline">https://famie.ka2.org/</a>
+      <a href="https://famie.co/" class="text-sm text-blue-600 dark:text-blue-300 underline">https://famie.co/</a>
     </figure>
     <button v-if="canInstall" type="button" :disabled="isInstalling" class="w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white disabled:opacity-50" @click="installApp">
       {{ isInstalling ? '追加を確認中…' : 'ホーム画面に追加する' }}

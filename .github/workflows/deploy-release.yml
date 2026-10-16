@@ -39,7 +39,7 @@ jobs:
     timeout-minutes: 30
     environment: ${{ inputs.environment }}
     env:
-      RELEASE_BASE_URL: ${{ inputs.environment == 'production' && 'https://famie.ka2.org' || 'https://stg-famie.ka2.org' }}
+      RELEASE_BASE_URL: ${{ inputs.environment == 'production' && 'https://famie.co' || 'https://stg-famie.ka2.org' }}
     steps:
       - uses: actions/checkout@v4
       - name: Download immutable release artifact
