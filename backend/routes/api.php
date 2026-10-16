@@ -18,7 +18,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/email/verify', [EmailController::class, 'verify'])->middleware('throttle:20,1');
     Route::post('/auth/password/forgot', [PasswordResetController::class, 'store'])->middleware('throttle:account-mail-ip');
     Route::post('/auth/password/reset', [PasswordResetController::class, 'update'])->middleware('throttle:20,1');
-    Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login-ip');
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/register/username-availability', [AuthController::class, 'usernameAvailability'])->middleware('throttle:30,1');
 
@@ -29,7 +29,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::patch('/auth/me', [AuthController::class, 'updateMe']);
-        Route::put('/auth/me/password', [AuthController::class, 'updatePassword']);
+        Route::put('/auth/me/password', [AuthController::class, 'updatePassword'])->middleware('throttle:10,1');
+        Route::post('/auth/me/password-warning/snooze', [AuthController::class, 'snoozePasswordWarning'])->middleware('throttle:10,1');
 
         Route::prefix('/groups/{group}')->middleware('group.member')->group(function () {
             Route::get('/', [GroupController::class, 'show']);

@@ -61,7 +61,7 @@ class PostgresConcurrencyTest extends TestCase
         $member->update(['status' => 'inactive']);
         $restore = $this->operation($admin, 'PUT', "/v1/groups/{$group->id}/members/{$member->id}/status", ['status' => 'active']);
         $create = $this->operation($admin, 'POST', "/v1/groups/{$group->id}/members", [
-            'username' => 'concurrent'.$group->id, 'display_name' => '追加対象', 'role' => 'member', 'password' => 'password', 'password_confirmation' => 'password',
+            'username' => 'concurrent'.$group->id, 'display_name' => '追加対象', 'role' => 'member', 'password' => 'Famie-member-2026!', 'password_confirmation' => 'Famie-member-2026!',
         ]);
         $results = $this->race($group, $createFirst ? [$create, $restore] : [$restore, $create], 2);
         $this->assertSame($createFirst ? [201, 422] : [200, 422], array_column($results, 'status'), json_encode($results));

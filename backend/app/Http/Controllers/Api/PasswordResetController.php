@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Mail\AccountMail;
 use App\Models\User;
+use App\Rules\StrongPassword;
 use App\Services\AccountEmailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,14 +56,14 @@ class PasswordResetController extends Controller
     {
         $data = $request->validate([
             'id' => ['required', 'integer'], 'token' => ['required', 'string', 'size:64'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
-        ], ['password.*' => 'パスワードは6文字以上で、確認入力と一致させてください。']);
+            'password' => ['required', 'string', new StrongPassword, 'confirmed'],
+        ], ['password.confirmed' => '確認用パスワードが一致しません。']);
         $user = User::query()->find($data['id']);
         abort_unless($user, 422, AccountEmailService::INVALID_LINK);
         $email = $this->emails->withActiveUser($user, function (User $user) use ($data): string {
             abort_unless($user->email && $user->email_verified_at && Password::tokenExists($user, $data['token']), 422, AccountEmailService::INVALID_LINK);
             $this->emails->clearChallenges($user);
-            $user->forceFill(['password' => $data['password'], 'remember_token' => Str::random(60)])->save();
+            $user->forceFill(['password' => $data['password'], 'remember_token' => Str::random(60), 'password_is_weak' => false, 'password_warning_snoozed_until' => null])->save();
             $user->tokens()->delete();
 
             return $user->email;

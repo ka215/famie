@@ -24,7 +24,7 @@ class RegistrationTest extends TestCase
     {
         $response = $this->postJson('/v1/auth/register', [
             'group_name' => '山田家', 'username' => 'yamada', 'display_name' => '山田',
-            'password' => 'password', 'password_confirmation' => 'password',
+            'password' => 'Famie-registration-2026!', 'password_confirmation' => 'Famie-registration-2026!',
         ]);
 
         $response->assertCreated()->assertJsonPath('user.show_name_suffix', true)->assertJsonPath('membership.role', 'admin')->assertJsonPath('membership.group.name', '山田家')
@@ -41,7 +41,7 @@ class RegistrationTest extends TestCase
 
         $payload = [
             'group_name' => '山田家', 'username' => 'yamada', 'display_name' => '山田',
-            'password' => 'password', 'password_confirmation' => 'password',
+            'password' => 'Famie-registration-2026!', 'password_confirmation' => 'Famie-registration-2026!',
         ];
 
         $unknownEmailResponse = $this->postJson('/v1/auth/register', [
@@ -78,14 +78,14 @@ class RegistrationTest extends TestCase
 
         $this->postJson('/v1/auth/register', [
             'group_name' => '登録済み家族', 'username' => 'parent.one-1', 'display_name' => '親',
-            'password' => 'password', 'password_confirmation' => 'password',
+            'password' => 'Famie-registration-2026!', 'password_confirmation' => 'Famie-registration-2026!',
         ])->assertCreated();
 
         $this->postJson('/v1/auth/register/username-availability', ['username' => 'parent.one-1'])
             ->assertOk()->assertExactJson(['available' => false]);
         $this->postJson('/v1/auth/register', [
             'group_name' => '別家族', 'username' => 'parent.one-1', 'display_name' => '別の親',
-            'password' => 'password', 'password_confirmation' => 'password',
+            'password' => 'Famie-registration-2026!', 'password_confirmation' => 'Famie-registration-2026!',
         ])->assertUnprocessable()->assertJsonValidationErrors('username')
             ->assertJsonPath('errors.username.0', 'このログインIDは既に使用されています。');
     }

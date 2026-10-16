@@ -15,5 +15,6 @@ useHead(() => ({
         <NuxtPage />
       </NuxtLayout>
     </div>
+    <PasswordSecurityNotice />
   </div>
 </template>

@@ -271,6 +271,7 @@ const handlePasswordChange = async () => {
     })
     pwdSuccessMessage.value = 'パスワードを変更しました。'
     if (user.value) {
+      user.value.password_security = { status: 'ok', snoozed_until: null }
       user.value.pending_email = null
       user.value.email_verification_expires_at = null
     }
@@ -550,9 +551,11 @@ onMounted(() => {
             id="initial-password"
             label="初期パスワード"
             v-model="userForm.password"
+            strength
+            minlength="15"
             autocomplete="new-password"
             required
-            placeholder="6文字以上"
+            placeholder="15文字以上"
             class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -563,6 +566,7 @@ onMounted(() => {
             id="initial-password-confirmation"
             label="初期パスワード（確認）"
             v-model="userForm.password_confirmation"
+            minlength="15"
             autocomplete="new-password"
             required
             placeholder="もう一度入力してください"
@@ -625,6 +629,8 @@ onMounted(() => {
             id="new-password"
             label="新しいパスワード"
             v-model="pwdForm.new_password"
+            strength
+            minlength="15"
             autocomplete="new-password"
             required
             class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -637,6 +643,7 @@ onMounted(() => {
             id="new-password-confirmation"
             label="新しいパスワード（確認）"
             v-model="pwdForm.new_password_confirmation"
+            minlength="15"
             autocomplete="new-password"
             required
             class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

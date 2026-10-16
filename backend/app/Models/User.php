@@ -13,7 +13,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['username', 'display_name', 'email', 'password', 'show_name_suffix'])]
-#[Hidden(['password', 'remember_token', 'email_verification_token'])]
+#[Hidden(['password', 'remember_token', 'email_verification_token', 'password_is_weak', 'password_warning_snoozed_until'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -28,6 +28,8 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'password_is_weak' => 'boolean',
+            'password_warning_snoozed_until' => 'datetime',
             'show_name_suffix' => 'boolean',
             'email_verified_at' => 'datetime',
             'email_verification_expires_at' => 'datetime',

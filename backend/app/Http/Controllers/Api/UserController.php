@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
+use App\Rules\StrongPassword;
 use App\Services\GroupMembershipService;
 use App\Support\UsernameRules;
 use Illuminate\Http\JsonResponse;
@@ -40,7 +41,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'username' => UsernameRules::create(),
             'display_name' => ['required', 'string', 'max:50'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'password' => ['required', 'string', new StrongPassword, 'confirmed'],
             'role' => ['required', Rule::in([GroupMember::ROLE_ADMIN, GroupMember::ROLE_MEMBER])],
         ], UsernameRules::messages());
 
@@ -55,6 +56,7 @@ class UserController extends Controller
                 'username' => $validated['username'], 'display_name' => $validated['display_name'],
                 'email' => null, 'password' => Hash::make($validated['password']),
             ]);
+            $user->forceFill(['password_is_weak' => false])->save();
             $newMembership = $group->memberships()->create([
                 'user_id' => $user->id, 'role' => $validated['role'], 'status' => GroupMember::STATUS_ACTIVE,
             ]);

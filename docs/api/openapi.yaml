@@ -53,7 +53,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {type: object, required: [login, password], properties: {login: {type: string}, password: {type: string}}}
+            schema: {type: object, required: [login, password], properties: {login: {type: string, maxLength: 255}, password: {type: string, maxLength: 4096}}}
       responses:
         '200':
           description: 成功
@@ -64,6 +64,9 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '409': {$ref: '#/components/responses/Conflict'}
+        "429":
+          $ref: '#/components/responses/RateLimited'
+      description: 同一アカウント＋IPで10分間に5回失敗すると10分停止。ログインIDとメールは同一アカウントとして計数。IP全体は60回/分。成功時に失敗回数を消去し、既存パスワードの強度を判定する。値はサーバー設定で変更可能。
   '/auth/register':
     post:
       operationId: register
@@ -167,7 +170,7 @@ paths:
       summary: 本人パスワードを変更
       tags: [auth]
       description: >-
-        現在のログインは維持。メール確認・再設定の未使用リンクを無効化。
+        現在のログインは維持。他端末のトークンとメール確認・再設定の未使用リンクを無効化し、強度警告と通知抑制期限を解除。10回/分/ユーザー。
       requestBody:
         required: true
         content:
@@ -184,6 +187,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "429":
+          $ref: '#/components/responses/RateLimited'
   '/auth/me/email':
     post:
       operationId: requestEmail
@@ -1025,6 +1030,32 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /auth/me/password-warning/snooze:
+    post:
+      operationId: snoozePasswordWarning
+      summary: パスワード警告を日本時間の翌日0時まで抑制
+      tags:
+        - auth
+      description: 本人のみ。要求ボディは空にし、ユーザーIDや停止期限を指定できない。10回/分/ユーザー。強度判定が未実施の場合はunknownとして返す。
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Identity'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "422":
+          $ref: '#/components/responses/Validation'
+        "429":
+          $ref: '#/components/responses/RateLimited'
+        "503":
+          $ref: '#/components/responses/Unavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -1060,8 +1091,10 @@ components:
       pattern: '^[a-z0-9](?:[a-z0-9._-]{1,48}[a-z0-9])$'
     Password:
       type: string
-      minLength: 6
+      minLength: 15
       writeOnly: true
+      maxLength: 72
+      description: 15文字以上・UTF-8で72バイト以内。よく使われる語、単純な繰り返し・連番・制御文字は禁止。文字種の組合せは強制しない。ログイン時の既存パスワードには適用しない。
     User:
       type: object
       required: [id, username, display_name]
@@ -1074,6 +1107,23 @@ components:
         email_verified_at: {type: [string, 'null'], format: date-time}
         pending_email: {type: [string, 'null'], format: email}
         email_verification_expires_at: {type: [string, 'null'], format: date-time}
+        password_security:
+          type: object
+          required:
+            - status
+            - snoozed_until
+          properties:
+            status:
+              type: string
+              enum:
+                - unknown
+                - weak
+                - ok
+            snoozed_until:
+              type:
+                - string
+                - "null"
+              format: date-time
     Group:
       type: object
       required: [id, name, type]

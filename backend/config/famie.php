@@ -25,4 +25,8 @@ return [
     'register_window_seconds' => (int) env('FAMIE_REGISTER_WINDOW_SECONDS', 600),
     'register_max_attempts' => (int) env('FAMIE_REGISTER_MAX_ATTEMPTS', 5),
     'register_cooldown_seconds' => (int) env('FAMIE_REGISTER_COOLDOWN_SECONDS', 600),
+    'login_window_seconds' => (int) env('FAMIE_LOGIN_WINDOW_SECONDS', 600),
+    'login_max_attempts' => (int) env('FAMIE_LOGIN_MAX_ATTEMPTS', 5),
+    'login_cooldown_seconds' => (int) env('FAMIE_LOGIN_COOLDOWN_SECONDS', 600),
+    'login_ip_per_minute' => (int) env('FAMIE_LOGIN_IP_PER_MINUTE', 60),
 ];
