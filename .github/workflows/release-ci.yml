@@ -81,6 +81,16 @@ jobs:
           DB_PASSWORD: famie-ci-only
           FAMIE_REWARD_PG_TEST: "1"
         run: php artisan test --filter=RewardPostgresTest
+      - name: Authentication PostgreSQL acceptance
+        working-directory: backend
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_DATABASE: famie_test
+          DB_USERNAME: famie_test
+          DB_PASSWORD: famie-ci-only
+        run: php artisan test --filter="MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest"
     services:
       postgres:
         image: postgres:14

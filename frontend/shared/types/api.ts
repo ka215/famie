@@ -9,6 +9,10 @@ export interface User {
   email_verified_at?: string | null
   pending_email?: string | null
   email_verification_expires_at?: string | null
+  password_security?: {
+    status: 'unknown' | 'weak' | 'ok'
+    snoozed_until: string | null
+  }
 }
 
 export interface Group {

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\EmailController;
 use App\Http\Controllers\Api\GroupController;
+use App\Http\Controllers\Api\LoginSecurityAlertController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\RewardController;
 use App\Http\Controllers\Api\StatusController;
@@ -18,7 +19,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/email/verify', [EmailController::class, 'verify'])->middleware('throttle:20,1');
     Route::post('/auth/password/forgot', [PasswordResetController::class, 'store'])->middleware('throttle:account-mail-ip');
     Route::post('/auth/password/reset', [PasswordResetController::class, 'update'])->middleware('throttle:20,1');
-    Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login-ip');
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/register/username-availability', [AuthController::class, 'usernameAvailability'])->middleware('throttle:30,1');
 
@@ -29,7 +30,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::patch('/auth/me', [AuthController::class, 'updateMe']);
-        Route::put('/auth/me/password', [AuthController::class, 'updatePassword']);
+        Route::put('/auth/me/password', [AuthController::class, 'updatePassword'])->middleware('throttle:10,1');
+        Route::post('/auth/me/password-warning/snooze', [AuthController::class, 'snoozePasswordWarning'])->middleware('throttle:10,1');
 
         Route::prefix('/groups/{group}')->middleware('group.member')->group(function () {
             Route::get('/', [GroupController::class, 'show']);
@@ -44,10 +46,13 @@ Route::prefix('v1')->group(function () {
             Route::delete('/rewards/{reward}', [RewardController::class, 'destroy'])->whereNumber('reward');
             Route::patch('/', [GroupController::class, 'update']);
             Route::get('/members', [UserController::class, 'index']);
+            Route::get('/security-alerts', [LoginSecurityAlertController::class, 'index']);
+            Route::put('/security-alerts/{alert}/read', [LoginSecurityAlertController::class, 'read'])->whereUuid('alert');
             Route::post('/members', [UserController::class, 'store']);
             Route::get('/members/inactive', [UserController::class, 'inactive']);
             Route::patch('/members/{member}', [UserController::class, 'update'])->whereNumber('member');
             Route::put('/members/{member}/status', [UserController::class, 'updateStatus'])->whereNumber('member');
+            Route::put('/members/{member}/password', [UserController::class, 'resetPassword'])->whereNumber('member')->middleware('throttle:member-password-reset');
             Route::get('/categories', [CategoryController::class, 'index']);
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::put('/categories/{category}', [CategoryController::class, 'update']);

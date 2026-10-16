@@ -26,7 +26,11 @@ const handleLogin = async () => {
     await navigateTo('/')
   } catch (err: unknown) {
     const e = err as ApiRequestError
-    errorMessage.value = e.data?.message || 'ログインに失敗しました。'
+    const retryAfter = Number(e.response?.headers?.get('Retry-After'))
+    errorMessage.value =
+      e.response?.status === 429 && Number.isFinite(retryAfter) && retryAfter > 0
+        ? `ログイン操作が制限されています。約${Math.ceil(retryAfter / 60)}分後に再試行してください。`
+        : e.data?.message || 'ログインに失敗しました。'
   } finally {
     isLoading.value = false
   }
@@ -42,7 +46,7 @@ const handleLogin = async () => {
       </div>
 
       <form class="space-y-4" @submit.prevent="handleLogin">
-        <div v-if="errorMessage" class="p-3 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
+        <div v-if="errorMessage" role="alert" class="p-3 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
           {{ errorMessage }}
         </div>
 

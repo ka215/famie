@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
-defineProps<{ id: string; label: string; disabled?: boolean }>()
+defineProps<{ id: string; label: string; disabled?: boolean; strength?: boolean }>()
 const model = defineModel<string>({ required: true })
 const visible = ref(false)
 
@@ -35,4 +35,5 @@ watch(model, (value) => {
       </svg>
     </button>
   </div>
+  <PasswordStrengthMeter v-if="strength" :password="model" />
 </template>
