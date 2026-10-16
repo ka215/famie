@@ -145,7 +145,14 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
   await expect
     .poll(() => trophy.evaluate((element) => getComputedStyle(element).maskImage))
     .not.toBe('none')
+  // Activation refreshes the list twice. Wait for preparation/notification
+  // claiming to finish before clicking an Edit button that can be disabled again.
+  const activationReady = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/rewards/notifications') && response.request().method() === 'POST'
+  )
   await page.getByRole('button', { name: '有効化', exact: true }).click()
+  await (await activationReady).finished()
   await expect(page.getByText('有効', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '編集', exact: true }).click()
   await expect(dialog.getByLabel('開始月')).toBeDisabled()
