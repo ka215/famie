@@ -25,7 +25,7 @@ COMPOSER_FILE=${COMPOSER_FILE:-"$HOME/bin/composer.phar"}
 [[ -x $PHPCLI && -r $COMPOSER_FILE ]] || fail 'PHPCLI and COMPOSER_FILE must be usable.'
 
 case $environment in
-  production) app_name=famie; domain=famie.ka2.org; database=ka2_famie ;;
+  production) app_name=famie; domain=famie.co; database=ka2_famie ;;
   staging) app_name=famie-stg; domain=stg-famie.ka2.org; database=ka2_famiestg ;;
 esac
 repo="$HOME/$app_name"
@@ -36,6 +36,7 @@ releases="$root/releases"
 incoming="$root/incoming"
 mkdir -p "$releases" "$incoming"
 repo=$(realpath "$repo")
+[[ -d $docroot && ! -L $docroot && $(realpath "$docroot") == "$docroot" ]] || fail 'Unexpected or symlinked document root.'
 docroot=$(realpath "$docroot")
 [[ -f $repo/backend/.env && -f $docroot/.htaccess && -L $docroot/api ]] || fail 'Environment is not initialized.'
 [[ $(realpath "$docroot/api") == "$repo/backend/public" ]] || fail 'Unexpected API symlink.'

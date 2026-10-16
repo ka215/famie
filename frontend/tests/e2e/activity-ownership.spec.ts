@@ -59,7 +59,7 @@ test('ホーム追加ガイドはQRと端末別手順を表示し、イベント
   await expect(
     guide.getByRole('heading', { name: 'ホーム画面に追加してご利用ください' })
   ).toBeVisible()
-  await expect(guide.getByRole('link')).toHaveAttribute('href', 'https://famie.ka2.org/')
+  await expect(guide.getByRole('link')).toHaveAttribute('href', 'https://famie.co/')
   const qr = guide.getByRole('img', { name: 'Famieのトップページを開くQRコード' })
   await expect(qr).toBeVisible()
   await expect

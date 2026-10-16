@@ -1,0 +1,4 @@
+# Canonical production origin; applies to API symlink requests as well.
+<If "%{HTTP_HOST} =~ m#^famie\.co(?::[0-9]+)?$#i && %{HTTPS} != 'on'">
+    Redirect 307 / https://famie.co/
+</If>
