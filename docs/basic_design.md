@@ -5,13 +5,15 @@
 | 項目 | 内容 |
 | --- | --- |
 | 文書名 | Famie 基本設計書 |
-| 版数 | 1.1 |
+| 版数 | 1.2 |
 | 対象フェーズ | 初期リリース |
 | 作成日 | 2026-09-21 |
-| 更新日 | 2026-09-22 |
+| 更新日 | 2026-10-17 |
 | 関連文書 | `fixed_requirements.md` |
 
 本書は Famie の外部仕様および主要な内部構成を定義する。詳細なクラス実装、マイグレーション、画面コンポーネントの実装手順は本書の対象外とする。
+
+現行版はv0.16.0。初期リリース時の画面・API・テーブル・ロールの一覧は、その後の確定仕様で更新されている。[正式要件の現行仕様適用表](fixed_requirements.md)、[現行モデル](development/knowledge/current-data-model-spec.md)、[OpenAPI契約](api/README.md)、[v0.16.0](issues/v0.16.0.md)を該当部分で優先する。[文書適用範囲の決定](development/decisions/2026-10-17-current-documentation-scope.md)に基づき、初期の図表を現行DBや権限の唯一の正本とはしない。
 
 ## 2. システム構成
 
@@ -21,12 +23,12 @@
 | --- | --- | --- |
 | フロントエンド | Nuxt 4、Vue、Tailwind CSS | SPA のブラウザー描画、PWA、API 呼出し |
 | PWA | `@vite-pwa/nuxt` | Manifest、Service Worker、ホーム画面追加 |
-| バックエンド | PHP 8.4、Laravel 11 以降 | REST API、認証、認可、入力検証 |
+| バックエンド | PHP 8.4、Laravel 13 | REST API、認証、認可、入力検証 |
 | 認証 | Laravel Sanctum | Bearer Token の発行と検証 |
 | データベース | PostgreSQL 14.13 | アプリケーションデータの永続化 |
 | Web サーバー | Apache HTTP Server | HTTPS 終端、IP 制限、静的ファイル配信、Laravel 公開 |
-| ビルド環境 | ローカル Windows、Node.js、pnpm | Nuxt SPA の静的ファイル生成 |
-| インフラ | 契約中の CoreServer、`famie.ka2.org` | 本番実行環境。Node.js の常駐プロセスは禁止 |
+| ビルド環境 | GitHub Actions、Node.js、pnpm。操作端末はWindows | 静的生成・検証済みの固定成果物をステージングから商用へ昇格 |
+| インフラ | 契約中の CoreServer、`famie.co` | 本番実行環境。旧URLは転送・復旧用に保持。Node.js の常駐プロセスは禁止 |
 
 契約環境で Apache、PHP 8.4、PostgreSQL 14.13 が利用可能であり、Laravel API の稼働実績があることを前提とする。
 
@@ -39,7 +41,8 @@ flowchart LR
   Apache -->|/api/v1| Laravel[Laravel API]
   Apache -->|静的配信| Static[HTML・JavaScript・CSS・PWA 資材]
   Laravel --> PostgreSQL[(PostgreSQL)]
-  Local[ローカル Windows で pnpm generate] -->|生成物をアップロード| Static
+  CI[GitHub Actionsで静的生成・検証] --> Artifact[SHA256で固定した成果物]
+  Artifact -->|ステージングで確認後に同じ成果物を配置| Static
 ```
 
 Apache は Nuxt の静的生成物を配信し、`/api/v1` は Laravel の `public/index.php` へルーティングする。ブラウザーから同一 Origin の API を呼び出す構成とし、本番の Nuxt サーバーおよび Nuxt 向けリバースプロキシは使用しない。
@@ -382,7 +385,7 @@ Apache の振り分けは、IP 制限を適用したうえで API、実在する
 | --- | --- |
 | `APP_ENV` | 実行環境。本番は `production` |
 | `APP_DEBUG` | 本番は `false` |
-| `APP_URL` | `https://famie.ka2.org` |
+| `APP_URL` | `https://famie.co` |
 | `DB_CONNECTION` | `pgsql` |
 | `DB_HOST` / `DB_PORT` | PostgreSQL 接続先 |
 | `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | DB 接続情報 |

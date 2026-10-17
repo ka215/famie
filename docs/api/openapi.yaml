@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: Famie API
-  version: 0.15.1
+  version: 0.16.0
   description: |
     現行v1 API契約。公開環境は/api/v1、Laravel直接アクセスは/v1。
     Accept: application/jsonを送る。Bearer認証でactiveな所属が1件必要。

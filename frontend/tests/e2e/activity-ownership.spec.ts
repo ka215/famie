@@ -55,6 +55,13 @@ test('ホーム追加ガイドはQRと端末別手順を表示し、イベント
 }) => {
   await page.route('**/v1/status', (route) => route.fulfill({ json: { status: 'ok' } }))
   await page.goto('/login')
+  await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute(
+    'content',
+    'Famie'
+  )
+  const manifestResponse = await page.request.get('/manifest.webmanifest')
+  expect(manifestResponse.ok()).toBeTruthy()
+  expect(await manifestResponse.json()).toMatchObject({ name: 'Famie', short_name: 'Famie' })
   const guide = page.getByRole('region', { name: 'ホーム画面への追加ガイド' })
   await expect(
     guide.getByRole('heading', { name: 'ホーム画面に追加してご利用ください' })
