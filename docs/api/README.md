@@ -1,6 +1,6 @@
 # Famie API契約
 
-[openapi.yaml](openapi.yaml)が現行HTTP APIの具体的なIFを記載する正本。OpenAPI 3.1.1、アプリ対象版v0.15.1、APIプレフィックスはv1。要件の正本は版別仕様・正式要件を参照する。旧`reference/backend/`のサンプルは契約ではない。
+[openapi.yaml](openapi.yaml)が現行HTTP APIの具体的なIFを記載する正本。OpenAPI 3.1.1、アプリ対象版v0.16.0、APIプレフィックスはv1。商用は `https://famie.co/api/v1`、ステージングは `https://stg-famie.ka2.org/api/v1`。要件の正本は版別仕様・正式要件を参照する。旧`reference/backend/`のサンプルは契約ではない。v0.16.1では契約の挙動変更は予定しない。
 
 ## 検証
 
@@ -14,7 +14,7 @@ pnpm test:api
 
 固定版のRedocly CLIで構文、参照、OpenAPI型を検査し、`scripts/check-api-contract.mjs`がLaravelの実ルートとmethod/pathを双方向照合する。operationIdの欠落・重複も検出する。CIではyq v4.53.3を明示して同じコマンドを実行する。文書を変更する際のYAML操作にはyqを使う。
 
-Laravel直下の`/v1`を公開側の`/api/v1`と区別し、HEADはGETからの自動派生として除外する。44個のLaravelルートはPUT/PATCHの複合ルートを展開すると45操作になる。さらに、活動の画像更新に使うPOST＋`_method=PUT`を文書化しており、この1操作は`x-method-override: PUT`で実ルートとの違いを明示する。通常のPOSTルートの欠落として扱わず、対応するPUTルートの存在を検査する。
+Laravel直下の`/v1`を公開側の`/api/v1`と区別し、HEADはGETからの自動派生として除外する。v0.16.0時点の48個のLaravelルートはPUT/PATCHの複合ルートを展開すると49操作になる。さらに、活動の画像更新に使うPOST＋`_method=PUT`を文書化しており、この1操作は`x-method-override: PUT`で実ルートとの違いを明示する。通常のPOSTルートの欠落として扱わず、対応するPUTルートの存在を検査する。
 
 ## 契約の読み方
 
@@ -35,4 +35,4 @@ Laravel直下の`/v1`を公開側の`/api/v1`と区別し、HEADはGETからの�
 
 構文・ルート検査と代表応答テストだけでは、全フィールド・全エラー経路の意味的一致を保証しない。画像バイナリ、メール配送、権限・競合などは既存Featureテストを併用する。今回の確認元は`ProfileTest`・`RegistrationTest`、メール・メンバー・カテゴリ・活動・画像・いいね・リワードのFeatureテストと各Controller。Swagger UIの公開、コード生成、実行時バリデーション置換は行わない。
 
-ドメイン切替時はserversと本書を更新する。現段階では旧本番URLが正しい。秘密情報や実際のトークンをexampleに記載しない。
+ドメイン切替時はserversと本書を更新する。v0.16.0で旧本番URLから `https://famie.co` へ移管済み。旧画面は302転送、旧APIは410の移管案内を返す。ステージングのURLは維持する。秘密情報や実際のトークンをexampleに記載しない。

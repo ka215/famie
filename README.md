@@ -11,6 +11,8 @@ Famie is a simple place to record everyday activities, see what your family has 
 - **Keep a family timeline.** Record an activity with a date, category, and optional note.
 - **Celebrate each other.** Like another family member's activity, see the hearts it receives, and undo your own like whenever you want.
 - **Find the moments you need.** Browse by week or month, or filter by date range, family member, and category.
+- **Keep photos with your activities.** Attach a photo and revisit family moments in the gallery.
+- **Turn progress into rewards.** Set recurring goals, track progress, and collect earned trophies.
 - **Make it your family's space.** Family administrators manage members and categories. Each person edits their own activity records.
 - **Feel at home on your phone.** Add Famie to your home screen as a PWA, choose a light or dark theme, and customize your display name and header suffix.
 
@@ -24,7 +26,9 @@ Famie is a simple place to record everyday activities, see what your family has 
 
 An administrator creates a family and adds its members. Activities and categories stay within that family, with administrator and regular-member roles. Each account currently belongs to one family.
 
-Rewards and membership in multiple families are planned features; they are not available yet. Famie does not process payments.
+Rewards and activity photos are available. Each account currently belongs to one family; membership in multiple families is a future feature. Famie does not process payments.
+
+The production site moved to **famie.co** in v0.16.0. Existing users sign in again on the new site and add its PWA to their home screen. The old URL redirects to the new site; old API clients must use the new site. The interface is currently Japanese; Japanese/English support is being designed for v1.0.0.
 
 ## Built with
 
@@ -34,5 +38,5 @@ For setup, commands, repository structure, and reproducing the sample screenshot
 
 - [Documentation](docs/README.md)
 - [Requirements and release status](docs/issues/summary.md)
-- [v0.13.0 specification](docs/issues/v0.13.0.md)
+- [v0.16.0 specification and migration record](docs/issues/v0.16.0.md)
 - [Contributor and agent instructions](AGENTS.md)
