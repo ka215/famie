@@ -15,6 +15,8 @@
 
 リリース自動化の設計上の正本は[リリース自動化仕様](../release-automation-spec.md)である。日常の操作は`release-script-notes.md`から開始し、初期構築手順や過去の記録を通常リリースの代わりに使用しない。
 
-## 移管準備
+## ドメイン・メール移管
 
-- [famie.coへの移管計画](domain-migration-plan.md)：v0.15.1では設計のみ。実際の切替は後続版。
+- [famie.coへの移管計画](domain-migration-plan.md)：v0.15.1時点の準備資料。v0.16.0で切替済み。
+- [ドメイン移管の実施記録](../change-log/2026-10-17-domain-migration-notes.md)：新公開先、旧側転送、データ保持、切り戻しの実施条件。
+- [メール送信元移管](mail-domain-migration.md)：v0.16.1で準備中。新SMTPアカウント・環境設定・実配送・復旧手順。

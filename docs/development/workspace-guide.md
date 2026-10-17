@@ -1,6 +1,6 @@
 # Famie 開発ガイド
 
-旧ルートREADMEの開発情報を、v0.13.0の構成に合わせて整理した。作業ルールの正本は [AGENTS.md](../../AGENTS.md)、Backend固有の規約は [backend/AGENTS.md](../../backend/AGENTS.md) を参照する。
+v0.16.0公開時点の構成・運用に合わせた開発情報をまとめる。商用は `https://famie.co`、ステージングは `https://stg-famie.ka2.org`。旧URLは転送・復旧用に維持する。作業ルールの正本は [AGENTS.md](../../AGENTS.md)、Backend固有の規約は [backend/AGENTS.md](../../backend/AGENTS.md) を参照する。
 
 ## 構成と環境
 

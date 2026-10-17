@@ -3,7 +3,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { version } from './package.json'
 
 const isProduction = import.meta.env.NODE_ENV === 'production'
-const appShortName = 'ファミー'
+const appShortName = 'Famie'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
