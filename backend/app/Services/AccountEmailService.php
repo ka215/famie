@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\AccountMail;
 use App\Models\Group;
 use App\Models\User;
+use App\Support\UiLocale;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,11 @@ use Throwable;
 class AccountEmailService
 {
     public const INVALID_LINK = 'messages.invalid_link';
+
+    public function language(User $user, string $requestLocale): string
+    {
+        return $user->ui_locale === null ? $requestLocale : UiLocale::fromTag($user->ui_locale);
+    }
 
     public function withActiveUser(User $user, Closure $callback, bool $public = false): mixed
     {

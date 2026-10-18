@@ -40,7 +40,7 @@ class EmailController extends Controller
             return $this->prepareRequest($user, $email);
         });
 
-        return $this->accept($request->user()->id, $token);
+        return $this->accept($request->user()->id, $token, (string) $request->attributes->get('ui_locale'));
     }
 
     public function resend(Request $request): JsonResponse
@@ -51,7 +51,7 @@ class EmailController extends Controller
             return $this->prepareRequest($user, $user->pending_email);
         });
 
-        return $this->accept($request->user()->id, $token);
+        return $this->accept($request->user()->id, $token, (string) $request->attributes->get('ui_locale'));
     }
 
     public function destroy(Request $request): JsonResponse
@@ -84,7 +84,7 @@ class EmailController extends Controller
             abort(422, __(AccountEmailService::INVALID_LINK));
         }
         if ($oldEmail) {
-            $this->emails->deliver($oldEmail, new AccountMail('メールアドレス変更のお知らせ', 'アカウントのメールアドレスが変更されました。'));
+            $this->emails->deliver($oldEmail, new AccountMail('email_changed', $this->emails->language($user, (string) $request->attributes->get('ui_locale'))));
         }
 
         return response()->json(['message' => __('messages.email_confirmed')]);
@@ -99,9 +99,9 @@ class EmailController extends Controller
         return $token;
     }
 
-    private function accept(int $userId, string $token): JsonResponse
+    private function accept(int $userId, string $token, string $locale): JsonResponse
     {
-        defer(fn () => $this->sendConfirmation($userId, $token));
+        defer(fn () => $this->sendConfirmation($userId, $token, $locale));
 
         $response = response()->json(['message' => __(self::ACCEPTED)]);
         $response->headers->set('Content-Length', (string) strlen($response->getContent()));
@@ -109,14 +109,14 @@ class EmailController extends Controller
         return $response;
     }
 
-    private function sendConfirmation(int $userId, string $token): void
+    private function sendConfirmation(int $userId, string $token, string $locale): void
     {
         $user = User::query()->find($userId);
         if (! $user) {
             return;
         }
         try {
-            $delivery = $this->emails->withActiveUser($user, function (User $user) use ($token): ?array {
+            $delivery = $this->emails->withActiveUser($user, function (User $user) use ($token, $locale): ?array {
                 if (! $user->pending_email || ! $user->email_verification_expires_at?->isFuture()
                     || ! hash_equals((string) $user->email_verification_token, hash('sha256', $token))
                     || ! $this->emails->isAvailable($user->pending_email, $user)
@@ -125,8 +125,7 @@ class EmailController extends Controller
                 }
                 $url = $this->emails->link('verify-email', ['id' => $user->id, 'token' => $token]);
 
-                return [$user->pending_email, new AccountMail('メールアドレスを確認',
-                    '申請元のログインID：'.$user->username.'。ご自身がこのアカウントで申請した場合のみ、リンク先の確認ボタンを押してください。有効期限は60分です。', $url)];
+                return [$user->pending_email, new AccountMail('verify', $locale, $url, ['username' => $user->username, 'minutes' => 60])];
             }, true);
             if ($delivery) {
                 $this->emails->deliver(...$delivery);
