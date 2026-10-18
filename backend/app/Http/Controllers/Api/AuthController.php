@@ -76,7 +76,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', new StrongPassword, 'confirmed'],
         ], UsernameRules::messages());
 
-        [$user, $membership] = DB::transaction(function () use ($validated): array {
+        [$user, $membership] = DB::transaction(function () use ($validated, $request): array {
             $user = User::query()->create([
                 'username' => $validated['username'], 'display_name' => $validated['display_name'],
                 'email' => null, 'password' => Hash::make($validated['password']),
@@ -86,7 +86,7 @@ class AuthController extends Controller
             $membership = $group->memberships()->create([
                 'user_id' => $user->id, 'role' => GroupMember::ROLE_ADMIN, 'status' => GroupMember::STATUS_ACTIVE,
             ]);
-            InitialCategories::createFor($group);
+            InitialCategories::createFor($group, (string) $request->attributes->get('ui_locale'));
 
             return [$user, $membership->setRelation('group', $group)];
         });

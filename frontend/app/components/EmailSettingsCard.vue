@@ -50,7 +50,6 @@ watch(locale, () => {
 
 <template>
   <SettingsCard :title="t('auth.email')">
-    <p v-if="locale !== 'ja'" class="text-xs text-slate-600 dark:text-slate-300">{{ t('auth.mail.languageNote') }}</p>
     <p class="text-sm break-all">{{ user?.email || t('settings.email.notRegistered') }} <span v-if="user?.email">（{{ user.email_verified_at ? t('settings.email.verified') : t('settings.email.unverified') }}）</span></p>
     <p v-if="!user?.email_verified_at" class="text-sm text-slate-600 dark:text-slate-300">{{ t('settings.email.intro') }}</p>
     <p v-if="message" role="status" class="text-sm text-green-700 dark:text-green-300">{{ message }}</p>

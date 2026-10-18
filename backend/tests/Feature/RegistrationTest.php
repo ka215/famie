@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\User;
 use App\Support\InitialCategories;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
+use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -18,6 +21,26 @@ class RegistrationTest extends TestCase
         config(['famie.allowed_ips' => ['127.0.0.1'], 'famie.register_max_attempts' => 5]);
         RateLimiter::clear('register:attempts:127.0.0.1');
         RateLimiter::clear('register:blocked:127.0.0.1');
+    }
+
+    #[TestWith(['ja-JP', 'ja'])]
+    #[TestWith(['en-US', 'en'])]
+    #[TestWith(['fr', 'en'])]
+    public function test_initial_categories_use_registration_language_and_stay_unchanged_after_language_switch(string $header, string $locale): void
+    {
+        $response = $this->withHeader('Accept-Language', $header)->postJson('/v1/auth/register', [
+            'group_name' => 'Original family', 'username' => 'language-family', 'display_name' => 'Parent',
+            'password' => 'Famie-registration-2026!', 'password_confirmation' => 'Famie-registration-2026!',
+        ])->assertCreated()->assertJsonPath('user.ui_locale', null);
+        $groupId = $response->json('membership.group.id');
+        $categories = Category::query()->where('group_id', $groupId)->orderBy('sort_order')->get();
+        $this->assertSame(array_values(__('categories', [], $locale)), $categories->pluck('name')->all());
+        $this->assertSame(array_column(InitialCategories::ITEMS, 'color_code'), $categories->pluck('color_code')->all());
+        $this->assertSame(range(1, 7), $categories->pluck('sort_order')->all());
+        Sanctum::actingAs(User::query()->findOrFail($response->json('user.id')));
+        $this->patchJson('/v1/auth/me', ['ui_locale' => $locale === 'en' ? 'ja' : 'en'])->assertOk();
+        $this->getJson('/v1/groups/'.$groupId.'/categories')->assertOk()->assertJsonPath('0.name', $categories[0]->name);
+        $this->assertSame($categories->pluck('name')->all(), $categories->map(fn ($category) => $category->fresh()->name)->all());
     }
 
     public function test_registration_atomically_creates_family_admin_and_initial_categories(): void

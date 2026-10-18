@@ -23,23 +23,24 @@ class PasswordResetController extends Controller
     {
         $data = $request->validate(['email' => ['required', 'string', 'email:rfc', 'max:255']], ['email.*' => __('messages.email_invalid')]);
         $email = strtolower(trim($data['email']));
-        defer(fn () => $this->sendResetLink($email));
+        $locale = (string) $request->attributes->get('ui_locale');
+        defer(fn () => $this->sendResetLink($email, $locale));
 
         return response()->json(['message' => __('messages.reset_accepted')]);
     }
 
-    private function sendResetLink(string $email): void
+    private function sendResetLink(string $email, string $requestLocale): void
     {
         $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
         if ($this->emails->consumeDelivery($email, $user?->id) && $user) {
             try {
-                $mail = $this->emails->withActiveUser($user, function (User $locked) use ($email): ?AccountMail {
+                $mail = $this->emails->withActiveUser($user, function (User $locked) use ($email, $requestLocale): ?AccountMail {
                     if (! $locked->email_verified_at || strtolower((string) $locked->email) !== $email) {
                         return null;
                     }
                     $token = Password::createToken($locked);
 
-                    return new AccountMail('パスワードを再設定', 'リンク先で新しいパスワードを設定してください。有効期限は30分です。', $this->emails->link('reset-password', ['id' => $locked->id, 'token' => $token]));
+                    return new AccountMail('reset', $this->emails->language($locked, $requestLocale), $this->emails->link('reset-password', ['id' => $locked->id, 'token' => $token]), ['minutes' => 30]);
                 }, true);
                 if ($mail) {
                     $this->emails->deliver($email, $mail);
@@ -68,7 +69,7 @@ class PasswordResetController extends Controller
 
             return $user->email;
         }, true);
-        $this->emails->deliver($email, new AccountMail('パスワード再設定完了', 'パスワードを再設定しました。すべての端末で再ログインが必要です。'));
+        $this->emails->deliver($email, new AccountMail('reset_complete', $this->emails->language($user, (string) $request->attributes->get('ui_locale'))));
 
         return response()->json(['message' => __('messages.password_reset')]);
     }

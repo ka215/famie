@@ -80,6 +80,8 @@ try {
                 $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
                 $url = $body | jq -er '.url'
                 if ($LASTEXITCODE -ne 0 -or $url -ne 'https://famie.co/') { throw 'Invalid migration JSON.' }
+                $message = $body | jq -er '.message'
+                if ($LASTEXITCODE -ne 0 -or $message -notmatch '再ログイン' -or $message -notmatch 'Please sign in again') { throw 'Missing bilingual migration message.' }
             }
         } finally { $response.Dispose(); $request.Dispose() }
     }

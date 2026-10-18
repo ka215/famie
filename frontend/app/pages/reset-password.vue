@@ -54,7 +54,6 @@ watch(locale, () => {
 
 <template>
   <AccountRecoveryPanel :title="t('auth.reset.title')">
-    <p v-if="locale !== 'ja'" class="text-xs text-slate-600 dark:text-slate-300">{{ t('auth.mail.languageNote') }}</p>
     <p v-if="message" role="status" class="text-sm">{{ message }}</p>
     <template v-else>
       <p v-if="!valid" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ t('auth.link.missing') }}</p>

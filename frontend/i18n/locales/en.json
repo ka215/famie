@@ -44,8 +44,7 @@
     "mail": {
       "limited": "Too many requests. Wait 60 seconds and try again.",
       "failed": "Could not send. Check your connection.",
-      "busy": "Sending...",
-      "languageNote": "Emails are currently sent in Japanese."
+      "busy": "Sending..."
     },
     "email": "Email address",
     "reset": {

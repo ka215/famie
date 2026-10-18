@@ -36,7 +36,7 @@ class AccountEmailTest extends TestCase
         $this->postJson('/v1/auth/me/email', ['email' => ' NEW@example.test ', 'current_password' => 'password'])->assertOk();
         $this->assertNull($user->fresh()->email);
         $this->getJson('/v1/auth/me')->assertOk()->assertJsonPath('user.pending_email', 'new@example.test')->assertJsonMissingPath('user.email_verification_token');
-        $link = $this->linkData('メールアドレスを確認');
+        $link = $this->linkData('verify');
         $this->assertNotSame($link['token'], $user->fresh()->email_verification_token);
         $this->getJson('/v1/auth/email/verify')->assertMethodNotAllowed();
         $this->postJson('/v1/auth/email/verify', $link)->assertOk();
@@ -54,7 +54,7 @@ class AccountEmailTest extends TestCase
         $this->postJson('/v1/auth/login', ['login' => 'legacy@example.test', 'password' => 'password'])->assertOk();
         Sanctum::actingAs($user);
         $this->postJson('/v1/auth/me/email', ['email' => 'legacy@example.test', 'current_password' => 'password'])->assertOk();
-        $this->postJson('/v1/auth/email/verify', $this->linkData('メールアドレスを確認'))->assertOk();
+        $this->postJson('/v1/auth/email/verify', $this->linkData('verify'))->assertOk();
         $this->assertNotNull($user->fresh()->email_verified_at);
         Mail::assertSentCount(1);
     }
@@ -68,10 +68,10 @@ class AccountEmailTest extends TestCase
         $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertOk();
         $this->assertSame('old@example.test', $user->fresh()->email);
         $this->postJson('/v1/auth/login', ['login' => 'next@example.test', 'password' => 'password'])->assertUnprocessable();
-        $this->postJson('/v1/auth/email/verify', $this->linkData('メールアドレスを確認'))->assertOk();
+        $this->postJson('/v1/auth/email/verify', $this->linkData('verify'))->assertOk();
         $this->assertSame('next@example.test', $user->fresh()->email);
         $this->assertFalse(Password::tokenExists($user, $reset));
-        Mail::assertSent(AccountMail::class, fn (AccountMail $mail) => $mail->hasTo('old@example.test') && $mail->title === 'メールアドレス変更のお知らせ');
+        Mail::assertSent(AccountMail::class, fn (AccountMail $mail) => $mail->hasTo('old@example.test') && $mail->kind === 'email_changed');
     }
 
     public function test_resend_and_cancel_invalidate_old_links(): void
@@ -80,11 +80,11 @@ class AccountEmailTest extends TestCase
         $user = $this->member();
         Sanctum::actingAs($user);
         $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertOk();
-        $old = $this->linkData('メールアドレスを確認');
+        $old = $this->linkData('verify');
         $this->postJson('/v1/auth/me/email/resend')->assertTooManyRequests();
         $this->travel(61)->seconds();
         $this->postJson('/v1/auth/me/email/resend')->assertOk();
-        $latest = $this->linkData('メールアドレスを確認');
+        $latest = $this->linkData('verify');
         $this->postJson('/v1/auth/email/verify', $old)->assertUnprocessable();
         $this->deleteJson('/v1/auth/me/email')->assertOk();
         $this->postJson('/v1/auth/email/verify', $latest)->assertUnprocessable();
@@ -98,7 +98,7 @@ class AccountEmailTest extends TestCase
         $user = $this->member();
         Sanctum::actingAs($user);
         $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertOk();
-        $link = $this->linkData('メールアドレスを確認');
+        $link = $this->linkData('verify');
         $other = $this->member(['email' => 'NEXT@example.test']);
         $this->postJson('/v1/auth/email/verify', $link)->assertUnprocessable();
         $this->assertNull($user->fresh()->email_verified_at);
@@ -163,13 +163,13 @@ class AccountEmailTest extends TestCase
         $user->createToken('first');
         $user->createToken('second');
         $this->postJson('/v1/auth/password/forgot', ['email' => $user->email])->assertOk();
-        $data = $this->linkData('パスワードを再設定') + ['password' => 'River-otter-password-2026!', 'password_confirmation' => 'River-otter-password-2026!'];
+        $data = $this->linkData('reset') + ['password' => 'River-otter-password-2026!', 'password_confirmation' => 'River-otter-password-2026!'];
         $this->postJson('/v1/auth/password/reset', $data)->assertOk();
         $this->assertTrue(Hash::check('River-otter-password-2026!', $user->fresh()->password));
         $this->assertSame(0, $user->tokens()->count());
         $this->assertNull($user->fresh()->pending_email);
         $this->postJson('/v1/auth/password/reset', $data)->assertUnprocessable();
-        Mail::assertSent(AccountMail::class, fn (AccountMail $mail) => $mail->title === 'パスワード再設定完了');
+        Mail::assertSent(AccountMail::class, fn (AccountMail $mail) => $mail->kind === 'reset_complete');
         $this->postJson('/v1/auth/login', ['login' => $user->username, 'password' => 'password'])->assertUnprocessable();
         $this->postJson('/v1/auth/login', ['login' => $user->username, 'password' => 'River-otter-password-2026!'])->assertOk();
     }
@@ -179,12 +179,12 @@ class AccountEmailTest extends TestCase
         Mail::fake();
         $user = $this->member(['email_verified_at' => now()]);
         $this->postJson('/v1/auth/password/forgot', ['email' => $user->email])->assertOk();
-        $old = $this->linkData('パスワードを再設定');
+        $old = $this->linkData('reset');
         $this->postJson('/v1/auth/password/forgot', ['email' => $user->email])->assertOk();
         Mail::assertSentCount(1);
         $this->travel(61)->seconds();
         $this->postJson('/v1/auth/password/forgot', ['email' => $user->email])->assertOk();
-        $latest = $this->linkData('パスワードを再設定');
+        $latest = $this->linkData('reset');
         $password = ['password' => 'River-otter-password-2026!', 'password_confirmation' => 'River-otter-password-2026!'];
         $this->postJson('/v1/auth/password/reset', $old + $password)->assertUnprocessable();
         $this->travel(31)->minutes();
@@ -213,7 +213,7 @@ class AccountEmailTest extends TestCase
         GroupMember::query()->create(['group_id' => $user->membership->group_id, 'user_id' => $admin->id, 'role' => 'admin', 'status' => 'active']);
         Sanctum::actingAs($user);
         $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])->assertOk();
-        $verify = $this->linkData('メールアドレスを確認');
+        $verify = $this->linkData('verify');
         $reset = Password::createToken($user);
         app(GroupMembershipService::class)->changeStatus($admin, $user->membership, 'inactive');
         $this->postJson('/v1/auth/email/verify', $verify)->assertUnprocessable();
@@ -239,9 +239,9 @@ class AccountEmailTest extends TestCase
     public function test_mail_renders_fragment_link_without_query_token(): void
     {
         Mail::fake();
-        $mail = new AccountMail('メールアドレスを確認', '確認してください。', 'https://famie.example.test/verify-email#id=1&token=secret');
+        $mail = new AccountMail('verify', 'ja', 'https://famie.example.test/verify-email#id=1&token=secret', ['username' => 'test-user', 'minutes' => 60]);
         $mail->assertSeeInHtml('https://famie.example.test/verify-email#id=1');
-        $mail->assertSeeInText('確認してください。');
+        $mail->assertSeeInText('有効期限は60分です。');
         Mail::assertNothingSent();
     }
 
@@ -279,7 +279,7 @@ class AccountEmailTest extends TestCase
         $this->postJson('/v1/auth/me/email', ['email' => 'OTHER@example.test', 'current_password' => 'password'])->assertOk();
         $this->travel(61)->seconds();
         $this->postJson('/v1/auth/me/email', ['email' => 'new@example.test', 'current_password' => 'password'])->assertOk();
-        $link = $this->linkData('メールアドレスを確認');
+        $link = $this->linkData('verify');
         $link['id'] = $other->id;
         $this->postJson('/v1/auth/email/verify', $link)->assertUnprocessable();
         $this->assertSame('other@example.test', $other->fresh()->email);
@@ -334,7 +334,7 @@ class AccountEmailTest extends TestCase
 
     private function linkData(string $title): array
     {
-        $mail = Mail::sent(AccountMail::class, fn (AccountMail $mail) => $mail->title === $title)->last();
+        $mail = Mail::sent(AccountMail::class, fn (AccountMail $mail) => $mail->kind === $title)->last();
         $this->assertNotNull($mail);
         parse_str(parse_url($mail->actionUrl, PHP_URL_FRAGMENT), $data);
 

@@ -34,7 +34,7 @@ test('guest language is persisted, automatic follows only the preferred browser 
   await expect(page).toHaveURL(/\/login\/?$/)
   await closeLanguage(page)
   await page.getByRole('link', { name: 'Forgot your password?' }).click()
-  await expect(page.getByText('Emails are currently sent in Japanese.')).toBeVisible()
+  await expect(page.getByText('Emails are currently sent in Japanese.')).toHaveCount(0)
   await openLanguage(page)
   await expect(page.getByRole('combobox', { name: 'Language', exact: true })).toHaveValue('auto')
   await expect(page).toHaveTitle('Reset your password | Famie')

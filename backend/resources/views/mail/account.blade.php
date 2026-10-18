@@ -1,4 +1,8 @@
-<x-mail::message>
+<x-mail::layout>
+<x-slot:header>
+<x-mail::header :url="config('famie.frontend_url')">Famie</x-mail::header>
+</x-slot:header>
+
 # {{ $title }}
 
 {{ $messageText }}
@@ -8,10 +12,15 @@
 {{ $title }}
 </x-mail::button>
 
-このメールに心当たりがない場合は、リンクを操作せず破棄してください。
+{{ __('mail.ignore_link') }}
 @else
-この操作に心当たりがない場合は、ログイン画面からパスワードを再設定してください。
+{{ __('mail.unrecognized_action') }}
 @endif
 
 Famie
-</x-mail::message>
+<x-slot:footer>
+<x-mail::footer>
+© {{ date('Y') }} Famie. {{ __('mail.rights') }}
+</x-mail::footer>
+</x-slot:footer>
+</x-mail::layout>

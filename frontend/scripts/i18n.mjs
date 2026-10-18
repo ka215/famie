@@ -88,7 +88,7 @@ checkReferences(
 )
 checkReferences(
   `${frontend}/../backend/app`,
-  /__\(\s*['"]((?:messages|errors|validation)\.[\w.]+)['"]/g,
+  /__\(\s*['"]((?:messages|errors|validation|mail|categories)\.[\w.]+)['"]/g,
   flatten(backend.catalogs[fallbackLocale])
 )
 
