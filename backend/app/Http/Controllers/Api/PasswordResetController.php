@@ -21,11 +21,11 @@ class PasswordResetController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $data = $request->validate(['email' => ['required', 'string', 'email:rfc', 'max:255']], ['email.*' => '有効なメールアドレスを255文字以内で入力してください。']);
+        $data = $request->validate(['email' => ['required', 'string', 'email:rfc', 'max:255']], ['email.*' => __('messages.email_invalid')]);
         $email = strtolower(trim($data['email']));
         defer(fn () => $this->sendResetLink($email));
 
-        return response()->json(['message' => '再設定が可能な場合、メールを送信しました。届かない場合は迷惑メールを確認し、60秒以上待って再試行してください。']);
+        return response()->json(['message' => __('messages.reset_accepted')]);
     }
 
     private function sendResetLink(string $email): void
@@ -57,11 +57,11 @@ class PasswordResetController extends Controller
         $data = $request->validate([
             'id' => ['required', 'integer'], 'token' => ['required', 'string', 'size:64'],
             'password' => ['required', 'string', new StrongPassword, 'confirmed'],
-        ], ['password.confirmed' => '確認用パスワードが一致しません。']);
+        ], ['password.confirmed' => __('messages.password_confirmation')]);
         $user = User::query()->find($data['id']);
-        abort_unless($user, 422, AccountEmailService::INVALID_LINK);
+        abort_unless($user, 422, __(AccountEmailService::INVALID_LINK));
         $email = $this->emails->withActiveUser($user, function (User $user) use ($data): string {
-            abort_unless($user->email && $user->email_verified_at && Password::tokenExists($user, $data['token']), 422, AccountEmailService::INVALID_LINK);
+            abort_unless($user->email && $user->email_verified_at && Password::tokenExists($user, $data['token']), 422, __(AccountEmailService::INVALID_LINK));
             $this->emails->clearChallenges($user);
             $user->forceFill(['password' => $data['password'], 'remember_token' => Str::random(60), 'password_is_weak' => false, 'password_warning_snoozed_until' => null])->save();
             $user->tokens()->delete();
@@ -70,6 +70,6 @@ class PasswordResetController extends Controller
         }, true);
         $this->emails->deliver($email, new AccountMail('パスワード再設定完了', 'パスワードを再設定しました。すべての端末で再ログインが必要です。'));
 
-        return response()->json(['message' => 'パスワードを再設定しました。新しいパスワードでログインしてください。']);
+        return response()->json(['message' => __('messages.password_reset')]);
     }
 }

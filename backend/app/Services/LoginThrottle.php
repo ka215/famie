@@ -47,7 +47,7 @@ class LoginThrottle
     private function blocked(int $seconds): JsonResponse
     {
         return response()->json([
-            'message' => 'ログイン試行回数が上限に達しました。時間を置いて再試行してください。',
+            'message' => __('messages.login_limited'),
         ], 429, ['Retry-After' => (string) max(1, $seconds)]);
     }
 }

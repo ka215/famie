@@ -15,15 +15,15 @@ use Throwable;
 
 class AccountEmailService
 {
-    public const INVALID_LINK = 'リンクが無効か、有効期限が切れています。もう一度申請してください。';
+    public const INVALID_LINK = 'messages.invalid_link';
 
     public function withActiveUser(User $user, Closure $callback, bool $public = false): mixed
     {
         return DB::transaction(function () use ($user, $callback, $public): mixed {
             $membership = $user->membership()->first();
-            abort_unless($membership, $public ? 422 : 403, $public ? self::INVALID_LINK : 'このアカウントは現在利用できません。');
+            abort_unless($membership, $public ? 422 : 403, $public ? __(self::INVALID_LINK) : __('messages.account_unavailable'));
             Group::query()->whereKey($membership->group_id)->lockForUpdate()->firstOrFail();
-            abort_unless($user->activeMembership()->exists(), $public ? 422 : 403, $public ? self::INVALID_LINK : 'このアカウントは現在利用できません。');
+            abort_unless($user->activeMembership()->exists(), $public ? 422 : 403, $public ? __(self::INVALID_LINK) : __('messages.account_unavailable'));
 
             return $callback(User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail());
         });

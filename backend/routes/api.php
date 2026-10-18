@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\RewardController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Middleware\SetUiLocale;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -23,7 +24,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/register/username-availability', [AuthController::class, 'usernameAvailability'])->middleware('throttle:30,1');
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', SetUiLocale::class.':authenticated'])->group(function () {
         Route::post('/auth/me/email', [EmailController::class, 'store'])->middleware('throttle:account-mail-ip');
         Route::post('/auth/me/email/resend', [EmailController::class, 'resend'])->middleware('throttle:account-mail-ip');
         Route::delete('/auth/me/email', [EmailController::class, 'destroy'])->middleware('throttle:10,1');

@@ -1,6 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
+import en from './i18n/locales/en.json'
+import ja from './i18n/locales/ja.json'
 import { version } from './package.json'
+import { fallbackLocale, uiLocales } from './shared/utils/locale'
 
 const isProduction = import.meta.env.NODE_ENV === 'production'
 const appShortName = 'Famie'
@@ -52,7 +55,14 @@ export default defineNuxtConfig({
     // }
   },
 
-  modules: ['@vite-pwa/nuxt'],
+  modules: ['@vite-pwa/nuxt', '@nuxtjs/i18n'],
+  i18n: {
+    strategy: 'no_prefix',
+    defaultLocale: fallbackLocale,
+    locales: uiLocales.map(({ code, name, intl }) => ({ code, name, language: intl })),
+    detectBrowserLanguage: false,
+    vueI18n: './i18n.config.ts',
+  },
 
   css: ['~/assets/css/main.css'],
 
@@ -87,8 +97,8 @@ export default defineNuxtConfig({
       scope: '/',
       name: 'Famie',
       short_name: appShortName,
-      description: '家族のデイリーアクティビティ記録アプリ',
-      lang: 'ja',
+      description: `${ja.static.description} / ${en.static.description}`,
+      lang: fallbackLocale,
       theme_color: '#3B82F6',
       background_color: '#FFFFFF',
       display: 'standalone',

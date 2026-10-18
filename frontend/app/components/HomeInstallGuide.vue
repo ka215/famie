@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t, locale } = useI18n()
+
 import qrImage from '~/assets/icons/famie-qr.svg'
 
 const qrCode = qrImage
@@ -30,49 +32,50 @@ const installApp = async () => {
   try {
     const choice = await $pwa?.install()
     installMessage.value =
-      choice?.outcome === 'accepted'
-        ? '追加を受け付けました。ホーム画面をご確認ください。'
-        : '追加は行われませんでした。ブラウザのメニューからも追加できます。'
+      choice?.outcome === 'accepted' ? t('install.accepted') : t('install.dismissed')
   } catch {
-    installMessage.value = '追加ダイアログを開けませんでした。下の手順で追加してください。'
+    installMessage.value = t('install.failed')
   } finally {
     isInstalling.value = false
   }
 }
+watch(locale, () => {
+  installMessage.value = ''
+})
 </script>
 
 <template>
-  <section v-if="!isStandalone" aria-label="ホーム画面への追加ガイド" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
-    <h2 class="font-bold text-slate-800 dark:text-slate-100">ホーム画面に追加してご利用ください</h2>
-    <p class="text-sm text-slate-600 dark:text-slate-300">アイコンからFamieを開けます。ログイン済みならタイムライン、未ログインならログイン画面が開きます。</p>
+  <section v-if="!isStandalone" :aria-label="t('install.guideLabel')" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+    <h2 class="font-bold text-slate-800 dark:text-slate-100">{{ t('install.title') }}</h2>
+    <p class="text-sm text-slate-600 dark:text-slate-300">{{ t('install.intro') }}</p>
     <figure class="flex flex-col items-center gap-2">
-      <img :src="qrCode" width="160" height="160" alt="Famieのトップページを開くQRコード" class="bg-white">
-      <figcaption class="text-xs text-slate-500 dark:text-slate-400">別の端末で開く場合は読み取ってください。</figcaption>
+      <img :src="qrCode" width="160" height="160" :alt="t('install.qrLabel')" class="bg-white">
+      <figcaption class="text-xs text-slate-500 dark:text-slate-400">{{ t('install.qrHelp') }}</figcaption>
       <a href="https://famie.co/" class="text-sm text-blue-600 dark:text-blue-300 underline">https://famie.co/</a>
     </figure>
     <button v-if="canInstall" type="button" :disabled="isInstalling" class="w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white disabled:opacity-50" @click="installApp">
-      {{ isInstalling ? '追加を確認中…' : 'ホーム画面に追加する' }}
+      {{ isInstalling ? t('install.checking') : t('install.submit') }}
     </button>
     <p v-if="installMessage" role="status" class="text-sm text-slate-600 dark:text-slate-300">{{ installMessage }}</p>
-    <div class="flex gap-2" role="group" aria-label="手順を表示する端末">
+    <div class="flex gap-2" role="group" :aria-label="t('install.device')">
       <button v-for="device in (['iphone', 'android'] as const)" :key="device" type="button" :aria-pressed="guideDevice === device" class="flex-1 rounded-lg border px-3 py-2 text-sm" :class="guideDevice === device ? 'border-blue-600 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'" @click="guideDevice = device">
         {{ device === 'iphone' ? 'iPhone' : 'Android' }}
       </button>
     </div>
     <div v-if="guideDevice === 'iphone'" class="rounded-xl bg-blue-50 dark:bg-blue-950 p-4 space-y-3">
-      <p class="text-sm font-semibold text-blue-900 dark:text-blue-100">Safariで開き、次の順にタップしてください。</p>
-      <div class="flex flex-wrap items-center gap-2 text-sm text-blue-900 dark:text-blue-100" aria-label="共有、ホーム画面に追加の順にタップ">
-        <span class="rounded-lg bg-white dark:bg-slate-800 px-3 py-2">共有ボタン</span>
+      <p class="text-sm font-semibold text-blue-900 dark:text-blue-100">{{ t('install.iosIntro') }}</p>
+      <div class="flex flex-wrap items-center gap-2 text-sm text-blue-900 dark:text-blue-100" :aria-label="t('install.iosDiagram')">
+        <span class="rounded-lg bg-white dark:bg-slate-800 px-3 py-2">{{ t('install.shareButton') }}</span>
         <span aria-hidden="true">→</span>
-        <span class="rounded-lg bg-white dark:bg-slate-800 px-3 py-2">ホーム画面に追加</span>
+        <span class="rounded-lg bg-white dark:bg-slate-800 px-3 py-2">{{ t('install.addAction') }}</span>
       </div>
-      <p class="text-sm text-slate-600 dark:text-slate-300">共有ボタンが見つからない場合はブラウザのメニューを開きます。続いて画面の案内に沿って「追加」をタップしてください。</p>
+      <p class="text-sm text-slate-600 dark:text-slate-300">{{ t('install.iosHelp') }}</p>
     </div>
     <ol v-else class="list-decimal pl-5 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-      <li>Chromeなどの対応ブラウザでFamieを開きます。</li>
-      <li>上の追加ボタンが表示されている場合はタップします。表示されない場合はブラウザのメニュー（︙）を開きます。</li>
-      <li>「ホーム画面に追加」または「アプリをインストール」を選び、画面の案内に沿って追加します。</li>
+      <li>{{ t('install.androidIntro') }}</li>
+      <li>{{ t('install.androidMenu') }}</li>
+      <li>{{ t('install.androidAction') }}</li>
     </ol>
-    <p class="text-xs text-slate-500 dark:text-slate-400">端末やブラウザによって表示が異なります。追加済みの場合など、追加ボタンが表示されないことがあります。</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400">{{ t('install.compatibility') }}</p>
   </section>
 </template>

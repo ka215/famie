@@ -1,7 +1,9 @@
 <script setup lang="ts">
 const { isMaintenance } = useMaintenance()
 const { theme } = useTheme()
+const { effective } = useUiLocale()
 useHead(() => ({
+  htmlAttrs: { lang: effective.value },
   meta: [{ name: 'theme-color', content: theme.value === 'dark' ? '#020617' : '#f8fafc' }],
 }))
 </script>

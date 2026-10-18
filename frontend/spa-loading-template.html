@@ -1,11 +1,23 @@
 <style>
   html { background: #f8fafc; color: #1e293b; color-scheme: light; }
-  .app-loading { padding: 2rem; text-align: center; font-family: system-ui, sans-serif; }
   html[data-theme="dark"] { background: #020617; color: #f1f5f9; color-scheme: dark; }
   @media (prefers-color-scheme: dark) {
     html:not([data-theme]) { background: #020617; color: #f1f5f9; color-scheme: dark; }
   }
+  .app-loading {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    font-family: system-ui, sans-serif;
+  }
+  .app-loading img { width: 4rem; height: 4rem; }
+  .app-loading span { font-size: 2.5rem; font-weight: 700; line-height: 1; }
 </style>
-<div class="app-loading" role="status" aria-live="polite">
-  <p>Famie を読み込んでいます…</p>
+<div class="app-loading" role="status">
+  <img src="/icon.svg" width="64" height="64" alt="">
+  <span>Famie</span>
 </div>

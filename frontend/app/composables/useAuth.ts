@@ -8,6 +8,7 @@ import type {
 import type { RegisterForm } from '#shared/types/forms'
 
 export const useAuth = () => {
+  const t = useNuxtApp().$i18n.t
   const user = useState<User | null>('auth_user', () => null)
   const membership = useState<Membership | null>('auth_membership', () => null)
   const accessError = useState<string>('auth_access_error', () => '')
@@ -69,15 +70,22 @@ export const useAuth = () => {
     }
   }
 
-  const fetchUser = async () => {
+  const fetchUser = async (keepPublicPage = false) => {
     if (!token.value) return null
+    const requestToken = token.value
     try {
-      const res = await fetchApi<CurrentUserResponse>('/auth/me')
+      const res = await fetchApi<CurrentUserResponse>(
+        '/auth/me',
+        {},
+        { redirectOnUnauthorized: !keepPublicPage }
+      )
+      if (requestToken !== token.value) return null
       user.value = res.user
       membership.value = res.membership
       return res.user
     } catch (error: unknown) {
       if (isMaintenance.value) throw error
+      if (requestToken !== token.value) return null
       user.value = null
       membership.value = null
       const status =
@@ -88,12 +96,10 @@ export const useAuth = () => {
       if (status === 403 || status === 409) {
         token.value = null
         accessError.value =
-          status === 403
-            ? 'このアカウントは現在利用できません。家族の管理者へ確認してください。'
-            : '所属情報を特定できません。管理者へ連絡してください。'
+          status === 403 ? t('errors.accountUnavailable') : t('errors.membershipUnknown')
         return null
       }
-      throw new Error('認証情報を確認できませんでした。通信環境を確認してください。')
+      throw new Error(t('errors.authCheckFailed'))
     }
   }
 

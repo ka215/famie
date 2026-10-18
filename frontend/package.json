@@ -5,9 +5,9 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"build": "nuxt generate",
+		"build": "pnpm i18n:generate && nuxt generate",
 		"dev": "nuxt dev",
-		"generate": "nuxt generate",
+		"generate": "pnpm i18n:generate && nuxt generate",
 		"preview": "nuxt preview",
 		"postinstall": "nuxt prepare",
 		"lint": "biome check .",
@@ -18,9 +18,12 @@
 		"test:e2e:ui": "playwright test --ui",
 		"test:e2e:install": "playwright install chromium webkit",
 		"test:unit": "node --test tests/unit/*.test.ts",
-		"test:api": "redocly lint ../docs/api/openapi.yaml --extends spec && node ../scripts/check-api-contract.mjs"
+		"test:api": "redocly lint ../docs/api/openapi.yaml --extends spec && node ../scripts/check-api-contract.mjs",
+		"i18n:generate": "node scripts/i18n.mjs --write",
+		"i18n:check": "node scripts/i18n.mjs"
 	},
 	"dependencies": {
+		"@nuxtjs/i18n": "10.6.0",
 		"@tailwindcss/vite": "^4.3.3",
 		"libheif-js": "^1.23.5",
 		"nuxt": "^4.6.1",

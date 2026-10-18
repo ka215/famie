@@ -1,14 +1,12 @@
 <script setup lang="ts">
+const { t, locale } = useI18n()
+
 import loadingSpinnerIcon from '~/assets/icons/loading-spinner.svg'
 
 const spinnerSrc = loadingSpinnerIcon
 
-withDefaults(
-  defineProps<{
-    label?: string
-  }>(),
-  { label: '読み込み中...' }
-)
+const props = defineProps<{ label?: string }>()
+const label = computed(() => props.label ?? t('common.loading'))
 </script>
 
 <template>

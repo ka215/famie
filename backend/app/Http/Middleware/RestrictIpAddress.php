@@ -23,7 +23,7 @@ class RestrictIpAddress
         $clientIp = $request->ip();
 
         if (empty($allowedIps) || ! in_array($clientIp, $allowedIps, true)) {
-            abort(403, 'Access denied: Your IP address is not authorized.');
+            abort(403, __('errors.ip_forbidden'));
         }
 
         return $next($request);

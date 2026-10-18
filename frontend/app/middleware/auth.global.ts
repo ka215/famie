@@ -1,4 +1,5 @@
 export default defineNuxtRouteMiddleware(async (to) => {
+  const t = useNuxtApp().$i18n.t
   const token = useCookie<string | null>('auth_token')
   const { user, fetchUser } = useAuth()
   const { isMaintenance } = useMaintenance()
@@ -24,16 +25,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
       return abortNavigation(
         createError({
           statusCode: 503,
-          statusMessage: 'サービスの状態を確認できませんでした。通信環境を確認してください。',
+          statusMessage: t('errors.statusCheckFailed'),
+          data: { reason: 'status-check' },
         })
       )
     }
   }
 
-  if (token.value && !user.value && !publicPaths.includes(path)) {
+  if (token.value && !user.value && !['/login', '/register'].includes(path)) {
     try {
-      const fetchedUser = await fetchUser()
+      const fetchedUser = await fetchUser(accountPaths.includes(path))
       if (!fetchedUser) {
+        if (accountPaths.includes(path)) return
         return navigateTo('/login')
       }
     } catch {
@@ -41,7 +44,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
       return abortNavigation(
         createError({
           statusCode: 503,
-          statusMessage: '認証情報を確認できませんでした。通信環境を確認してください。',
+          statusMessage: t('errors.authCheckFailed'),
+          data: { reason: 'auth-check' },
         })
       )
     }

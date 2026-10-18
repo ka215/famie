@@ -2,12 +2,14 @@ openapi: 3.1.1
 info:
   title: Famie API
   version: 0.16.0
-  description: |
+  description: |-
     現行v1 API契約。公開環境は/api/v1、Laravel直接アクセスは/v1。
     Accept: application/jsonを送る。Bearer認証でactiveな所属が1件必要。
     groups/{group}は本人の所属家族のみ。admin制約、所有者制約は各操作に記載する。
     認証済み家族APIアクセスはリワード期間準備を開始し、活動・いいね変更は達成判定を行う場合がある。
     グループ内の更新は直列化される。設定値に依存する上限は家族情報と運用設定を参照する。
+
+    利用者向けの共通・認証・設定応答はAccept-Languageと本人の固定言語設定で日英を選択し、Content-Languageを返す。未指定・未対応言語はen。認証応答は共有キャッシュ禁止。v0.17.0では活動・画像・リワード固有文言と配信メールは対象外。
 servers:
   - url: https://famie.co/api/v1
     description: 本番
@@ -43,6 +45,8 @@ paths:
               schema: {type: object, properties: {status: {type: string, const: ok}}}
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/login':
     post:
       operationId: login
@@ -67,6 +71,8 @@ paths:
         "429":
           $ref: '#/components/responses/RateLimited'
       description: 同一アカウント＋IPで10分間に5回失敗すると10分停止。ログインIDとメールは同一アカウントとして計数。IP全体は60回/分。成功時に失敗回数を消去し、既存パスワードの強度を判定する。値はサーバー設定で変更可能。
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/register':
     post:
       operationId: register
@@ -90,6 +96,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/register/username-availability':
     post:
       operationId: usernameAvailability
@@ -113,6 +121,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/logout':
     post:
       operationId: logout
@@ -127,6 +137,8 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/me':
     get:
       operationId: getMe
@@ -147,12 +159,12 @@ paths:
       summary: 表示名・敬称を変更
       tags: [auth]
       description: >-
-        少なくとも1項目必須。指定外項目は禁止。show_name_suffixはJSON booleanのみ。
+        少なくとも1項目必須。指定外項目は禁止。show_name_suffixはJSON booleanのみ。 言語設定ui_localeは省略で保持、nullで自動、ja/enで固定。空文字や地域付きコードは422。本人のみに適用する。
       requestBody:
         required: true
         content:
           application/json:
-            schema: {type: object, properties: {display_name: {type: string, minLength: 1, maxLength: 50}, show_name_suffix: {type: boolean}}, additionalProperties: false, minProperties: 1}
+            schema: {type: object, properties: {display_name: {type: string, minLength: 1, maxLength: 50}, show_name_suffix: {type: boolean}, ui_locale: {type: [string, "null"], enum: [ja, en, null]}}, additionalProperties: false, minProperties: 1}
       responses:
         '200':
           description: 成功
@@ -164,6 +176,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/me/password':
     put:
       operationId: updatePassword
@@ -189,6 +203,8 @@ paths:
         '422': {$ref: '#/components/responses/Validation'}
         "429":
           $ref: '#/components/responses/RateLimited'
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/me/email':
     post:
       operationId: requestEmail
@@ -228,6 +244,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '429': {$ref: '#/components/responses/RateLimited'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/me/email/resend':
     post:
       operationId: resendEmail
@@ -246,6 +264,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/email/verify':
     post:
       operationId: verifyEmail
@@ -269,6 +289,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/password/forgot':
     post:
       operationId: forgotPassword
@@ -292,6 +314,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/auth/password/reset':
     post:
       operationId: resetPassword
@@ -315,9 +339,12 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   '/groups/{group}':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getGroup
       summary: 所属家族の情報・制限を取得
@@ -357,6 +384,7 @@ paths:
   '/groups/{group}/members':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getMembers
       summary: activeメンバーを所属ID順で取得
@@ -396,6 +424,7 @@ paths:
   '/groups/{group}/members/inactive':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getInactiveMembers
       summary: 無効メンバーを取得
@@ -416,6 +445,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: member, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     patch:
       operationId: updateMember
       summary: 表示名・役割を変更
@@ -442,6 +472,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: member, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     put:
       operationId: updateMemberStatus
       summary: メンバーを無効化・復元
@@ -467,6 +498,7 @@ paths:
   '/groups/{group}/categories':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getCategories
       summary: sort_order・ID順でカテゴリを取得
@@ -507,6 +539,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: category, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     put:
       operationId: updateCategory
       summary: カテゴリ名・色を変更
@@ -549,6 +582,7 @@ paths:
   '/groups/{group}/logs':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getActivities
       summary: 活動を降順・50件ページングで取得
@@ -604,6 +638,7 @@ paths:
   '/groups/{group}/gallery':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getGallery
       summary: 画像付き活動をページング取得
@@ -630,6 +665,7 @@ paths:
   '/groups/{group}/logs/counts':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getActivityCounts
       summary: 日別件数を取得
@@ -656,6 +692,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: log, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getActivity
       summary: 家族内の活動詳細を取得
@@ -760,6 +797,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: image, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getImage
       summary: 認証付きWebP画像を取得
@@ -780,6 +818,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: log, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     put:
       operationId: likeActivity
       summary: 他者の活動へいいねを付与
@@ -819,6 +858,7 @@ paths:
   '/groups/{group}/rewards':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getRewards
       summary: 対象者の条件と現在進捗を取得
@@ -872,6 +912,7 @@ paths:
   '/groups/{group}/rewards/manage':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: manageRewards
       summary: 管理用リワード一覧を取得
@@ -895,6 +936,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: reward, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     put:
       operationId: updateReward
       summary: リワード条件を更新・予約
@@ -945,6 +987,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: reward, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     put:
       operationId: updateRewardStatus
       summary: 有効化・停止・再開
@@ -971,6 +1014,7 @@ paths:
   '/groups/{group}/rewards/awards':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getAwards
       summary: 獲得履歴を取得
@@ -994,6 +1038,7 @@ paths:
   '/groups/{group}/rewards/notifications':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     post:
       operationId: getRewardNotifications
       summary: 本人の未読達成通知を取得して既読確定
@@ -1014,6 +1059,7 @@ paths:
   '/groups/{group}/rewards/prepare':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     post:
       operationId: prepareRewards
       summary: 期間切替準備を開始・再試行
@@ -1056,10 +1102,13 @@ paths:
           $ref: '#/components/responses/RateLimited'
         "503":
           $ref: '#/components/responses/Unavailable'
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
   /groups/{group}/members/{member}/password:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: member, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     put:
       operationId: reissueMemberPassword
       summary: 親が自分以外の有効メンバーのパスワードを再発行
@@ -1104,6 +1153,7 @@ paths:
   /groups/{group}/security-alerts:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
     get:
       operationId: getLoginSecurityAlerts
       summary: 親本人宛ての未確認ログイン安全性通知を取得
@@ -1151,6 +1201,7 @@ paths:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
       - {name: alert, in: path, required: true, schema: {type: string, format: uuid}}
+      - $ref: '#/components/parameters/UiLanguage'
     put:
       operationId: markLoginSecurityAlertRead
       summary: 親本人宛ての通知を確認済みにする
@@ -1214,7 +1265,7 @@ components:
       description: 15文字以上・UTF-8で72バイト以内。よく使われる語、単純な繰り返し・連番・制御文字は禁止。文字種の組合せは強制しない。ログイン時の既存パスワードには適用しない。
     User:
       type: object
-      required: [id, username, display_name]
+      required: [id, username, display_name, ui_locale]
       properties:
         id: {$ref: '#/components/schemas/Id'}
         username: {type: string}
@@ -1241,6 +1292,16 @@ components:
                 - string
                 - "null"
               format: date-time
+        ui_locale:
+          type:
+            - string
+            - "null"
+          enum:
+            - ja
+            - en
+            - null
+          maxLength: 35
+          description: 本人の表示言語。nullは自動。
     Group:
       type: object
       required: [id, name, type]
@@ -1286,7 +1347,7 @@ components:
             token_type: {type: string, const: Bearer}
     Member:
       allOf:
-        - $ref: '#/components/schemas/User'
+        - $ref: '#/components/schemas/PublicUser'
         - type: object
           required: [membership_id, role]
           properties:
@@ -1480,6 +1541,20 @@ components:
             - starts_on
             - ends_on
             - timezone
+    PublicUser:
+      type: object
+      required:
+        - id
+        - username
+        - display_name
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        username:
+          type: string
+        display_name:
+          type: string
+          maxLength: 50
   responses:
     Unauthorized:
       description: Bearer未指定・失効
@@ -1518,3 +1593,12 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
+  parameters:
+    UiLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: 表示言語の希望。認証後の本人固定設定が優先。自動・未認証は最優先タグのja系をja、その他をenとする。
+      schema:
+        type: string
+      example: ja
