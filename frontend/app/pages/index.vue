@@ -1,9 +1,10 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 import type { ActivityLog, Category, FamilyMember, PaginatedResponse } from '#shared/types/api'
 import type { FilterPeriod } from '#shared/types/forms'
 import {
   formatLocalDate,
-  getCalendarDisplayLocale,
   getFirstDayOfWeek,
   getMonthRange,
   getPreferredLocale,
@@ -51,6 +52,7 @@ const retryList = async () => {
 const logs = ref<ActivityLog[]>([])
 const {
   operations: likeOperations,
+  errorFor: likeError,
   stateFor: likeState,
   toggle: toggleLike,
   beginRead,
@@ -69,11 +71,19 @@ const openCreateModal = (event: MouseEvent) => {
   trigger.focus({ preventScroll: true })
   isModalOpen.value = true
 }
-const errorMessage = ref('')
+const errorMessage = useUiMessage()
 const currentPage = ref(1)
 const lastPage = ref(1)
 const total = ref(0)
-const locale = ref('ja-JP')
+const { intlLocale: locale } = useUiLocale()
+const formatCount = (value: number) => new Intl.NumberFormat(locale.value).format(value)
+const activityDateLabel = (value: string) =>
+  new Intl.DateTimeFormat(locale.value, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(parseLocalDate(value))
+useHead(() => ({ title: `${t('activity.title')} | Famie` }))
 const firstDayOfWeek = ref(0)
 const calendarYear = ref(new Date().getFullYear())
 const calendarMonth = ref(new Date().getMonth())
@@ -116,7 +126,7 @@ const fetchLogs = async (page = 1, day?: string | null) => {
   const from = activeDay || filterFrom.value
   const to = activeDay || filterTo.value
   if (from && to && from > to) {
-    errorMessage.value = '開始日は終了日以前の日付を指定してください。'
+    errorMessage.setKey('activity.invalidRange')
     return
   }
 
@@ -147,7 +157,7 @@ const fetchLogs = async (page = 1, day?: string | null) => {
     total.value = res.total
   } catch {
     if (requestId !== logRequestId) return
-    errorMessage.value = '記録の取得に失敗しました。通信環境を確認してください。'
+    errorMessage.setKey('activity.fetchFailed')
   } finally {
     if (requestId === logRequestId) isLoading.value = false
   }
@@ -170,7 +180,7 @@ const fetchMonthCounts = async () => {
     activityCounts.value = response.data
   } catch {
     if (requestId !== calendarRequestId) return
-    errorMessage.value = '月の記録件数の取得に失敗しました。もう一度操作してください。'
+    errorMessage.setKey('activity.countsFailed')
   } finally {
     if (requestId === calendarRequestId) isCalendarLoading.value = false
   }
@@ -181,7 +191,7 @@ const fetchCategories = async () => {
     categories.value = await fetchApi<Category[]>(groupPath('/categories'))
     return true
   } catch {
-    errorMessage.value = 'カテゴリの取得に失敗しました。'
+    errorMessage.setKey('activity.categoriesFailed')
     return false
   }
 }
@@ -191,7 +201,7 @@ const fetchMembers = async () => {
     familyMembers.value = await fetchApi<FamilyMember[]>(groupPath('/members'))
     return true
   } catch {
-    errorMessage.value = '家族メンバーの取得に失敗しました。'
+    errorMessage.setKey('activity.membersFailed')
     return false
   }
 }
@@ -270,7 +280,7 @@ const returnToCalendar = () => {
 
 const selectedDateLabel = computed(() =>
   selectedDate.value
-    ? new Intl.DateTimeFormat(getCalendarDisplayLocale(locale.value), {
+    ? new Intl.DateTimeFormat(locale.value, {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -282,7 +292,7 @@ const selectedDateLabel = computed(() =>
 const weekDateLabel = computed(() => {
   if (!selectedDate.value) return { date: '', weekday: '' }
   const date = parseLocalDate(selectedDate.value)
-  const displayLocale = getCalendarDisplayLocale(locale.value)
+  const displayLocale = locale.value
   return {
     date: new Intl.DateTimeFormat(displayLocale, {
       month: 'numeric',
@@ -321,8 +331,9 @@ watch([filterUserId, filterCategoryId], () => {
 
 const initialize = async () => {
   restoring.value = true
-  locale.value = getPreferredLocale(navigator.languages, navigator.language)
-  firstDayOfWeek.value = getFirstDayOfWeek(locale.value)
+  firstDayOfWeek.value = getFirstDayOfWeek(
+    getPreferredLocale(navigator.languages, navigator.language)
+  )
   selectedDate.value = formatLocalDate(new Date())
   setPeriodRange()
   const ready = await Promise.all([fetchCategories(), fetchMembers()])
@@ -367,56 +378,56 @@ onBeforeUnmount(() => {
   <div class="space-y-4">
     <div v-if="errorMessage" role="alert" class="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
       {{ errorMessage }}
-      <button type="button" class="underline" @click="retryList">再試行</button>
+      <button type="button" class="underline" @click="retryList">{{ t('activity.retry') }}</button>
     </div>
     <fieldset :disabled="restoring" :aria-busy="restoring" class="min-w-0 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">表示期間</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('activity.period') }}</span>
         <div class="flex space-x-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
           <button
             :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'this_week' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-300']"
             @click="selectPeriod('this_week')"
           >
-            今週
+            {{ t('activity.thisWeek') }}
           </button>
           <button
             :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'month' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-300']"
             @click="selectPeriod('month')"
           >
-            月表示
+            {{ t('activity.month') }}
           </button>
           <button
             :class="['px-2.5 py-1 text-xs rounded-md font-medium transition', filterPeriod === 'custom' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-300']"
             @click="selectPeriod('custom')"
           >
-            指定
+            {{ t('activity.custom') }}
           </button>
         </div>
       </div>
 
       <div v-if="filterPeriod === 'custom'" class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-        <input v-model="filterFrom" aria-label="開始日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 dark:border-slate-700 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input v-model="filterFrom" :aria-label="t('activity.from')" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 dark:border-slate-700 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
         <span class="text-slate-400 dark:text-slate-400 text-xs">〜</span>
-        <input v-model="filterTo" aria-label="終了日" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 dark:border-slate-700 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input v-model="filterTo" :aria-label="t('activity.to')" type="date" class="block min-w-0 max-w-full appearance-none px-2 py-1 border border-slate-200 dark:border-slate-700 text-xs rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
         <button class="col-span-3 justify-self-end px-3 py-1 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded-lg" @click="fetchLogs(1)">
-          適用
+          {{ t('activity.apply') }}
         </button>
       </div>
 
       <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
         <div>
-          <label class="block text-2xs font-semibold text-slate-500 dark:text-slate-400 mb-1">投稿者</label>
+          <label class="block text-2xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{{ t('activity.author') }}</label>
           <select v-model="filterUserId" class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800">
-            <option value="">全員</option>
+            <option value="">{{ t('activity.everyone') }}</option>
             <option v-for="member in familyMembers" :key="member.id" :value="String(member.id)">
-              {{ member.id === user?.id ? '自分' : member.display_name }}
+              {{ member.id === user?.id ? t('activity.me') : member.display_name }}
             </option>
           </select>
         </div>
         <div>
-          <label class="block text-2xs font-semibold text-slate-500 dark:text-slate-400 mb-1">カテゴリ</label>
+          <label class="block text-2xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{{ t('activity.category') }}</label>
           <select v-model="filterCategoryId" class="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800">
-            <option value="">全カテゴリ</option>
+            <option value="">{{ t('activity.allCategories') }}</option>
             <option v-for="cat in categories" :key="cat.id" :value="String(cat.id)">
               {{ cat.name }}
             </option>
@@ -430,7 +441,7 @@ onBeforeUnmount(() => {
       @click="openCreateModal"
     >
       <span aria-hidden="true" class="h-5 w-5 shrink-0 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="plusIconStyle" />
-      <span>アクティビティを記録する</span>
+      <span>{{ t('activity.record') }}</span>
     </button>
 
     <WeekCalendar
@@ -461,11 +472,11 @@ onBeforeUnmount(() => {
 
     <div v-if="filterPeriod === 'month' && isDayView" class="flex items-center justify-between gap-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-3">
       <div>
-        <p class="text-2xs font-semibold text-blue-600 dark:text-blue-300">指定日のアクティビティ</p>
+        <p class="text-2xs font-semibold text-blue-600 dark:text-blue-300">{{ t('activity.dayActivities') }}</p>
         <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ selectedDateLabel }}</h2>
       </div>
       <button type="button" class="shrink-0 rounded-lg border border-blue-300 dark:border-blue-500 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-medium text-blue-700 dark:text-blue-300" @click="returnToCalendar">
-        カレンダーに戻る
+        {{ t('activity.backCalendar') }}
       </button>
     </div>
 
@@ -482,7 +493,7 @@ onBeforeUnmount(() => {
         <LoadingIndicator v-if="isLoading" class="py-4" />
 
         <div v-else-if="logs.length === 0" class="text-center py-8 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 p-6">
-          <p class="text-slate-500 dark:text-slate-400 text-sm">該当する記録がありません。</p>
+          <p class="text-slate-500 dark:text-slate-400 text-sm">{{ t('activity.empty') }}</p>
         </div>
 
         <div v-else class="space-y-3">
@@ -505,7 +516,7 @@ onBeforeUnmount(() => {
               </div>
 
               <span class="ml-auto text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap">
-                {{ log.activity_date }} {{ log.activity_time ? log.activity_time.slice(0, 5) : '' }}
+                {{ activityDateLabel(log.activity_date) }} {{ log.activity_time ? log.activity_time.slice(0, 5) : '' }}
               </span>
             </div>
 
@@ -514,17 +525,17 @@ onBeforeUnmount(() => {
             </p>
 
             <p v-if="log.note" class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg">
-              メモ: {{ log.note }}
+              {{ t('activity.noteText', { note: log.note }) }}
             </p>
             <ActivityImageView v-if="log.image" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" />
             <div class="flex items-center justify-between">
               <ActivityLikeButton :state="likeState(log)" :own="log.user_id === user?.id" :pending="likeOperations[log.id]?.pending" :uncertain="likeOperations[log.id]?.uncertain" :waiting="likesWaiting" @toggle="toggleLike(log)" />
-              <NuxtLink v-if="log.user_id === user?.id" :to="`/logs/${log.id}`" @click="openDetail($event, log.id)" :aria-label="`${log.activity_date}の記録を編集`" class="edit-link flex h-11 w-11 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">
+              <NuxtLink v-if="log.user_id === user?.id" :to="`/logs/${log.id}`" @click="openDetail($event, log.id)" :aria-label="t('activity.editLabel', { date: activityDateLabel(log.activity_date) })" class="edit-link flex h-11 w-11 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">
                 <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="editIconStyle" />
               </NuxtLink>
             </div>
-            <p v-if="likeOperations[log.id]?.error" role="alert" class="relative z-1 text-xs text-red-600 dark:text-red-300">{{ likeOperations[log.id]?.error }}</p>
-            <p v-if="likesWaiting && log.user_id !== user?.id" role="status" class="text-xs text-slate-500 dark:text-slate-400">あと{{ likeWaitSeconds }}秒お待ちください。</p>
+            <p v-if="likeError(log.id)" role="alert" class="relative z-1 text-xs text-red-600 dark:text-red-300">{{ likeError(log.id) }}</p>
+            <p v-if="likesWaiting && log.user_id !== user?.id" role="status" class="text-xs text-slate-500 dark:text-slate-400">{{ t('activity.wait', { count: formatCount(likeWaitSeconds) }, likeWaitSeconds) }}</p>
           </article>
 
           <div v-if="lastPage > 1" class="flex items-center justify-between pt-2">
@@ -534,10 +545,10 @@ onBeforeUnmount(() => {
               class="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 disabled:opacity-40"
               @click="fetchLogs(currentPage - 1)"
             >
-              前へ
+              {{ t('activity.previous') }}
             </button>
             <span class="text-xs text-slate-500 dark:text-slate-400">
-              {{ currentPage }} / {{ lastPage }} ページ（全 {{ total }} 件）
+              {{ t('activity.pages', { page: formatCount(currentPage), pages: formatCount(lastPage), total: formatCount(total) }, total) }}
             </span>
             <button
               type="button"
@@ -545,7 +556,7 @@ onBeforeUnmount(() => {
               class="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 disabled:opacity-40"
               @click="fetchLogs(currentPage + 1)"
             >
-              次へ
+              {{ t('activity.next') }}
             </button>
           </div>
         </div>

@@ -19,19 +19,19 @@ class ActivityImageService
     public function prepare(UploadedFile $file): array
     {
         if (! extension_loaded('imagick') || ! in_array('WEBP', Imagick::queryFormats('WEBP'), true)) {
-            throw ValidationException::withMessages(['image' => ['画像変換を利用できません。']]);
+            throw ValidationException::withMessages(['image' => [__('messages.image_unavailable')]]);
         }
 
         $image = new Imagick;
         try {
             $image->readImage($file->getRealPath());
             if ($image->getNumberImages() !== 1 || ! in_array(strtoupper($image->getImageFormat()), ['JPEG', 'PNG', 'WEBP'], true)) {
-                throw ValidationException::withMessages(['image' => ['対応していない画像形式です。']]);
+                throw ValidationException::withMessages(['image' => [__('messages.image_unsupported')]]);
             }
             $width = $image->getImageWidth();
             $height = $image->getImageHeight();
             if ($width < 1 || $height < 1 || $width * $height > config('famie.image_max_pixels')) {
-                throw ValidationException::withMessages(['image' => ['画像の画素数が上限を超えています。']]);
+                throw ValidationException::withMessages(['image' => [__('messages.image_pixels')]]);
             }
             $image->autoOrient();
             if (max($image->getImageWidth(), $image->getImageHeight()) > config('famie.image_long_edge')) {
@@ -44,14 +44,14 @@ class ActivityImageService
             $disk = config('famie.image_disk');
             $path = 'activity-images/'.Str::uuid().'.webp';
             if (! Storage::disk($disk)->put($path, $blob)) {
-                throw ValidationException::withMessages(['image' => ['画像を保存できませんでした。']]);
+                throw ValidationException::withMessages(['image' => [__('messages.image_save_failed')]]);
             }
 
             return ['disk' => $disk, 'path' => $path, 'bytes' => strlen($blob), 'width' => $image->getImageWidth(), 'height' => $image->getImageHeight(), 'mime' => 'image/webp'];
         } catch (ValidationException $e) {
             throw $e;
         } catch (Throwable $e) {
-            throw ValidationException::withMessages(['image' => ['画像を読み込めませんでした。']]);
+            throw ValidationException::withMessages(['image' => [__('messages.image_load_failed')]]);
         } finally {
             $image->clear();
         }
@@ -63,10 +63,10 @@ class ActivityImageService
         $old = $log->image()->first();
         if ($prepared !== null) {
             $lockedGroup = Group::query()->lockForUpdate()->findOrFail($group->id);
-            abort_unless($lockedGroup->images_enabled, 422, 'この家族では画像の追加が無効です。');
+            abort_unless($lockedGroup->images_enabled, 422, __('messages.image_disabled'));
             $used = (int) $lockedGroup->images()->sum('bytes');
             $next = $used - ($old?->bytes ?? 0) + $prepared['bytes'];
-            abort_if($next > $lockedGroup->image_quota_bytes && $next >= $used, 422, '画像の保存容量を超えています。');
+            abort_if($next > $lockedGroup->image_quota_bytes && $next >= $used, 422, __('messages.image_quota'));
         }
         if ($old && ($prepared !== null || $remove)) {
             $this->scheduleDeletion($old->disk, $old->path);

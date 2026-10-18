@@ -96,10 +96,10 @@ class ActivityLogController extends Controller
             $existing = $group->activityLogs()->where('user_id', $request->user()->id)
                 ->where('client_request_id', $validated['client_request_id'])->first();
             if ($existing) {
-                return response()->json(['message' => 'アクティビティを記録しました。', 'data' => $this->responseLog($request, $group, $existing->id)]);
+                return response()->json(['message' => __('messages.activity_created'), 'data' => $this->responseLog($request, $group, $existing->id)]);
             }
         }
-        abort_if($file && ! $group->images_enabled, 422, 'この家族では画像の追加が無効です。');
+        abort_if($file && ! $group->images_enabled, 422, __('messages.image_disabled'));
         $prepared = $file ? $images->prepare($file) : null;
         try {
             $log = DB::transaction(function () use ($group, $request, $validated, $images, $prepared): ActivityLog {
@@ -116,7 +116,7 @@ class ActivityLogController extends Controller
         }
         $log = $this->responseLog($request, $group, $log->id);
 
-        return response()->json(['message' => 'アクティビティを記録しました。', 'data' => $log], 201);
+        return response()->json(['message' => __('messages.activity_created'), 'data' => $log], 201);
     }
 
     public function show(Request $request, Group $group, int $log): JsonResponse
@@ -146,14 +146,14 @@ class ActivityLogController extends Controller
         $expectedRevision = isset($validated['revision']) ? (int) $validated['revision'] : null;
         unset($validated['revision']);
         if ($file && $remove) {
-            throw ValidationException::withMessages(['image' => ['差し替えと削除は同時に指定できません。']]);
+            throw ValidationException::withMessages(['image' => [__('messages.image_mutually_exclusive')]]);
         }
-        abort_if($file && ! $group->images_enabled, 422, 'この家族では画像の追加が無効です。');
+        abort_if($file && ! $group->images_enabled, 422, __('messages.image_disabled'));
         $prepared = $file ? $images->prepare($file) : null;
         try {
             DB::transaction(function () use ($target, $validated, $images, $group, $prepared, $remove, $expectedRevision): void {
                 $lockedTarget = ActivityLog::query()->lockForUpdate()->findOrFail($target->id);
-                abort_if($expectedRevision !== null && $expectedRevision !== $lockedTarget->revision, 409, '他の変更が先に保存されました。再読み込みしてください。');
+                abort_if($expectedRevision !== null && $expectedRevision !== $lockedTarget->revision, 409, __('messages.activity_conflict'));
                 $lockedTarget->update([...$validated, 'revision' => $lockedTarget->revision + 1]);
                 $images->apply($group, $lockedTarget, $prepared, $remove);
             });
@@ -164,7 +164,7 @@ class ActivityLogController extends Controller
             throw $e;
         }
 
-        return response()->json(['message' => 'ログを更新しました。', 'data' => $this->responseLog($request, $group, $target->id)]);
+        return response()->json(['message' => __('messages.activity_updated'), 'data' => $this->responseLog($request, $group, $target->id)]);
     }
 
     public function destroy(Group $group, int $log, ActivityImageService $images): JsonResponse
@@ -176,7 +176,7 @@ class ActivityLogController extends Controller
             $target->delete();
         });
 
-        return response()->json(['message' => 'ログを削除しました。']);
+        return response()->json(['message' => __('messages.activity_deleted')]);
     }
 
     private function visibleLog(Group $group, int $log): ActivityLog
@@ -193,7 +193,7 @@ class ActivityLogController extends Controller
     private function rejectOwnedFields(Request $request): void
     {
         if (array_intersect(array_keys($request->all()), ['group_id', 'user_id'])) {
-            throw ValidationException::withMessages(['log' => ['家族または投稿者は指定できません。']]);
+            throw ValidationException::withMessages(['log' => [__('messages.activity_owned_fields')]]);
         }
     }
 }

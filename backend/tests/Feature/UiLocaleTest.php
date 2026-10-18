@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -159,6 +161,59 @@ class UiLocaleTest extends TestCase
         $this->withHeader('Accept-Language', 'ja')->patchJson('/v1/auth/me', ['display_name' => ''])
             ->assertUnprocessable()->assertHeader('Content-Language', 'pt-BR')
             ->assertJsonPath('errors.display_name.0', 'Enter a display name.');
+    }
+
+    #[TestWith(['ja', 'アクティビティを記録しました。', '自分の記録にはいいねできません。'])]
+    #[TestWith(['en', 'Activity recorded.', 'You cannot like your own activity.'])]
+    public function test_activity_lifecycle_uses_the_account_language_without_translating_user_data(string $locale, string $created, string $selfLike): void
+    {
+        $user = $this->activeUser();
+        $user->update(['ui_locale' => $locale]);
+        $group = Group::query()->sole();
+        $category = Category::query()->create(['group_id' => $group->id, 'name' => '家事', 'color_code' => '#10B981', 'sort_order' => 1]);
+        Sanctum::actingAs($user);
+        $this->withHeader('Accept-Language', $locale === 'en' ? 'ja' : 'en');
+        $path = "/v1/groups/{$group->id}/logs";
+        $response = $this->postJson($path, [
+            'category_id' => $category->id, 'activity_date' => '2026-09-25',
+            'activity_time' => '23:59', 'content' => '原文の活動', 'note' => 'Original note',
+        ])->assertCreated()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('message', $created)->assertJsonPath('data.content', '原文の活動')
+            ->assertJsonPath('data.category.name', '家事')->assertJsonPath('data.note', 'Original note');
+        $id = $response->json('data.id');
+        $list = $this->getJson($path)->assertOk()->assertHeader('Content-Language', $locale);
+        $this->assertStringContainsString('Accept-Language', $list->headers->get('Vary'));
+        $list->assertJsonPath('links.0.label', $locale === 'en' ? '&laquo; Previous' : '&laquo; 前へ')
+            ->assertJsonPath('links.2.label', $locale === 'en' ? 'Next &raquo;' : '次へ &raquo;');
+        $this->getJson("$path/counts?from=2026-09-25&to=2026-09-25")
+            ->assertOk()->assertHeader('Content-Language', $locale)->assertJsonPath('data.2026-09-25', 1);
+        $this->getJson("$path/counts?from=2026-09-25&to=2026-09-24")
+            ->assertUnprocessable()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('errors.to.0', $locale === 'en'
+                ? 'The end date field must be a date after or equal to start date.'
+                : '終了日には開始日以降の日付を指定してください。');
+        $this->getJson("$path/$id")->assertOk()->assertHeader('Content-Language', $locale);
+        $this->putJson("$path/$id/like")->assertForbidden()->assertHeader('Content-Language', $locale)->assertJsonPath('message', $selfLike);
+        $this->putJson("$path/$id", ['revision' => 1, 'content' => 'Updated original'])
+            ->assertOk()->assertHeader('Content-Language', $locale)->assertJsonPath('data.content', 'Updated original');
+        $this->putJson("$path/$id", ['revision' => 1, 'content' => 'Stale'])
+            ->assertConflict()->assertHeader('Content-Language', $locale);
+        $group->forceFill(['images_enabled' => false])->save();
+        $this->postJson($path, [
+            'category_id' => $category->id, 'activity_date' => '2026-09-25', 'content' => 'Image attempt',
+            'image' => UploadedFile::fake()->create('photo.jpg', 1, 'image/jpeg'),
+        ])->assertUnprocessable()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('message', $locale === 'en'
+                ? 'Adding images is disabled for this family.'
+                : 'この家族では画像の追加が無効です。');
+        $this->post("$path/$id", [
+            '_method' => 'PUT', 'remove_image' => true,
+            'image' => UploadedFile::fake()->create('replacement.jpg', 1, 'image/jpeg'),
+        ], ['Accept' => 'application/json'])->assertUnprocessable()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('errors.image.0', $locale === 'en'
+                ? 'An image cannot be replaced and removed at the same time.'
+                : '差し替えと削除は同時に指定できません。');
+        $this->deleteJson("$path/$id")->assertOk()->assertHeader('Content-Language', $locale);
     }
 
     private function activeUser(string $role = 'member'): User

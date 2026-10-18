@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 import closeIcon from '~/assets/icons/close.svg'
 
 const closeIconStyle = { maskImage: `url("${closeIcon}")` }
@@ -61,17 +63,17 @@ const close = () => {
 
 <template>
   <div ref="container" :style="{ aspectRatio: square ? '1 / 1' : `${width} / ${height}` }" class="relative overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900">
-    <button v-if="url" ref="trigger" type="button" class="h-full w-full" aria-label="画像を拡大" @click="expanded = true">
-      <img :src="url" alt="アクティビティの添付画像" class="h-full w-full" :class="square ? 'object-cover object-center' : 'object-contain'" loading="lazy">
+    <button v-if="url" ref="trigger" type="button" class="h-full w-full" :aria-label="t('activity.imageExpand')" @click="expanded = true">
+      <img :src="url" :alt="t('activity.imageAlt')" class="h-full w-full" :class="square ? 'object-cover object-center' : 'object-contain'" loading="lazy">
     </button>
-    <p v-else-if="error" class="p-2 text-xs text-red-600" role="alert">画像を読み込めませんでした。</p>
+    <p v-else-if="error" class="p-2 text-xs text-red-600" role="alert">{{ t('activity.imageLoadFailed') }}</p>
   </div>
   <Teleport to="body">
-    <div v-if="expanded && url" role="dialog" aria-modal="true" aria-label="添付画像" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4" @keydown.esc="close">
-      <button type="button" aria-label="閉じる" class="flex h-11 w-11 self-end items-center justify-center border-0 bg-transparent text-white" autofocus @click="close">
+    <div v-if="expanded && url" role="dialog" aria-modal="true" :aria-label="t('activity.imageAttached')" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4" @keydown.esc="close">
+      <button type="button" :aria-label="t('activity.close')" class="flex h-11 w-11 self-end items-center justify-center border-0 bg-transparent text-white" autofocus @click="close">
         <span aria-hidden="true" class="h-7 w-7 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="closeIconStyle" />
       </button>
-      <img :src="url" alt="アクティビティの添付画像" class="min-h-0 max-h-full max-w-full object-contain">
+      <img :src="url" :alt="t('activity.imageAlt')" class="min-h-0 max-h-full max-w-full object-contain">
     </div>
   </Teleport>
 </template>
