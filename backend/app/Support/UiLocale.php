@@ -60,7 +60,7 @@ class UiLocale
 
     public static function decorate(Response $response, Request $request, bool $translatedException = false): Response
     {
-        if ($translatedException || preg_match('#^(?:api/)?v1/(?:auth/.*|groups/[^/]+(?:/(?:members|categories|security-alerts|logs|gallery)(?:/.*)?)?)/?$#D', $request->path())) {
+        if ($translatedException || preg_match('#^(?:api/)?v1/(?:auth/.*|groups/[^/]+(?:/(?:members|categories|security-alerts|logs|gallery|rewards)(?:/.*)?)?)/?$#D', $request->path())) {
             $response->headers->set('Content-Language', $request->attributes->get('ui_locale', self::fromHeader($request->header('Accept-Language'))));
             $response->setVary('Accept-Language', false);
         }
