@@ -437,5 +437,29 @@
     "imagePngFailed": "PNG画像を生成できません。",
     "imageHeicFailed": "HEIC画像を変換できません。",
     "imagePixels": "画像の画素数が上限を超えています（上限{pixels}画素）"
+  },
+  "gallery": {
+    "title": "画像ギャラリー",
+    "week": "週間",
+    "month": "月間",
+    "custom": "指定期間",
+    "previous": "前へ",
+    "next": "次へ",
+    "range": "{from} 〜 {to}",
+    "rangeSeparator": "〜",
+    "startDate": "開始日",
+    "endDate": "終了日",
+    "apply": "適用",
+    "author": "投稿者",
+    "everyone": "全員",
+    "category": "カテゴリー",
+    "allCategories": "全カテゴリー",
+    "viewActivity": "アクティビティを見る",
+    "empty": "画像はありません。",
+    "loading": "読み込み中...",
+    "retry": "再試行",
+    "invalidRange": "開始日は終了日以前にしてください。",
+    "loadFailed": "画像を取得できませんでした。再試行してください。",
+    "filtersFailed": "表示条件を取得できませんでした。再試行してください。"
   }
 }

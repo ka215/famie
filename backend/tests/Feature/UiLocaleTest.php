@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityImage;
+use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
@@ -9,6 +11,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestWith;
@@ -214,6 +217,35 @@ class UiLocaleTest extends TestCase
                 ? 'An image cannot be replaced and removed at the same time.'
                 : '差し替えと削除は同時に指定できません。');
         $this->deleteJson("$path/$id")->assertOk()->assertHeader('Content-Language', $locale);
+    }
+
+    #[TestWith(['ja'])]
+    #[TestWith(['en'])]
+    public function test_gallery_language_headers_validation_and_image_binary(string $locale): void
+    {
+        Storage::fake('local');
+        $user = $this->activeUser();
+        $user->update(['ui_locale' => $locale]);
+        $group = Group::query()->sole();
+        $category = Category::query()->create(['group_id' => $group->id, 'name' => '家事', 'color_code' => '#10B981', 'sort_order' => 1]);
+        $log = ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $user->id, 'category_id' => $category->id, 'activity_date' => '2026-10-18', 'content' => '原文の写真']);
+        $image = ActivityImage::query()->create(['group_id' => $group->id, 'activity_log_id' => $log->id, 'disk' => 'local', 'path' => 'photo.webp', 'bytes' => 10, 'width' => 10, 'height' => 10, 'mime' => 'image/webp']);
+        Storage::disk('local')->put('photo.webp', 'webp-bytes');
+        Sanctum::actingAs($user);
+        $this->withHeader('Accept-Language', $locale === 'en' ? 'ja' : 'en');
+        $path = "/v1/groups/{$group->id}/gallery";
+        $response = $this->getJson($path)->assertOk()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('data.0.content', '原文の写真')->assertJsonPath('data.0.category.name', '家事')
+            ->assertJsonPath('data.0.activity_date', '2026-10-18')
+            ->assertJsonPath('links.0.label', $locale === 'en' ? '&laquo; Previous' : '&laquo; 前へ');
+        $this->assertStringContainsString('Accept-Language', $response->headers->get('Vary'));
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        $this->getJson($path.'?from=2026-11-01')->assertOk()->assertHeader('Content-Language', $locale)->assertJsonCount(0, 'data');
+        $this->getJson($path.'?from=2026-10-18&to=2026-10-17')->assertUnprocessable()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('errors.to.0', $locale === 'en' ? 'The end date field must be a date after or equal to start date.' : '終了日には開始日以降の日付を指定してください。');
+        $this->getJson($path.'?user_id=999999&category_id=999999')->assertUnprocessable()->assertHeader('Content-Language', $locale)->assertJsonValidationErrors(['user_id', 'category_id']);
+        $this->get("/v1/groups/{$group->id}/images/{$image->id}")->assertOk()->assertHeader('Content-Type', 'image/webp')->assertHeaderMissing('Content-Language')->assertStreamedContent('webp-bytes');
+        $this->getJson("/v1/groups/{$group->id}/images/999999")->assertNotFound()->assertHeader('Content-Language', $locale);
     }
 
     private function activeUser(string $role = 'member'): User
