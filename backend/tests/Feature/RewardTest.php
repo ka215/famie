@@ -28,6 +28,53 @@ class RewardTest extends TestCase
         config(['famie.allowed_ips' => ['127.0.0.1'], 'famie.like_rate_limit_per_second' => 100]);
     }
 
+    #[TestWith(['ja'])]
+    #[TestWith(['en'])]
+    public function test_reward_language_preserves_data_and_notification_claims(string $locale): void
+    {
+        [$group, $admin, $child, $category] = $this->family();
+        $admin->user->update(['ui_locale' => $locale]);
+        $this->withHeader('Accept-Language', $locale === 'en' ? 'ja' : 'en');
+        $path = "/v1/groups/{$group->id}/rewards";
+        foreach ([
+            ['required_count', ['required_count' => 10001]],
+            ['target_ids.0', ['target_ids' => [$admin->id, $admin->id]]],
+            ['timezone', ['timezone' => 'Invalid/Zone']],
+            ['required_count', ['count_mode' => 'period_days', 'required_count' => 1]],
+        ] as [$field, $overrides]) {
+            $this->postJson($path, $this->payload($admin, $overrides))->assertUnprocessable()
+                ->assertHeader('Content-Language', $locale)->assertJsonValidationErrors($field);
+        }
+        $response = $this->postJson($path, $this->payload($admin, ['required_count' => 1]))
+            ->assertCreated()->assertHeader('Content-Language', $locale)->assertJsonPath('data.version.name', '勉強10日');
+        $id = $response->json('data.id');
+        $list = $this->getJson($path.'/manage')->assertOk()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('links.0.label', $locale === 'en' ? '&laquo; Previous' : '&laquo; 前へ');
+        $this->assertStringContainsString('Accept-Language', $list->headers->get('Vary'));
+        $this->assertStringContainsString('no-store', $list->headers->get('Cache-Control'));
+        $this->getJson($path.'?status=invalid')->assertUnprocessable()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('errors.status.0', $locale === 'en' ? 'The selected reward status is invalid.' : '選択されたリワードの状態が不正です。');
+        $this->putJson($path.'/'.$id, $this->payload($admin, ['revision' => 1, 'required_count' => 1]))
+            ->assertOk()->assertHeader('Content-Language', $locale);
+        $this->putJson($path.'/'.$id.'/status', ['revision' => 1, 'status' => 'active'])
+            ->assertConflict()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('message', $locale === 'en' ? 'Another change was saved first. Reload and try again.' : '他の変更が先に保存されました。再読み込みしてください。');
+        ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $admin->user_id, 'category_id' => $category->id, 'activity_date' => '2026-10-13', 'content' => '原文の活動']);
+        $this->putJson($path.'/'.$id.'/status', ['revision' => 2, 'status' => 'active'])->assertOk()->assertHeader('Content-Language', $locale);
+        $this->getJson($path)->assertOk()->assertHeader('Content-Language', $locale)->assertJsonPath('data.0.awarded', true);
+        $this->postJson($path.'/prepare')->assertOk()->assertHeader('Content-Language', $locale);
+        $this->postJson($path.'/notifications')->assertOk()->assertHeader('Content-Language', $locale)->assertJsonCount(1, 'data')->assertJsonPath('data.0.snapshot.name', '勉強10日');
+        $this->postJson($path.'/notifications')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson($path.'/awards')->assertOk()->assertHeader('Content-Language', $locale)->assertJsonPath('data.0.snapshot.description', 'おやつ');
+        $this->putJson($path.'/'.$id.'/status', ['revision' => 3, 'status' => 'stopped'])->assertOk();
+        $this->deleteJson($path.'/'.$id, ['revision' => 4])->assertOk()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('message', $locale === 'en' ? 'The reward was deleted. Earned rewards are preserved.' : 'リワードを削除しました。獲得履歴は残ります。');
+        Sanctum::actingAs($child->user);
+        $child->user->update(['ui_locale' => $locale]);
+        $this->getJson($path.'/manage')->assertForbidden()->assertHeader('Content-Language', $locale)
+            ->assertJsonPath('message', $locale === 'en' ? 'You do not have permission to manage rewards.' : 'リワードの管理権限がありません。');
+    }
+
     private function family(): array
     {
         $this->travelTo(CarbonImmutable::parse('2026-10-13 12:00:00', 'UTC'));
