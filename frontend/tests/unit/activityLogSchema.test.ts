@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { activityLogSchema } from '../../shared/utils/activityLogSchema.ts'
+import en from '../../i18n/locales/en.json' with { type: 'json' }
+import ja from '../../i18n/locales/ja.json' with { type: 'json' }
+import { activityLogSchema, createActivityLogSchema } from '../../shared/utils/activityLogSchema.ts'
 
 const validForm = {
   category_id: 1,
@@ -9,6 +11,23 @@ const validForm = {
   content: '活動内容',
   note: 'メモ',
 }
+
+test('the same activity schema translates validation at parse time without changing normalized values', () => {
+  let messages = en.activity
+  const schema = createActivityLogSchema(
+    (key) => (messages as Record<string, string>)[key.replace('activity.', '')] ?? key
+  )
+  const invalid = { ...validForm, content: '　' }
+  const english = schema.safeParse(invalid)
+  assert.equal(english.success, false)
+  if (!english.success) assert.equal(english.error.issues[0]?.message, en.activity.contentRequired)
+  messages = ja.activity
+  const japanese = schema.safeParse(invalid)
+  assert.equal(japanese.success, false)
+  if (!japanese.success)
+    assert.equal(japanese.error.issues[0]?.message, ja.activity.contentRequired)
+  assert.deepEqual(schema.parse(validForm), activityLogSchema.parse(validForm))
+})
 
 test('カテゴリは正の整数を必須とする', () => {
   for (const category_id of [null, 0, -1, 1.5, '1', NaN]) {

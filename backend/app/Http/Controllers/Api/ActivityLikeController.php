@@ -26,7 +26,7 @@ class ActivityLikeController extends Controller
     private function save(Request $request, Group $group, int $log, bool $liked): JsonResponse
     {
         if ($request->all() !== []) {
-            throw ValidationException::withMessages(['like' => ['いいねの対象者や件数は指定できません。']]);
+            throw ValidationException::withMessages(['like' => [__('messages.like_fields')]]);
         }
 
         // group.member holds the group lock and transaction for the entire write.
@@ -35,7 +35,7 @@ class ActivityLikeController extends Controller
         abort_unless($members->contains(fn (GroupMember $member) => $member->user_id === $actorId && $member->status === GroupMember::STATUS_ACTIVE), 403);
         $target = $group->activityLogs()->whereIn('user_id', $members->where('status', GroupMember::STATUS_ACTIVE)->pluck('user_id'))
             ->lockForUpdate()->findOrFail($log);
-        abort_if($target->user_id === $actorId, 403, '自分の記録にはいいねできません。');
+        abort_if($target->user_id === $actorId, 403, __('messages.like_self'));
 
         if ($liked) {
             DB::insert('INSERT INTO activity_likes (group_id, activity_log_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (group_id, activity_log_id, user_id) DO NOTHING', [

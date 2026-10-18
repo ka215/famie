@@ -12,12 +12,14 @@ interface LikeOperation {
   pending: boolean
   uncertain: boolean
   error: string
+  errorKey: string
   settledRevision: number
 }
 
 export const useActivityLikes = () => {
   const { user, groupId, token } = useAuth()
   const { fetchApi } = useApi()
+  const { t, locale } = useI18n()
   const operations = useState<Record<number, LikeOperation>>('activity_like_operations', () => ({}))
   const retryUntil = useState<number>('activity_like_retry_until', () => 0)
   const owner = useState<string>('activity_like_owner', () => '')
@@ -76,6 +78,7 @@ export const useActivityLikes = () => {
           pending: false,
           uncertain: false,
           error: '',
+          errorKey: '',
           settledRevision: 0,
         }
     operations.value[log.id] = operation
@@ -83,6 +86,7 @@ export const useActivityLikes = () => {
     if (!active) return
     active.pending = true
     active.error = ''
+    active.errorKey = ''
     const requestIdentity = identity()
     const requestToken = token.value
     const path = `/groups/${groupId.value}/logs/${log.id}/like`
@@ -109,15 +113,15 @@ export const useActivityLikes = () => {
         retryUntil.value = Date.now() + Math.max(1000, Number.isFinite(delay) ? delay : 1000)
         now.value = Date.now()
         active.state = active.uncertain ? active.state : active.before
-        active.error = '操作が続いています。少し待ってから再試行してください。'
+        active.errorKey = 'activity.rateLimited'
       } else if (status && status >= 400 && status < 500 && status !== 408) {
         active.state = { ...active.before, can_like: ![401, 403, 404].includes(status) }
         active.uncertain = false
-        active.error =
-          failure.data?.message ?? 'いいねを変更できませんでした。再読み込みしてください。'
+        if (failure.data?.message) active.error = failure.data.message
+        else active.errorKey = 'activity.likeFailed'
       } else {
         active.uncertain = true
-        active.error = '保存結果を確認できませんでした。「再同期」で同じ操作を再送してください。'
+        active.errorKey = 'activity.uncertain'
       }
     } finally {
       if (isCurrent()) {
@@ -127,5 +131,12 @@ export const useActivityLikes = () => {
     }
   }
 
-  return { operations, stateFor, toggle, beginRead, acceptLogs, waiting, waitSeconds }
+  watch(locale, () => {
+    for (const operation of Object.values(operations.value)) operation.error = ''
+  })
+  const errorFor = (id: number) => {
+    const operation = operations.value[id]
+    return operation?.errorKey ? t(operation.errorKey) : (operation?.error ?? '')
+  }
+  return { operations, stateFor, toggle, beginRead, acceptLogs, waiting, waitSeconds, errorFor }
 }
