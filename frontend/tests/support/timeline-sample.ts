@@ -1,4 +1,5 @@
 import type { BrowserContext, Page, Route } from '@playwright/test'
+import type { UiLocalePreference } from '../../shared/utils/locale'
 
 export async function timelineSample(page: Page, context: BrowserContext, role = 'admin') {
   const user = {
@@ -6,6 +7,7 @@ export async function timelineSample(page: Page, context: BrowserContext, role =
     username: 'sample-parent',
     display_name: 'おとうさん',
     show_name_suffix: false,
+    ui_locale: null as UiLocalePreference,
   }
   const membership = {
     id: 1,

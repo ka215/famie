@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Api\EmailController;
 use App\Mail\AccountMail;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
-use App\Services\AccountEmailService;
 use Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Defer\DeferredCallbackCollection;
@@ -40,14 +38,14 @@ class EmailPrivacyTest extends TestCase
             $actor = $this->member(['email' => null]);
             Sanctum::actingAs($actor);
             $this->postJson('/v1/auth/me/email', ['email' => $email, 'current_password' => 'password'])
-                ->assertOk()->assertExactJson(['message' => EmailController::ACCEPTED]);
+                ->assertOk()->assertExactJson(['message' => '申請を受け付けました。確認メールが届いた場合は、メール内の案内に従ってください。']);
             $this->getJson('/v1/auth/me')->assertOk()->assertJsonPath('user.pending_email', $email)
                 ->assertJsonMissingPath('user.email_verification_token');
             $this->assertNull($actor->fresh()->email);
             $this->assertSame(now()->addHour()->toIso8601String(), $actor->fresh()->email_verification_expires_at->toIso8601String());
             $this->postJson('/v1/auth/me/email/resend')->assertTooManyRequests();
             $this->travel(61)->seconds();
-            $this->postJson('/v1/auth/me/email/resend')->assertOk()->assertExactJson(['message' => EmailController::ACCEPTED]);
+            $this->postJson('/v1/auth/me/email/resend')->assertOk()->assertExactJson(['message' => '申請を受け付けました。確認メールが届いた場合は、メール内の案内に従ってください。']);
             $this->deleteJson('/v1/auth/me/email')->assertOk();
             $this->assertNull($actor->fresh()->pending_email);
         }
@@ -78,7 +76,7 @@ class EmailPrivacyTest extends TestCase
         $loser = $secondFirst ? $first : $second;
         $this->postJson('/v1/auth/email/verify', $secondFirst ? $secondLink : $firstLink)->assertOk();
         $this->postJson('/v1/auth/email/verify', $secondFirst ? $firstLink : $secondLink)->assertUnprocessable()
-            ->assertJsonPath('message', AccountEmailService::INVALID_LINK);
+            ->assertJsonPath('message', 'リンクが無効か、有効期限が切れています。もう一度申請してください。');
         $this->assertSame('shared@example.test', $winner->fresh()->email);
         $this->assertNotNull($winner->fresh()->email_verified_at);
         $this->assertNull($loser->fresh()->email);
@@ -93,7 +91,7 @@ class EmailPrivacyTest extends TestCase
             $actor = $this->member(['email' => null]);
             Sanctum::actingAs($actor);
             $this->postJson('/v1/auth/me/email', ['email' => 'shared@example.test', 'current_password' => 'password'])
-                ->assertOk()->assertExactJson(['message' => EmailController::ACCEPTED]);
+                ->assertOk()->assertExactJson(['message' => '申請を受け付けました。確認メールが届いた場合は、メール内の案内に従ってください。']);
             $this->assertSame('shared@example.test', $actor->fresh()->pending_email);
         }
         Mail::assertSentCount(1);
@@ -111,7 +109,7 @@ class EmailPrivacyTest extends TestCase
         $actor = $this->member(['email' => null]);
         Sanctum::actingAs($actor);
         $receipt = $this->postJson('/v1/auth/me/email', ['email' => 'next@example.test', 'current_password' => 'password'])
-            ->assertOk()->assertExactJson(['message' => EmailController::ACCEPTED]);
+            ->assertOk()->assertExactJson(['message' => '申請を受け付けました。確認メールが届いた場合は、メール内の案内に従ってください。']);
         $receipt->assertHeader('Content-Length', (string) strlen($receipt->getContent()));
         Mail::assertNothingSent();
         if ($change === 'cancel') {
@@ -140,7 +138,7 @@ class EmailPrivacyTest extends TestCase
         $mail->assertSeeInText('ご自身がこのアカウントで申請した場合のみ');
         $this->travel(61)->seconds();
         Mail::shouldReceive('to')->once()->andThrow(new \RuntimeException('SMTP failed'));
-        $this->postJson('/v1/auth/me/email/resend')->assertOk()->assertExactJson(['message' => EmailController::ACCEPTED]);
+        $this->postJson('/v1/auth/me/email/resend')->assertOk()->assertExactJson(['message' => '申請を受け付けました。確認メールが届いた場合は、メール内の案内に従ってください。']);
         $this->assertSame('next@example.test', $actor->fresh()->pending_email);
     }
 

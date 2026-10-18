@@ -29,12 +29,12 @@ class CategoryController extends Controller
         ]);
         $category = DB::transaction(function () use ($group, $validated): Category {
             Group::query()->whereKey($group->id)->lockForUpdate()->firstOrFail();
-            abort_if($group->categories()->count() >= config('famie.max_group_categories'), 422, 'カテゴリは最大'.config('famie.max_group_categories').'件です。');
+            abort_if($group->categories()->count() >= config('famie.max_group_categories'), 422, __('messages.category_limit', ['max' => config('famie.max_group_categories')]));
 
             return $group->categories()->create([...$validated, 'sort_order' => ($group->categories()->max('sort_order') ?? 0) + 1]);
         });
 
-        return response()->json(['message' => 'カテゴリを作成しました。', 'data' => $category], 201);
+        return response()->json(['message' => __('messages.category_created'), 'data' => $category], 201);
     }
 
     public function update(Request $request, Group $group, int $category): JsonResponse
@@ -45,31 +45,31 @@ class CategoryController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('categories')->where('group_id', $group->id)->ignore($target->id)],
             'color_code' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ], [
-            'name.required' => 'カテゴリ名を入力してください。',
-            'name.string' => 'カテゴリ名は文字列で入力してください。',
-            'name.max' => 'カテゴリ名は255文字以内で入力してください。',
-            'name.unique' => '同じ名前のカテゴリが存在します。',
-            'color_code.regex' => '色は#に続く6桁の16進数で指定してください。',
+            'name.required' => __('messages.category_required'),
+            'name.string' => __('messages.category_string'),
+            'name.max' => __('messages.category_max'),
+            'name.unique' => __('messages.category_duplicate'),
+            'color_code.regex' => __('messages.color_invalid'),
         ]));
 
-        return response()->json(['message' => 'カテゴリを更新しました。', 'data' => $target]);
+        return response()->json(['message' => __('messages.category_updated'), 'data' => $target]);
     }
 
     public function destroy(Request $request, Group $group, int $category, RewardService $rewards): JsonResponse
     {
         $this->authorizeAdmin($request);
         $target = $group->categories()->findOrFail($category);
-        abort_if($target->activityLogs()->exists(), 422, 'ログが存在するカテゴリは削除できません。');
-        abort_if($rewards->categoryInUse($group, $category), 422, 'リワードで使用中のカテゴリは削除できません。');
+        abort_if($target->activityLogs()->exists(), 422, __('messages.category_logs_used'));
+        abort_if($rewards->categoryInUse($group, $category), 422, __('messages.category_reward_used'));
         RewardVersion::query()->where('group_id', $group->id)->where('category_id', $category)->update(['category_id' => null]);
         $target->delete();
 
-        return response()->json(['message' => 'カテゴリを削除しました。']);
+        return response()->json(['message' => __('messages.category_deleted')]);
     }
 
     private function authorizeAdmin(Request $request): void
     {
         $membership = $request->attributes->get('group_membership');
-        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, 'カテゴリの変更権限がありません。');
+        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, __('messages.category_forbidden'));
     }
 }

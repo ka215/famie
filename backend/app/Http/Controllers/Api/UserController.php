@@ -34,9 +34,9 @@ class UserController extends Controller
     public function store(Request $request, Group $group): JsonResponse
     {
         $membership = $request->attributes->get('group_membership');
-        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, 'アカウントの作成権限がありません。');
-        if (array_intersect(array_keys($request->all()), ['group_id', 'status', 'user_id', 'email'])) {
-            throw ValidationException::withMessages(['member' => ['家族・所属状態・ユーザーID・メールアドレスは指定できません。']]);
+        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, __('messages.account_create_forbidden'));
+        if (array_intersect(array_keys($request->all()), ['group_id', 'status', 'user_id', 'email', 'ui_locale'])) {
+            throw ValidationException::withMessages(['member' => [__('messages.member_fields')]]);
         }
         $validated = $request->validate([
             'username' => UsernameRules::create(),
@@ -50,7 +50,7 @@ class UserController extends Controller
             abort_if(
                 $group->memberships()->where('status', GroupMember::STATUS_ACTIVE)->count() >= config('famie.max_group_members'),
                 422,
-                '家族メンバーは最大'.config('famie.max_group_members').'人です。',
+                __('messages.member_max', ['max' => config('famie.max_group_members')]),
             );
             $user = User::query()->create([
                 'username' => $validated['username'], 'display_name' => $validated['display_name'],
@@ -65,7 +65,7 @@ class UserController extends Controller
         });
 
         return response()->json([
-            'message' => 'ユーザーを作成しました。',
+            'message' => __('messages.user_created'),
             'data' => [...$user->only(['id', 'username', 'display_name']), 'membership_id' => $newMembership->id, 'role' => $newMembership->role],
         ], 201);
     }
@@ -88,15 +88,15 @@ class UserController extends Controller
             'display_name' => ['required', 'string', 'max:50'],
             'role' => ['required', Rule::in([GroupMember::ROLE_ADMIN, GroupMember::ROLE_MEMBER])],
         ], [
-            'display_name.required' => '表示名を入力してください。',
-            'display_name.string' => '表示名は文字列で入力してください。',
-            'display_name.max' => '表示名は50文字以内で入力してください。',
-            'role.required' => '役割を選択してください。',
-            'role.in' => '役割が不正です。',
+            'display_name.required' => __('messages.display_name_required'),
+            'display_name.string' => __('messages.display_name_string'),
+            'display_name.max' => __('messages.display_name_max'),
+            'role.required' => __('messages.role_required'),
+            'role.in' => __('messages.role_invalid'),
         ]);
         $updated = $service->updateMember($request->user(), $target, $validated['display_name'], $validated['role']);
 
-        return response()->json(['message' => 'メンバーを更新しました。', 'data' => $this->memberPayload($updated)]);
+        return response()->json(['message' => __('messages.member_updated'), 'data' => $this->memberPayload($updated)]);
     }
 
     public function updateStatus(Request $request, Group $group, int $member, GroupMembershipService $service): JsonResponse
@@ -106,11 +106,11 @@ class UserController extends Controller
         $this->rejectUnexpectedFields($request, ['status']);
         $validated = $request->validate([
             'status' => ['required', Rule::in([GroupMember::STATUS_ACTIVE, GroupMember::STATUS_INACTIVE])],
-        ], ['status.required' => '所属状態を指定してください。', 'status.in' => '所属状態が不正です。']);
+        ], ['status.required' => __('messages.status_required'), 'status.in' => __('messages.status_invalid')]);
         $updated = $service->changeStatus($request->user(), $target, $validated['status']);
 
         return response()->json([
-            'message' => $updated->status === GroupMember::STATUS_ACTIVE ? 'メンバーを復元しました。' : 'メンバーを無効化しました。',
+            'message' => $updated->status === GroupMember::STATUS_ACTIVE ? __('messages.member_restored') : __('messages.member_deactivated'),
             'data' => $this->memberPayload($updated),
         ]);
     }
@@ -118,7 +118,7 @@ class UserController extends Controller
     private function authorizeAdmin(Request $request): void
     {
         $membership = $request->attributes->get('group_membership');
-        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, 'メンバーの管理権限がありません。');
+        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, __('messages.member_forbidden'));
     }
 
     public function resetPassword(Request $request, Group $group, int $member, GroupMembershipService $service): JsonResponse
@@ -132,14 +132,14 @@ class UserController extends Controller
         ]);
         $service->resetPassword($request->user(), $target, $validated['current_password'], $validated['new_password']);
 
-        return response()->json(['message' => 'パスワードを再発行しました。新しいパスワードを本人へ伝えてください。']);
+        return response()->json(['message' => __('messages.member_password_reset')]);
     }
 
     /** @param array<int, string> $allowed */
     private function rejectUnexpectedFields(Request $request, array $allowed): void
     {
         if (array_diff(array_keys($request->all()), $allowed)) {
-            throw ValidationException::withMessages(['member' => ['許可されていない項目が含まれています。']]);
+            throw ValidationException::withMessages(['member' => [__('messages.unexpected_fields')]]);
         }
     }
 

@@ -13,7 +13,7 @@ test('初期HTMLはJavaScript実行前からFamieアイコンを指定する', a
   try {
     const page = await context.newPage()
     await page.goto(`${baseURL}/login`)
-    await expect(page.getByText('Famie を読み込んでいます…')).toBeVisible()
+    await expect(page.getByRole('status').getByText('Famie', { exact: true })).toBeVisible()
     await expect(page.locator('head link[rel="icon"]')).toHaveAttribute('href', '/icon.svg')
     const svg = await request.get('/icon.svg')
     expect(svg.ok()).toBeTruthy()
@@ -140,10 +140,10 @@ test('remote API responds through the public access path', async ({ request }) =
 test.describe('JavaScript読込前のテーマ', () => {
   test.use({ javaScriptEnabled: false, colorScheme: 'dark' })
 
-  test('起動前から暗い背景と読込表示を配信する', async ({ page }) => {
+  test('起動前から暗い背景とブランド表示を配信する', async ({ page }) => {
     test.skip(!!process.env.RELEASE_BASE_URL, 'Local candidate verification before deployment')
     await page.goto('/login')
-    await expect(page.getByText('Famie を読み込んでいます…')).toBeVisible()
+    await expect(page.getByRole('status').getByText('Famie', { exact: true })).toBeVisible()
     await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(2, 6, 23)')
     await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark')
   })
@@ -155,7 +155,35 @@ test('アプリ起動前に保存テーマとブラウザ表示色を適用す�
   await page.addInitScript(() => localStorage.setItem('famie-theme', 'dark'))
   await page.route('**/_nuxt/*.js', (route) => route.abort())
   await page.goto('/login')
-  await expect(page.getByText('Famie を読み込んでいます…')).toBeVisible()
+  await expect(page.getByRole('status').getByText('Famie', { exact: true })).toBeVisible()
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(2, 6, 23)')
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#020617')
 })
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`起動前のブランド表示は保存テーマを優先する: ${theme}`, async ({ page }) => {
+    test.skip(!!process.env.RELEASE_BASE_URL, 'Local candidate verification before deployment')
+    await page.emulateMedia({ colorScheme: theme === 'dark' ? 'light' : 'dark' })
+    await page.addInitScript((value) => localStorage.setItem('famie-theme', value), theme)
+    await page.route('**/_nuxt/*.js', (route) => route.abort())
+    await page.goto('/login')
+    const brand = page.getByRole('status')
+    await expect(brand).toHaveText('Famie')
+    await expect(brand.locator('img')).toHaveAttribute('src', '/icon.svg')
+    expect(
+      await brand
+        .locator('img')
+        .evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)
+    ).toBe(true)
+    await expect(page.locator('html')).toHaveCSS('color-scheme', theme)
+    await expect(page.locator('html')).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? 'rgb(2, 6, 23)' : 'rgb(248, 250, 252)'
+    )
+    const box = await brand.boundingBox()
+    const viewport = page.viewportSize()
+    if (!box || !viewport) throw new Error('Loading screen dimensions unavailable')
+    expect(Math.abs(box.x + box.width / 2 - viewport.width / 2)).toBeLessThan(2)
+    expect(Math.abs(box.y + box.height / 2 - viewport.height / 2)).toBeLessThan(2)
+  })
+}

@@ -16,7 +16,7 @@ DB::select("select set_config('application_name', ?, false)", [$input['worker']]
 DB::statement("set lock_timeout = '15s'");
 config(['famie.allowed_ips' => ['127.0.0.1'], 'famie.max_group_members' => $input['limit']]);
 $request = Request::create($input['path'], $input['method'], server: [
-    'REMOTE_ADDR' => '127.0.0.1', 'HTTP_ACCEPT' => 'application/json',
+    'REMOTE_ADDR' => '127.0.0.1', 'HTTP_ACCEPT' => 'application/json', 'HTTP_ACCEPT_LANGUAGE' => 'ja',
     'CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer '.$input['token'],
 ], content: json_encode($input['body'], JSON_THROW_ON_ERROR));
 $response = $kernel->handle($request);

@@ -17,7 +17,9 @@
       "!dist",
       "!node_modules",
       "playwright.config.ts",
-      "tests/**"
+      "tests/**",
+      "i18n/**",
+      "scripts/i18n.mjs"
     ]
   },
   "formatter": {

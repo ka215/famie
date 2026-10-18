@@ -24,12 +24,12 @@ final class UsernameRules
     public static function messages(): array
     {
         return [
-            'username.required' => 'ログインIDを入力してください。',
-            'username.string' => 'ログインIDは文字列で入力してください。',
-            'username.min' => 'ログインIDは3文字以上で入力してください。',
-            'username.max' => 'ログインIDは50文字以内で入力してください。',
-            'username.regex' => 'ログインIDは半角小文字英字・数字・ピリオド・ハイフン・アンダースコアを使用し、先頭と末尾は英数字にしてください。',
-            'username.unique' => 'このログインIDは既に使用されています。',
+            'username.required' => __('messages.username_required'),
+            'username.string' => __('messages.username_string'),
+            'username.min' => __('messages.username_min'),
+            'username.max' => __('messages.username_max'),
+            'username.regex' => __('messages.username_format'),
+            'username.unique' => __('messages.username_taken'),
         ];
     }
 }
