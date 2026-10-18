@@ -5,8 +5,18 @@ import {
   getMonthRange,
   getPreferredLocale,
   getWeekRange,
+  parseLocalDate,
 } from '#shared/utils/calendar'
 
+const { t } = useI18n()
+const { intlLocale } = useUiLocale()
+const dateLabel = (value: string) =>
+  new Intl.DateTimeFormat(intlLocale.value, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(parseLocalDate(value))
+useHead(() => ({ title: `${t('gallery.title')} | Famie` }))
 const { fetchApi } = useApi()
 const { groupId } = useAuth()
 const listReturn = useListReturn()
@@ -58,7 +68,7 @@ const categoryId = ref('')
 const currentPage = ref(0)
 const lastPage = ref(1)
 const isLoading = ref(false)
-const error = ref('')
+const error = useUiMessage()
 const sentinel = ref<HTMLElement | null>(null)
 let requestId = 0
 let observer: IntersectionObserver | null = null
@@ -77,7 +87,7 @@ const fetchPage = async (page = 1) => {
   if (!listReturn.isActive()) return
   if (isLoading.value || (page > 1 && page > lastPage.value)) return
   if (range.value.from && range.value.to && range.value.from > range.value.to) {
-    error.value = '開始日は終了日以前にしてください。'
+    error.setKey('gallery.invalidRange')
     return
   }
   const current = ++requestId
@@ -103,7 +113,7 @@ const fetchPage = async (page = 1) => {
     currentPage.value = response.current_page
     lastPage.value = response.last_page
   } catch {
-    if (current === requestId) error.value = '画像を取得できませんでした。再試行してください。'
+    if (current === requestId) error.setKey('gallery.loadFailed')
   } finally {
     if (current === requestId) {
       isLoading.value = false
@@ -166,7 +176,7 @@ const initialize = async () => {
       }),
     ])
   } catch {
-    error.value = '表示条件を取得できませんでした。再試行してください。'
+    error.setKey('gallery.filtersFailed')
     restoring.value = false
     return
   }
@@ -208,38 +218,38 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="space-y-4">
-    <h1 class="text-lg font-bold">画像ギャラリー</h1>
+    <h1 class="text-lg font-bold">{{ t('gallery.title') }}</h1>
     <fieldset :disabled="restoring" :aria-busy="restoring" class="min-w-0 space-y-3 rounded-xl bg-white p-3 dark:bg-slate-800">
       <div class="flex gap-2">
-        <button v-for="choice in (['week', 'month', 'custom'] as const)" :key="choice" type="button" :aria-pressed="period === choice" class="rounded-lg px-3 py-2 text-xs" :class="period === choice ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-700'" @click="period = choice">{{ choice === 'week' ? '週間' : choice === 'month' ? '月間' : '指定期間' }}</button>
+        <button v-for="choice in (['week', 'month', 'custom'] as const)" :key="choice" type="button" :aria-pressed="period === choice" class="rounded-lg px-3 py-2 text-xs" :class="period === choice ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-700'" @click="period = choice">{{ t(`gallery.${choice}`) }}</button>
       </div>
-      <div v-if="period !== 'custom'" class="flex items-center justify-between text-sm">
-        <button type="button" class="px-3 py-2" @click="movePeriod(-1)">前へ</button>
-        <span>{{ range.from }} 〜 {{ range.to }}</span>
-        <button type="button" class="px-3 py-2" @click="movePeriod(1)">次へ</button>
+      <div v-if="period !== 'custom'" class="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <button type="button" class="px-3 py-2" @click="movePeriod(-1)">{{ t('gallery.previous') }}</button>
+        <span class="min-w-0 text-center">{{ t('gallery.range', { from: dateLabel(range.from), to: dateLabel(range.to) }) }}</span>
+        <button type="button" class="px-3 py-2" @click="movePeriod(1)">{{ t('gallery.next') }}</button>
       </div>
       <div v-else class="flex flex-wrap items-center gap-2 text-xs">
-        <input v-model="from" type="date" aria-label="開始日" class="min-w-0 flex-1 border rounded-lg p-2">
-        <span>〜</span>
-        <input v-model="to" type="date" aria-label="終了日" class="min-w-0 flex-1 border rounded-lg p-2">
-        <button type="button" class="rounded-lg bg-blue-600 px-3 py-2 text-white" @click="reset">適用</button>
+        <input v-model="from" type="date" :aria-label="t('gallery.startDate')" class="min-w-0 flex-1 border rounded-lg p-2">
+        <span aria-hidden="true">{{ t('gallery.rangeSeparator') }}</span>
+        <input v-model="to" type="date" :aria-label="t('gallery.endDate')" class="min-w-0 flex-1 border rounded-lg p-2">
+        <button type="button" class="rounded-lg bg-blue-600 px-3 py-2 text-white" @click="reset">{{ t('gallery.apply') }}</button>
       </div>
       <div class="grid grid-cols-2 gap-2">
-        <label class="text-xs">投稿者<select v-model="userId" class="mt-1 w-full rounded-lg border p-2 dark:bg-slate-800"><option value="">全員</option><option v-for="member in members" :key="member.id" :value="String(member.id)">{{ member.display_name }}</option></select></label>
-        <label class="text-xs">カテゴリー<select v-model="categoryId" class="mt-1 w-full rounded-lg border p-2 dark:bg-slate-800"><option value="">全カテゴリー</option><option v-for="category in categories" :key="category.id" :value="String(category.id)">{{ category.name }}</option></select></label>
+        <label class="text-xs">{{ t('gallery.author') }}<select v-model="userId" class="mt-1 w-full rounded-lg border p-2 dark:bg-slate-800"><option value="">{{ t('gallery.everyone') }}</option><option v-for="member in members" :key="member.id" :value="String(member.id)">{{ member.display_name }}</option></select></label>
+        <label class="text-xs">{{ t('gallery.category') }}<select v-model="categoryId" class="mt-1 w-full rounded-lg border p-2 dark:bg-slate-800"><option value="">{{ t('gallery.allCategories') }}</option><option v-for="category in categories" :key="category.id" :value="String(category.id)">{{ category.name }}</option></select></label>
       </div>
     </fieldset>
     <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
     <div class="grid grid-cols-2 gap-2">
       <article v-for="log in logs" :key="log.id" :data-log-id="log.id" class="min-w-0 rounded-xl bg-white p-2 dark:bg-slate-800">
         <ActivityImageView v-if="log.image" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" square />
-        <p class="mt-2 truncate text-xs">{{ log.user.display_name }} · {{ log.activity_date }}</p>
-        <NuxtLink :to="`/logs/${log.id}`" @click="openDetail($event, log.id)" class="text-xs text-blue-600 dark:text-blue-300">アクティビティを見る</NuxtLink>
+        <p class="mt-2 truncate text-xs">{{ log.user.display_name }} · {{ dateLabel(log.activity_date) }}</p>
+        <NuxtLink :to="`/logs/${log.id}`" @click="openDetail($event, log.id)" class="text-xs text-blue-600 dark:text-blue-300">{{ t('gallery.viewActivity') }}</NuxtLink>
       </article>
     </div>
-    <p v-if="!logs.length && !isLoading && !error" class="py-8 text-center text-sm text-slate-500">画像はありません。</p>
+    <p v-if="!logs.length && !isLoading && !error" class="py-8 text-center text-sm text-slate-500">{{ t('gallery.empty') }}</p>
     <div ref="sentinel" class="h-4" />
-    <p v-if="isLoading" role="status" class="text-center text-xs">読み込み中...</p>
-    <button v-if="error" type="button" class="rounded-lg bg-blue-600 px-4 py-2 text-white" @click="retryList">再試行</button>
+    <p v-if="isLoading" role="status" class="text-center text-xs">{{ t('gallery.loading') }}</p>
+    <button v-if="error" type="button" class="rounded-lg bg-blue-600 px-4 py-2 text-white" @click="retryList">{{ t('gallery.retry') }}</button>
   </div>
 </template>

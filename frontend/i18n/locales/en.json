@@ -437,5 +437,29 @@
     "imagePngFailed": "Could not create a PNG image.",
     "imageHeicFailed": "Could not convert the HEIC image.",
     "imagePixels": "The image exceeds the limit of {pixels} pixels."
+  },
+  "gallery": {
+    "title": "Image gallery",
+    "week": "Week",
+    "month": "Month",
+    "custom": "Custom range",
+    "previous": "Previous",
+    "next": "Next",
+    "range": "{from} – {to}",
+    "rangeSeparator": "–",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "apply": "Apply",
+    "author": "Posted by",
+    "everyone": "Everyone",
+    "category": "Category",
+    "allCategories": "All categories",
+    "viewActivity": "View activity",
+    "empty": "No images.",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "invalidRange": "The start date must be on or before the end date.",
+    "loadFailed": "Could not load images. Please try again.",
+    "filtersFailed": "Could not load filters. Please try again."
   }
 }

@@ -69,7 +69,9 @@ export const useListReturn = () => {
     event.preventDefault()
     const root = document.querySelector<HTMLElement>('.app-scroll-area')
     const card = document.querySelector<HTMLElement>(`[data-log-id="${id}"]`)
-    const key = crypto.randomUUID()
+    const key = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+      byte.toString(16).padStart(2, '0')
+    ).join('')
     entries.value[key] = {
       ...state,
       cardId: id,
