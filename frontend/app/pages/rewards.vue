@@ -229,8 +229,8 @@ onBeforeUnmount(() => {
       <button v-for="item in tabs" :key="item.value" type="button" :aria-pressed="mode === item.value" class="reward-tab" :class="mode === item.value ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'" @click="changeMode(item.value)"><span aria-hidden="true" class="reward-tab-icon" :style="tabIconStyle(item.icon)" /><span class="text-xs font-medium text-center break-words">{{ item.label }}</span></button>
     </div>
     <div v-if="mode !== 'manage'" class="reward-filters grid gap-3" :class="isParent && mode === 'conditions' ? 'grid-cols-2' : 'grid-cols-1'">
-      <label v-if="isParent" class="block min-w-0 text-sm">{{ t('reward.member') }}<select v-model="selectedMember" class="mt-1 w-full min-h-11 rounded-lg border border-slate-400 bg-transparent p-2"><option v-for="member in members" :key="member.membership_id" :value="String(member.membership_id)">{{ member.display_name }}</option></select></label>
-      <label v-if="mode === 'conditions'" class="block min-w-0 text-sm">{{ t('reward.goalStatus') }}<select v-model="conditionStatus" class="mt-1 w-full min-h-11 rounded-lg border border-slate-400 bg-transparent p-2"><option value="active">{{ t('reward.activeUpcoming') }}</option><option value="stopped">{{ t('reward.stopped') }}</option></select></label>
+      <label v-if="isParent" class="block min-w-0 text-sm">{{ t('reward.member') }}<select v-model="selectedMember" class="mt-1 w-full min-h-11 rounded-lg border border-slate-400 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 p-2"><option v-for="member in members" :key="member.membership_id" :value="String(member.membership_id)">{{ member.display_name }}</option></select></label>
+      <label v-if="mode === 'conditions'" class="block min-w-0 text-sm">{{ t('reward.goalStatus') }}<select v-model="conditionStatus" class="mt-1 w-full min-h-11 rounded-lg border border-slate-400 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 p-2"><option value="active">{{ t('reward.activeUpcoming') }}</option><option value="stopped">{{ t('reward.stopped') }}</option></select></label>
     </div>
     <p v-if="syncStatus === 'processing'" role="status" class="rounded-lg bg-blue-50 dark:bg-slate-800 p-3 text-sm">{{ t('reward.processing') }}</p>
     <div v-if="syncStatus === 'failed'" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ t('reward.syncFailed') }}<button type="button" class="reward-button mt-2" @click="prepare">{{ t('reward.retry') }}</button></div>
@@ -289,6 +289,14 @@ onBeforeUnmount(() => {
   </SettingsDialog>
 </template>
 <style scoped>
+.reward-filters select {
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right .5rem center;
+  background-size: 1rem 1rem;
+}
 .reward-filters option { background-color: #fff; color: #0f172a; }
 [data-theme='dark'] .reward-filters option { background-color: #1e293b; color: #f1f5f9; }
 .reward-button { min-height: 44px; padding: 8px 12px; border: 1px solid #94a3b8; border-radius: 8px; font-size: 14px; }

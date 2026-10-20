@@ -59,8 +59,9 @@ useHead(() => ({ title: `${t('auth.login.title')} | Famie` }))
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">{{ t('auth.login.identity') }}</label>
+          <label for="login-identity" class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">{{ t('auth.login.identity') }}</label>
           <input
+            id="login-identity"
             v-model="loginId"
             type="text"
             required

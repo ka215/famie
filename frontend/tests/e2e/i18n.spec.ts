@@ -252,3 +252,103 @@ test('language dialog returns focus on Escape and fits narrow cards', async ({
   await openLanguage(page)
   await page.screenshot({ path: testInfo.outputPath('language-dialog-320.png'), fullPage: true })
 })
+
+test('family members keep independent account languages across logout and user switching', async ({
+  browser,
+  context,
+  page,
+  baseURL,
+}, testInfo) => {
+  if (!baseURL) throw new Error('Test base URL is required')
+  const password = 'family language isolation phrase'
+  const username = `family-locale-${testInfo.project.name}-${Date.now()}`
+  const registration = await context.request.post('/api/v1/auth/register', {
+    data: {
+      group_name: '原文の家族 Family',
+      username,
+      display_name: '親の原文 Parent',
+      password,
+      password_confirmation: password,
+    },
+  })
+  expect(registration.status()).toBe(201)
+  const parent = await registration.json()
+  const parentHeaders = { Authorization: `Bearer ${parent.access_token}` }
+  const created = await context.request.post(
+    `/api/v1/groups/${parent.membership.group.id}/members`,
+    {
+      headers: parentHeaders,
+      data: {
+        username: `${username}-child`,
+        display_name: '子の原文 Child',
+        role: 'member',
+        password,
+        password_confirmation: password,
+      },
+    }
+  )
+  expect(created.status()).toBe(201)
+  const login = await context.request.post('/api/v1/auth/login', {
+    data: { login: `${username}-child`, password },
+  })
+  expect(login.status()).toBe(200)
+  const child = await login.json()
+  const childHeaders = { Authorization: `Bearer ${child.access_token}` }
+  expect(
+    (
+      await context.request.patch('/api/v1/auth/me', {
+        headers: parentHeaders,
+        data: { ui_locale: 'ja' },
+      })
+    ).ok()
+  ).toBe(true)
+  expect(
+    (
+      await context.request.patch('/api/v1/auth/me', {
+        headers: childHeaders,
+        data: { ui_locale: 'en' },
+      })
+    ).ok()
+  ).toBe(true)
+  await context.addCookies([{ name: 'auth_token', value: parent.access_token, url: baseURL }])
+  const childContext = await browser.newContext({
+    baseURL,
+    locale: 'ja-JP',
+    ignoreHTTPSErrors: true,
+  })
+  try {
+    await childContext.addCookies([{ name: 'auth_token', value: child.access_token, url: baseURL }])
+    const childPage = await childContext.newPage()
+    await page.goto('/settings')
+    await childPage.goto('/settings')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
+    await expect(childPage.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(page.getByLabel('自分の表示名', { exact: true })).toHaveValue('親の原文 Parent')
+    await expect(childPage.getByLabel('My display name', { exact: true })).toHaveValue(
+      '子の原文 Child'
+    )
+    const members = await childContext.request.get(
+      `/api/v1/groups/${parent.membership.group.id}/members`,
+      { headers: childHeaders }
+    )
+    expect(
+      (await members.json()).map((member: { display_name: string }) => member.display_name)
+    ).toEqual(['親の原文 Parent', '子の原文 Child'])
+    const parentMe = await context.request.get('/api/v1/auth/me', { headers: parentHeaders })
+    expect((await parentMe.json()).user.ui_locale).toBe('ja')
+    await childPage.getByRole('button', { name: 'Log out', exact: true }).click()
+    await expect(childPage).toHaveURL(/\/login\/?$/)
+    await expect(childPage.locator('html')).toHaveAttribute('lang', 'ja')
+    await childPage.getByLabel('ログインID / メールアドレス', { exact: true }).fill(username)
+    await childPage.getByLabel('パスワード', { exact: true }).fill(password)
+    await childPage.getByRole('button', { name: 'ログイン', exact: true }).click()
+    await expect(childPage.getByRole('link', { name: '設定', exact: true })).toBeVisible()
+    await expect(childPage.locator('html')).toHaveAttribute('lang', 'ja')
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
+    const childMe = await context.request.get('/api/v1/auth/me', { headers: childHeaders })
+    expect(childMe.status()).toBe(401)
+  } finally {
+    await childContext.close()
+  }
+})
