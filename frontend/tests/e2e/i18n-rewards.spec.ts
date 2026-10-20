@@ -121,6 +121,11 @@ test('reward counts, date labels and narrow tabs translate without reloading', a
   expect(await page.locator('main').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath('rewards-english-320-light.png') })
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  for (const select of await page.locator('.reward-filters select').all()) {
+    await expect(select).toHaveCSS('appearance', 'none')
+    await expect(select).toHaveCSS('background-color', /^oklch\(0\.279 0\.041 260\.03\d+\)$/)
+    await expect(select).toHaveCSS('color', /^oklch\(0\.968 0\.007 247\.89\d+\)$/)
+  }
   for (const option of await page.locator('.reward-filters option').all()) {
     await expect(option).toHaveCSS('background-color', 'rgb(30, 41, 59)')
     await expect(option).toHaveCSS('color', 'rgb(241, 245, 249)')
@@ -136,10 +141,22 @@ test('reward counts, date labels and narrow tabs translate without reloading', a
   await expect(page.getByRole('article').first()).toContainText('原文リワード')
   expect(state.calls).toEqual(calls)
   await page.getByRole('button', { name: 'インベントリ', exact: true }).click()
+  await expect(page.locator('.reward-filters select')).toHaveCSS(
+    'background-color',
+    /^oklch\(0\.279 0\.041 260\.03\d+\)$/
+  )
   const memberOption = page.locator('.reward-filters option').first()
   await expect(memberOption).toHaveCSS('background-color', 'rgb(30, 41, 59)')
   await expect(memberOption).toHaveCSS('color', 'rgb(241, 245, 249)')
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'))
+  await expect(page.locator('.reward-filters select')).toHaveCSS(
+    'background-color',
+    'rgb(255, 255, 255)'
+  )
+  await expect(page.locator('.reward-filters select')).toHaveCSS(
+    'color',
+    /^oklch\(0\.208 0\.042 265\.75\d+\)$/
+  )
   await expect(memberOption).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   await expect(memberOption).toHaveCSS('color', 'rgb(15, 23, 42)')
 })
