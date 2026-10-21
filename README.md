@@ -20,7 +20,7 @@ Famie is a simple place to record everyday activities, see what your family has 
   <img src="docs/assets/screenshots/timeline-v0.13.0.png" width="430" alt="Famie family timeline showing daily activities, colorful categories, and heart reactions on a mobile screen">
 </p>
 
-*Illustrative sample data from v0.13.0. The app interface is in Japanese.*
+*Illustrative sample data from v0.13.0. The sample shows the Japanese interface.*
 
 ## Made for families
 
@@ -28,7 +28,7 @@ An administrator creates a family and adds its members. Activities and categorie
 
 Rewards and activity photos are available. Each account currently belongs to one family; membership in multiple families is a future feature. Famie does not process payments.
 
-The production site moved to **famie.co** in v0.16.0. Existing users sign in again on the new site and add its PWA to their home screen. The old URL redirects to the new site; old API clients must use the new site. The interface is currently Japanese; Japanese/English support is being designed for v1.0.0.
+The production site moved to **famie.co** in v0.16.0. Existing users sign in again on the new site and add its PWA to their home screen. The old URL redirects to the new site; old API clients must use the new site. The interface and account emails support Japanese and English as of v0.17.0. Each person can save their language preference; existing family content keeps its original wording.
 
 ## Built with
 
