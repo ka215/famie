@@ -202,7 +202,7 @@ const handleSubmit = async () => {
 
 <template>
   <Teleport to="body">
-  <dialog ref="dialog" aria-labelledby="log-create-title" class="log-create-dialog bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl" :style="viewportStyle" @cancel.prevent="emit('close')">
+  <dialog ref="dialog" aria-labelledby="log-create-title" class="log-create-dialog bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl" :style="viewportStyle" @cancel.self.prevent="emit('close')">
     <div class="p-6 space-y-4 log-create-content">
       <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
         <h2 id="log-create-title" class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('activity.createTitle') }}</h2>

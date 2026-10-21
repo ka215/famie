@@ -1,10 +1,29 @@
-# Famie
+<h1><img src="frontend/public/icon.svg" width="40" height="40" alt=""> Famie</h1>
+
+[![Latest release](https://img.shields.io/github/v/release/ka215/famie?style=flat&sort=semver)](https://github.com/ka215/famie/releases/latest) [![Languages: Japanese / English](https://img.shields.io/badge/Languages-Japanese%20%2F%20English-blue?style=flat)](#your-language-your-style) [![PWA: Installable](https://img.shields.io/badge/PWA-Installable-2563eb?style=flat)](https://famie.co/)
 
 **Small moments. Shared as a family.**
 
 Famie is a simple place to record everyday activities, see what your family has been doing, and encourage one another with a heart. From finishing homework to helping with dinner, ordinary moments deserve a little recognition.
 
-**Visit Famie: [famie.co](https://famie.co)**
+**[Start using Famie at famie.co](https://famie.co/)**
+
+<table>
+  <thead>
+    <tr><th>Timeline</th><th>Rewards</th><th>Gallery</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td width="33%"><a href="docs/assets/screenshots/timeline-en.png"><img src="docs/assets/screenshots/timeline-en.png" width="100%" alt="English family timeline with activities, notes, photos, and heart reactions"></a></td>
+      <td width="33%"><a href="docs/assets/screenshots/rewards-en.png"><img src="docs/assets/screenshots/rewards-en.png" width="100%" alt="English rewards screen with recurring goals, trophies, and progress"></a></td>
+      <td width="33%"><a href="docs/assets/screenshots/gallery-en.png"><img src="docs/assets/screenshots/gallery-en.png" width="100%" alt="English family gallery with activity photos and date, member, and category filters"></a></td>
+    </tr>
+  </tbody>
+</table>
+
+*English interface with illustrative sample data. Select an image to view it at full size.*
+
+<sub>Sample photos: <a href="https://www.pexels.com/">Pexels</a>.</sub>
 
 ## A little encouragement, every day
 
@@ -14,29 +33,21 @@ Famie is a simple place to record everyday activities, see what your family has 
 - **Keep photos with your activities.** Attach a photo and revisit family moments in the gallery.
 - **Turn progress into rewards.** Set recurring goals, track progress, and collect earned trophies.
 - **Make it your family's space.** Family administrators manage members and categories. Each person edits their own activity records.
-- **Feel at home on your phone.** Add Famie to your home screen as a PWA, choose a light or dark theme, and customize your display name and header suffix.
 
-<p align="center">
-  <img src="docs/assets/screenshots/timeline-v0.13.0.png" width="430" alt="Famie family timeline showing daily activities, colorful categories, and heart reactions on a mobile screen">
-</p>
+## Your language, your style
 
-*Illustrative sample data from v0.13.0. The sample shows the Japanese interface.*
+Use Famie in Japanese or English, and save your language preference to your account across devices. Before logging in, choose a language for that browser. Account emails also support both languages, while family names, activity notes, and other saved content keep their original wording.
+
+Add Famie to your home screen as a PWA, choose a light or dark theme, and customize your display name. The Japanese header also offers an optional name suffix.
 
 ## Made for families
 
-An administrator creates a family and adds its members. Activities and categories stay within that family, with administrator and regular-member roles. Each account currently belongs to one family.
-
-Rewards and activity photos are available. Each account currently belongs to one family; membership in multiple families is a future feature. Famie does not process payments.
-
-The production site moved to **famie.co** in v0.16.0. Existing users sign in again on the new site and add its PWA to their home screen. The old URL redirects to the new site; old API clients must use the new site. The interface and account emails support Japanese and English as of v0.17.0. Each person can save their language preference; existing family content keeps its original wording.
+An administrator creates a family and adds its members. Activities, photos, categories, and rewards stay within that family. Each account belongs to one family, with administrator and regular-member roles. Famie does not process payments.
 
 ## Built with
 
 Nuxt 4, Vue, TypeScript, and Tailwind CSS on the frontend; Laravel, Sanctum, and PostgreSQL on the backend.
 
-For setup, commands, repository structure, and reproducing the sample screenshot, see the [development guide](docs/development/workspace-guide.md).
+---
 
-- [Documentation](docs/README.md)
-- [Requirements and release status](docs/issues/summary.md)
-- [v0.16.0 specification and migration record](docs/issues/v0.16.0.md)
-- [Contributor and agent instructions](AGENTS.md)
+Copyright © 2026 MAGICMETHODS.
