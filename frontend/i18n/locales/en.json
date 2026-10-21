@@ -394,7 +394,6 @@
     "monthLoading": "Loading monthly activities...",
     "editLabel": "Edit the activity on {date}",
     "by": "Activity by {name}",
-    "noteText": "Notes: {note}",
     "pages": "Page {page} of {pages} ({total} activity) | Page {page} of {pages} ({total} activity) | Page {page} of {pages} ({total} activities)",
     "dayCount": "{date}, no activities | {date}, {count} activity | {date}, {count} activities",
     "dayEmpty": "{date}, no activities",
@@ -435,7 +434,8 @@
     "imageUnavailable": "Image conversion is unavailable.",
     "imagePngFailed": "Could not create a PNG image.",
     "imageHeicFailed": "Could not convert the HEIC image.",
-    "imagePixels": "The image exceeds the limit of {pixels} pixels."
+    "imagePixels": "The image exceeds the limit of {pixels} pixels.",
+    "noteLabel": "Notes"
   },
   "gallery": {
     "title": "Image gallery",
