@@ -69,15 +69,20 @@ pnpm test:release
 
 ## 紹介画像の再生成
 
-`frontend/` で実行する。PlaywrightのChromiumを使用し、APIは架空データで差し替える。サンプル日時は2026-10-08、画面サイズは430×1060、ライトテーマ。実ユーザーの情報は使用しない。
+`frontend/` で実行する。PlaywrightのChromiumを使用し、APIは架空データで差し替える。サンプル日時は2026-10-08、画面サイズは430×932、英語UI・ライトテーマ。実ユーザーの情報は使用しない。
+
+撮影元写真はGit管理しない。`.tools/assets/`に`pexels-salad.jpg`・`pexels-books.jpg`・`pexels-park.jpg`を準備する。提供された素材はPexels由来で、ユーザーにより商用利用可能・必須クレジット条件なしと確認済み。READMEには希望に基づくPexelsの出典リンクを添える。素材を差し替える場合も、スクリーンショットを公開できる条件を確認する。
 
 ```powershell
 $env:FAMIE_CAPTURE_SAMPLE = '1'
-pnpm test:e2e tests/e2e/activity-likes.spec.ts --project=chromium --grep 'README用'
-Remove-Item Env:FAMIE_CAPTURE_SAMPLE
+try {
+  pnpm test:e2e tests/e2e/readme-capture.spec.ts --project=chromium
+} finally {
+  Remove-Item Env:FAMIE_CAPTURE_SAMPLE
+}
 ```
 
-画像は `docs/assets/screenshots/timeline-v0.13.0.png` に保存する。データは `frontend/tests/support/timeline-sample.ts`、撮影処理は `frontend/tests/e2e/activity-likes.spec.ts` を参照する。紹介用画像は実APIの結合テストの代替ではない。
+画像は`docs/assets/screenshots/`の`timeline-en.png`・`rewards-en.png`・`gallery-en.png`へ保存する。共通データは`frontend/tests/support/timeline-sample.ts`を再利用し、英語データ・写真・リワード等の撮影専用設定は`frontend/tests/e2e/readme-capture.spec.ts`にある。通常のCIでは明示フラグなしで撮影をスキップし、PNGを生成しない。旧`timeline-v0.13.0.png`と旧撮影処理は過去資料用に保持する。紹介用画像は実APIの結合テストの代替ではない。
 
 タブアイコンのフォールバックICOは、既存の `frontend/public/icon.svg` から次のコマンドで再生成する。
 

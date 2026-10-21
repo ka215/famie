@@ -12,6 +12,7 @@ import {
   parseLocalDate,
 } from '#shared/utils/calendar'
 import { categoryStyle } from '#shared/utils/categoryColor'
+import noteIcon from '~/assets/icons/note-text-outline.svg'
 import plusIcon from '~/assets/icons/plus.svg'
 import editIcon from '~/assets/icons/square-edit-outline.svg'
 
@@ -20,6 +21,7 @@ const { user, groupId } = useAuth()
 const groupPath = (path: string) => `/groups/${groupId.value}${path}`
 const editIconStyle = { maskImage: `url("${editIcon}")` }
 const plusIconStyle = { maskImage: `url("${plusIcon}")` }
+const noteIconStyle = { maskImage: `url("${noteIcon}")` }
 
 const listReturn = useListReturn()
 const restoring = ref(true)
@@ -524,8 +526,10 @@ onBeforeUnmount(() => {
               {{ log.content }}
             </p>
 
-            <p v-if="log.note" class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg">
-              {{ t('activity.noteText', { note: log.note }) }}
+            <p v-if="log.note" class="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg">
+              <span aria-hidden="true" class="mt-0.5 h-4 w-4 shrink-0 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="noteIconStyle" />
+              <span class="sr-only">{{ t('activity.noteLabel') }}: </span>
+              <span class="min-w-0 whitespace-pre-wrap wrap-anywhere">{{ log.note }}</span>
             </p>
             <ActivityImageView v-if="log.image" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" />
             <div class="flex items-center justify-between">
