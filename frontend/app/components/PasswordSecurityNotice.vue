@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t, locale } = useI18n()
+
 import type { ApiRequestError, CurrentUserResponse } from '#shared/types/api'
 
 const { user, token } = useAuth()
@@ -9,7 +11,7 @@ const dismissedFor = ref('')
 const snooze = ref(false)
 const editing = ref(false)
 const busy = ref(false)
-const error = ref('')
+const error = useUiMessage()
 const now = ref(Date.now())
 const form = ref({ current_password: '', new_password: '', new_password_confirmation: '' })
 const owner = computed(() => `${user.value?.id ?? ''}:${token.value ?? ''}`)
@@ -68,7 +70,7 @@ async function close() {
     }
   } catch (cause) {
     if (requestOwner === owner.value) {
-      error.value = (cause as ApiRequestError).data?.message ?? '通知設定を保存できませんでした。'
+      error.value = (cause as ApiRequestError).data?.message ?? t('auth.security.snoozeFailed')
     }
   } finally {
     busy.value = false
@@ -79,7 +81,7 @@ async function change() {
   if (busy.value) return
   error.value = ''
   if (form.value.new_password !== form.value.new_password_confirmation) {
-    error.value = '新しいパスワードが一致しません。'
+    error.setKey('validation.newPasswordMismatch')
     return
   }
   busy.value = true
@@ -100,7 +102,7 @@ async function change() {
       error.value =
         Object.values(apiError.data?.errors ?? {}).flat()[0] ??
         apiError.data?.message ??
-        'パスワードを変更できませんでした。'
+        t('auth.security.changeFailed')
     }
   } finally {
     busy.value = false
@@ -109,20 +111,20 @@ async function change() {
 </script>
 
 <template>
-  <SettingsDialog v-if="visible" title="パスワードの安全性" :busy="busy" @close="close">
+  <SettingsDialog v-if="visible" :title="t('auth.security.title')" :busy="busy" @close="close">
     <div class="space-y-4">
-      <p v-if="user?.password_security?.status === 'weak'" class="text-sm">現在のパスワードは新しい設定基準を満たしていません。推測されにくい長いパスワードに変更してください。</p>
-      <p v-else class="text-sm">現在のパスワードが新しい設定基準を満たすか未確認です。次回ログイン時に確認します。この画面から変更することもできます。</p>
+      <p v-if="user?.password_security?.status === 'weak'" class="text-sm">{{ t('auth.security.weak') }}</p>
+      <p v-else class="text-sm">{{ t('auth.security.unknown') }}</p>
       <p v-if="error" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ error }}</p>
       <form v-if="editing" class="space-y-3" @submit.prevent="change">
-        <div><label for="security-current-password" class="block text-sm">現在のパスワード</label><PasswordInput id="security-current-password" v-model="form.current_password" label="現在のパスワード" autocomplete="current-password" required :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2" /></div>
-        <div><label for="security-new-password" class="block text-sm">新しいパスワード</label><PasswordInput id="security-new-password" v-model="form.new_password" label="新しいパスワード" autocomplete="new-password" required minlength="15" strength :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2" /></div>
-        <div><label for="security-confirmation" class="block text-sm">新しいパスワード（確認）</label><PasswordInput id="security-confirmation" v-model="form.new_password_confirmation" label="新しいパスワード（確認）" autocomplete="new-password" required minlength="15" :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2" /></div>
-        <button type="submit" :disabled="busy" class="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{{ busy ? '変更中…' : 'パスワードを変更する' }}</button>
+        <div><label for="security-current-password" class="block text-sm">{{ t('auth.currentPassword') }}</label><PasswordInput id="security-current-password" v-model="form.current_password" :label="t('auth.currentPassword')" autocomplete="current-password" required :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2" /></div>
+        <div><label for="security-new-password" class="block text-sm">{{ t('auth.newPassword') }}</label><PasswordInput id="security-new-password" v-model="form.new_password" :label="t('auth.newPassword')" autocomplete="new-password" required minlength="15" strength :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2" /></div>
+        <div><label for="security-confirmation" class="block text-sm">{{ t('auth.confirmNewPassword') }}</label><PasswordInput id="security-confirmation" v-model="form.new_password_confirmation" :label="t('auth.confirmNewPassword')" autocomplete="new-password" required minlength="15" :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2" /></div>
+        <button type="submit" :disabled="busy" class="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{{ busy ? t('common.changing') : t('settings.password.submit') }}</button>
       </form>
-      <button v-else type="button" class="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-white" @click="editing = true">パスワードを変更</button>
-      <label class="flex min-h-11 items-center gap-2 text-sm"><input v-model="snooze" type="checkbox" :disabled="busy">翌日までこの通知を表示しない（日本時間）</label>
-      <button type="button" :disabled="busy" class="min-h-11 rounded-lg border border-slate-400 px-4 py-2 disabled:opacity-50" @click="close">あとで確認する</button>
+      <button v-else type="button" class="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-white" @click="editing = true">{{ t('auth.security.change') }}</button>
+      <label class="flex min-h-11 items-center gap-2 text-sm"><input v-model="snooze" type="checkbox" :disabled="busy">{{ t('auth.security.snooze') }}</label>
+      <button type="button" :disabled="busy" class="min-h-11 rounded-lg border border-slate-400 px-4 py-2 disabled:opacity-50" @click="close">{{ t('common.later') }}</button>
     </div>
   </SettingsDialog>
 </template>

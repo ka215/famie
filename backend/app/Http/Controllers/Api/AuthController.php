@@ -11,6 +11,7 @@ use App\Services\AccountEmailService;
 use App\Services\LoginThrottle;
 use App\Support\InitialCategories;
 use App\Support\PasswordStrength;
+use App\Support\UiLocale;
 use App\Support\UsernameRules;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -36,14 +38,14 @@ class AuthController extends Controller
             $hash = $user?->password ?? Cache::rememberForever('login:dummy:'.config('hashing.driver').':'.config('hashing.bcrypt.rounds'), fn () => Hash::make(Str::random(48)));
             $matches = Hash::check((string) $request->string('password'), $hash);
             if (! $user || ! $matches) {
-                throw ValidationException::withMessages(['login' => ['ログインIDまたはパスワードが正しくありません。']]);
+                throw ValidationException::withMessages(['login' => [__('messages.invalid_credentials')]]);
             }
 
             return $this->withMembershipLock($user, function (GroupMember $membership) use ($user, $request): JsonResponse {
                 $user->refresh();
                 if (! Hash::check((string) $request->string('password'), $user->password)
                     || ($user->username !== (string) $request->string('login') && strtolower((string) $user->email) !== strtolower((string) $request->string('login')))) {
-                    throw ValidationException::withMessages(['login' => ['ログインIDまたはパスワードが正しくありません。']]);
+                    throw ValidationException::withMessages(['login' => [__('messages.invalid_credentials')]]);
                 }
                 $weak = ! PasswordStrength::acceptable((string) $request->string('password'));
                 $user->forceFill(['password_is_weak' => $weak, ...(! $weak ? ['password_warning_snoozed_until' => null] : [])])->save();
@@ -51,7 +53,7 @@ class AuthController extends Controller
                 $token = $user->createToken('auth_token', expiresAt: now()->addDays(30))->plainTextToken;
 
                 return response()->json([
-                    'message' => 'ログインに成功しました。', 'access_token' => $token, 'token_type' => 'Bearer',
+                    'message' => __('messages.logged_in'), 'access_token' => $token, 'token_type' => 'Bearer',
                     ...$this->identityPayload($user, $membership),
                 ]);
             });
@@ -63,8 +65,8 @@ class AuthController extends Controller
         if ($response = $this->consumeRegistrationAttempt($request)) {
             return $response;
         }
-        if (array_intersect(array_keys($request->all()), ['group_id', 'type', 'role', 'status', 'email'])) {
-            throw ValidationException::withMessages(['registration' => ['家族種別・所属・権限・メールアドレスは指定できません。']]);
+        if (array_intersect(array_keys($request->all()), ['group_id', 'type', 'role', 'status', 'email', 'ui_locale'])) {
+            throw ValidationException::withMessages(['registration' => [__('messages.registration_fields')]]);
         }
 
         $validated = $request->validate([
@@ -74,7 +76,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', new StrongPassword, 'confirmed'],
         ], UsernameRules::messages());
 
-        [$user, $membership] = DB::transaction(function () use ($validated): array {
+        [$user, $membership] = DB::transaction(function () use ($validated, $request): array {
             $user = User::query()->create([
                 'username' => $validated['username'], 'display_name' => $validated['display_name'],
                 'email' => null, 'password' => Hash::make($validated['password']),
@@ -84,7 +86,7 @@ class AuthController extends Controller
             $membership = $group->memberships()->create([
                 'user_id' => $user->id, 'role' => GroupMember::ROLE_ADMIN, 'status' => GroupMember::STATUS_ACTIVE,
             ]);
-            InitialCategories::createFor($group);
+            InitialCategories::createFor($group, (string) $request->attributes->get('ui_locale'));
 
             return [$user, $membership->setRelation('group', $group)];
         });
@@ -92,7 +94,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token', expiresAt: now()->addDays(30))->plainTextToken;
 
         return response()->json([
-            'message' => '家族を登録しました。', 'access_token' => $token, 'token_type' => 'Bearer',
+            'message' => __('messages.family_registered'), 'access_token' => $token, 'token_type' => 'Bearer',
             ...$this->identityPayload($user, $membership),
         ], 201);
     }
@@ -101,7 +103,7 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()?->delete();
 
-        return response()->json(['message' => 'ログアウトしました。']);
+        return response()->json(['message' => __('messages.logged_out')]);
     }
 
     public function usernameAvailability(Request $request): JsonResponse
@@ -121,19 +123,27 @@ class AuthController extends Controller
     public function updateMe(Request $request): JsonResponse
     {
         $this->activeMembership($request->user());
-        if (array_diff(array_keys($request->all()), ['display_name', 'show_name_suffix'])) {
-            throw ValidationException::withMessages(['profile' => ['表示名と敬称設定以外は変更できません。']]);
+        if (array_diff(array_keys($request->all()), ['display_name', 'show_name_suffix', 'ui_locale'])) {
+            throw ValidationException::withMessages(['profile' => [__('messages.profile_fields')]]);
         }
         if ($request->all() === []) {
-            throw ValidationException::withMessages(['profile' => ['変更する項目を指定してください。']]);
+            throw ValidationException::withMessages(['profile' => [__('messages.no_changes')]]);
+        }
+        if ($request->attributes->get('has_ui_locale_input')) {
+            $inputLocale = $request->attributes->get('ui_locale_input');
+            if ($inputLocale !== null && ! in_array($inputLocale, UiLocale::supported(), true)) {
+                throw ValidationException::withMessages(['ui_locale' => [__('validation.in', ['attribute' => __('validation.attributes.ui_locale')])]]);
+            }
+            $request->merge(['ui_locale' => $inputLocale]);
         }
         $validated = $request->validate([
             'display_name' => ['sometimes', 'required', 'string', 'max:50'],
             'show_name_suffix' => ['sometimes', 'required', 'boolean:strict'],
+            'ui_locale' => ['sometimes', 'nullable', 'string', Rule::in(UiLocale::supported())],
         ], [
-            'show_name_suffix.boolean' => '敬称の表示はONまたはOFFで指定してください。',
-            'display_name.required' => '表示名を入力してください。', 'display_name.string' => '表示名は文字列で入力してください。',
-            'display_name.max' => '表示名は50文字以内で入力してください。',
+            'show_name_suffix.boolean' => __('messages.suffix_boolean'),
+            'display_name.required' => __('messages.display_name_required'), 'display_name.string' => __('messages.display_name_string'),
+            'display_name.max' => __('messages.display_name_max'),
         ]);
 
         return $this->withMembershipLock($request->user(), function (GroupMember $membership) use ($request, $validated): JsonResponse {
@@ -153,20 +163,20 @@ class AuthController extends Controller
         return $this->withMembershipLock($request->user(), function () use ($request, $validated, $emails): JsonResponse {
             $user = $request->user()->fresh();
             if (! Hash::check($validated['current_password'], $user->password)) {
-                return response()->json(['message' => '現在のパスワードが正しくありません。'], 422);
+                return response()->json(['message' => __('messages.password_incorrect')], 422);
             }
             $user->forceFill(['password' => Hash::make($validated['new_password']), 'password_is_weak' => false, 'password_warning_snoozed_until' => null])->save();
             $emails->clearChallenges($user);
             $currentToken = $request->user()->currentAccessToken();
             $user->tokens()->when($currentToken instanceof PersonalAccessToken, fn ($query) => $query->whereKeyNot($currentToken->getKey()))->delete();
 
-            return response()->json(['message' => 'パスワードを変更しました。']);
+            return response()->json(['message' => __('messages.password_changed')]);
         });
     }
 
     public function snoozePasswordWarning(Request $request): JsonResponse
     {
-        abort_if($request->all() !== [], 422, '通知の停止期限は指定できません。');
+        abort_if($request->all() !== [], 422, __('messages.snooze_fields'));
 
         return $this->withMembershipLock($request->user(), function (GroupMember $membership) use ($request): JsonResponse {
             $user = $request->user()->fresh();
@@ -190,8 +200,8 @@ class AuthController extends Controller
     private function activeMembership(User $user): GroupMember
     {
         $memberships = $user->activeMembership()->with('group')->get();
-        abort_if($memberships->isEmpty(), 403, 'このアカウントは現在利用できません。');
-        abort_if($memberships->count() !== 1, 409, '所属情報を特定できません。');
+        abort_if($memberships->isEmpty(), 403, __('messages.account_unavailable'));
+        abort_if($memberships->count() !== 1, 409, __('messages.membership_unknown'));
 
         return $memberships->first();
     }
@@ -201,7 +211,7 @@ class AuthController extends Controller
     {
         return [
             'user' => [
-                ...$user->fresh()->only(['id', 'username', 'display_name', 'show_name_suffix', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
+                ...$user->fresh()->only(['id', 'username', 'display_name', 'show_name_suffix', 'ui_locale', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
                 'password_security' => [
                     'status' => $user->password_is_weak === null ? 'unknown' : ($user->password_is_weak ? 'weak' : 'ok'),
                     'snoozed_until' => $user->password_warning_snoozed_until?->toIso8601String(),
@@ -222,7 +232,7 @@ class AuthController extends Controller
         $window = config('famie.register_window_seconds');
         $cooldown = config('famie.register_cooldown_seconds');
         foreach ([$maxAttempts, $window, $cooldown] as $value) {
-            abort_if(! is_int($value) || $value < 1, 500, '公開登録の制限設定が不正です。');
+            abort_if(! is_int($value) || $value < 1, 500, __('messages.registration_config'));
         }
 
         $retryAfter = Cache::lock('register:lock:'.$request->ip(), 5)->block(2, function () use ($attemptKey, $blockedKey, $maxAttempts, $window, $cooldown): int {
@@ -241,7 +251,7 @@ class AuthController extends Controller
         });
 
         return $retryAfter > 0
-            ? response()->json(['message' => '登録試行回数が上限に達しました。時間を置いて再試行してください。'], 429, ['Retry-After' => (string) $retryAfter])
+            ? response()->json(['message' => __('messages.registration_limited')], 429, ['Retry-After' => (string) $retryAfter])
             : null;
     }
 }

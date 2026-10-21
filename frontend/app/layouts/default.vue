@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t, locale } = useI18n()
+
 import settingsIcon from '~/assets/icons/cog-outline.svg'
 import imageAlbumIcon from '~/assets/icons/image-album.svg'
 import timelineIcon from '~/assets/icons/timeline.svg'
@@ -33,7 +35,7 @@ const iconStyles = {
     <header class="shrink-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between shadow-xs">
       <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Famie</h1>
       <div class="flex items-center space-x-3 text-sm">
-        <span class="text-slate-600 dark:text-slate-300 font-medium">{{ user?.display_name }}<template v-if="user?.show_name_suffix !== false"> さん</template></span>
+        <span class="text-slate-600 dark:text-slate-300 font-medium">{{ user?.show_name_suffix !== false ? t('common.displayNameWithSuffix', { name: user?.display_name ?? '' }) : user?.display_name }}</span>
       </div>
     </header>
 
@@ -43,23 +45,23 @@ const iconStyles = {
       </main>
     </div>
 
-    <nav aria-label="メインメニュー" class="shrink-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 pb-[env(safe-area-inset-bottom)] z-10">
+    <nav :aria-label="t('navigation.label')" class="shrink-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 pb-[env(safe-area-inset-bottom)] z-10">
       <div class="grid max-w-md mx-auto" :class="galleryVisible ? 'grid-cols-4' : 'grid-cols-3'">
       <NuxtLink to="/" @click="clearListReturn" :aria-current="route.path === '/' || route.path.startsWith('/logs/') ? 'page' : undefined" class="footer-item" :class="route.path === '/' || route.path.startsWith('/logs/') ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.timeline" />
-        <span class="text-xs font-medium">タイムライン</span>
+        <span class="text-xs font-medium">{{ t('navigation.timeline') }}</span>
       </NuxtLink>
       <NuxtLink to="/rewards" :aria-current="route.path === '/rewards' ? 'page' : undefined" class="footer-item" :class="route.path === '/rewards' ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.trophy" />
-        <span class="text-xs font-medium">リワード</span>
+        <span class="text-xs font-medium">{{ t('navigation.rewards') }}</span>
       </NuxtLink>
       <NuxtLink v-if="galleryVisible" to="/gallery" @click="clearListReturn" class="footer-item" :class="route.path === '/gallery' ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.gallery" />
-        <span class="text-xs font-medium">ギャラリー</span>
+        <span class="text-xs font-medium">{{ t('navigation.gallery') }}</span>
       </NuxtLink>
       <NuxtLink to="/settings" class="footer-item" :class="route.path === '/settings' ? 'text-blue-600 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'">
         <span aria-hidden="true" class="footer-icon" :style="iconStyles.settings" />
-        <span class="text-xs font-medium">設定</span>
+        <span class="text-xs font-medium">{{ t('navigation.settings') }}</span>
       </NuxtLink>
       </div>
     </nav>

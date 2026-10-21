@@ -20,15 +20,15 @@ class GroupMembershipService
             $memberships = GroupMember::query()->where('group_id', $target->group_id)->orderBy('id')->lockForUpdate()->get();
             $actorMembership = $memberships->firstWhere('user_id', $actor->id);
             $lockedTarget = $memberships->firstWhere('id', $target->id);
-            abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, '所属の変更権限がありません。');
-            abort_if($lockedTarget->status !== GroupMember::STATUS_ACTIVE, 422, '無効化済みメンバーは復元してから編集してください。');
+            abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, __('messages.membership_forbidden'));
+            abort_if($lockedTarget->status !== GroupMember::STATUS_ACTIVE, 422, __('messages.inactive_edit'));
             if (! in_array($role, [GroupMember::ROLE_ADMIN, GroupMember::ROLE_MEMBER], true)) {
-                throw ValidationException::withMessages(['role' => ['役割が不正です。']]);
+                throw ValidationException::withMessages(['role' => [__('messages.role_invalid')]]);
             }
             if ($lockedTarget->role !== $role) {
-                abort_if($lockedTarget->user_id === $actor->id, 422, '自分自身の役割は変更できません。');
+                abort_if($lockedTarget->user_id === $actor->id, 422, __('messages.self_role'));
                 $activeAdmins = $memberships->where('status', GroupMember::STATUS_ACTIVE)->where('role', GroupMember::ROLE_ADMIN)->count();
-                abort_if($lockedTarget->isAdmin() && $activeAdmins <= 1, 422, '最後の管理者は降格できません。');
+                abort_if($lockedTarget->isAdmin() && $activeAdmins <= 1, 422, __('messages.last_admin_demote'));
             }
             $lockedTarget->user->update(['display_name' => $displayName]);
             $lockedTarget->update(['role' => $role]);
@@ -40,7 +40,7 @@ class GroupMembershipService
     public function changeStatus(User $actor, GroupMember $target, string $status): GroupMember
     {
         if (! in_array($status, [GroupMember::STATUS_ACTIVE, GroupMember::STATUS_INACTIVE], true)) {
-            throw ValidationException::withMessages(['status' => ['所属状態が不正です。']]);
+            throw ValidationException::withMessages(['status' => [__('messages.status_invalid')]]);
         }
 
         return DB::transaction(function () use ($actor, $target, $status): GroupMember {
@@ -48,15 +48,15 @@ class GroupMembershipService
             $memberships = GroupMember::query()->where('group_id', $target->group_id)->orderBy('id')->lockForUpdate()->get();
             $actorMembership = $memberships->firstWhere('user_id', $actor->id);
             $lockedTarget = $memberships->firstWhere('id', $target->id);
-            abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, '所属の変更権限がありません。');
+            abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, __('messages.membership_forbidden'));
 
             if ($status === GroupMember::STATUS_INACTIVE) {
-                abort_if($lockedTarget->user_id === $actor->id, 422, '自分自身を無効化できません。');
+                abort_if($lockedTarget->user_id === $actor->id, 422, __('messages.self_deactivate'));
                 $activeAdmins = $memberships->where('status', GroupMember::STATUS_ACTIVE)->where('role', GroupMember::ROLE_ADMIN)->count();
-                abort_if($lockedTarget->isAdmin() && $activeAdmins <= 1, 422, '最後の管理者は無効化できません。');
+                abort_if($lockedTarget->isAdmin() && $activeAdmins <= 1, 422, __('messages.last_admin_deactivate'));
             } else {
                 $activeCount = $memberships->where('status', GroupMember::STATUS_ACTIVE)->count();
-                abort_if($lockedTarget->status !== GroupMember::STATUS_ACTIVE && $activeCount >= config('famie.max_group_members'), 422, '家族メンバーの上限に達しています。');
+                abort_if($lockedTarget->status !== GroupMember::STATUS_ACTIVE && $activeCount >= config('famie.max_group_members'), 422, __('messages.member_limit'));
             }
 
             $lockedTarget->update(['status' => $status]);
@@ -77,12 +77,12 @@ class GroupMembershipService
             $memberships = GroupMember::query()->where('group_id', $target->group_id)->orderBy('id')->lockForUpdate()->get();
             $actorMembership = $memberships->firstWhere('user_id', $actor->id);
             $lockedTarget = $memberships->firstWhere('id', $target->id);
-            abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, 'メンバーの管理権限がありません。');
-            abort_if($lockedTarget->user_id === $actor->id, 422, '自分自身のパスワードはアカウント設定から変更してください。');
-            abort_if($lockedTarget->status !== GroupMember::STATUS_ACTIVE, 422, '無効化済みメンバーは復元してから再発行してください。');
+            abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, __('messages.member_forbidden'));
+            abort_if($lockedTarget->user_id === $actor->id, 422, __('messages.self_password'));
+            abort_if($lockedTarget->status !== GroupMember::STATUS_ACTIVE, 422, __('messages.inactive_reset'));
             $parent = User::query()->whereKey($actor->id)->lockForUpdate()->firstOrFail();
             if (! Hash::check($currentPassword, $parent->password)) {
-                throw ValidationException::withMessages(['current_password' => ['親自身の現在のパスワードが正しくありません。']]);
+                throw ValidationException::withMessages(['current_password' => [__('messages.parent_password_incorrect')]]);
             }
             $subject = User::query()->whereKey($lockedTarget->user_id)->lockForUpdate()->firstOrFail();
             $subject->forceFill([

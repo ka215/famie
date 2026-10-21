@@ -25,12 +25,12 @@ class RewardController extends Controller
 
     private function admin(Request $request): void
     {
-        abort_unless($request->attributes->get('group_membership')->isAdmin(), 403, 'リワードの管理権限がありません。');
+        abort_unless($request->attributes->get('group_membership')->isAdmin(), 403, __('messages.reward_admin'));
     }
 
     private function editable(Group $group): void
     {
-        abort_if($group->reward_sync_status === 'processing', 409, '集計中は編集できません。');
+        abort_if($group->reward_sync_status === 'processing', 409, __('messages.reward_processing'));
     }
 
     private function target(Group $group, int $reward): Reward
@@ -51,14 +51,14 @@ class RewardController extends Controller
     private function revision(Request $request, Reward $reward): void
     {
         $request->validate(['revision' => ['required', 'integer', 'min:1']]);
-        abort_if($request->integer('revision') !== $reward->revision, 409, '他の変更が先に保存されました。再読み込みしてください。');
+        abort_if($request->integer('revision') !== $reward->revision, 409, __('messages.reward_conflict'));
     }
 
     /** @return array<string,mixed> */
     private function validated(Request $request, Group $group, ?Reward $reward = null): array
     {
         if (array_diff(array_keys($request->all()), ['name', 'description', 'metric', 'color', 'count_mode', 'required_count', 'category_id', 'target_ids', 'start_month', 'cycle_months', 'timezone', 'revision']) !== []) {
-            throw ValidationException::withMessages(['reward' => ['指定できない項目が含まれています。']]);
+            throw ValidationException::withMessages(['reward' => [__('messages.reward_fields')]]);
         }
         foreach (['name', 'description'] as $field) {
             if (is_string($request->input($field))) {
@@ -83,13 +83,13 @@ class RewardController extends Controller
         $begun = $reward && $reward->status !== 'draft' && CarbonImmutable::now($reward->timezone)->greaterThanOrEqualTo(CarbonImmutable::parse($reward->start_month->toDateString(), $reward->timezone));
         if ($begun) {
             if ($start->toDateString() !== $reward->start_month->toDateString() || (int) $data['cycle_months'] !== $reward->cycle_months || (isset($data['timezone']) && $data['timezone'] !== $reward->timezone)) {
-                throw ValidationException::withMessages(['start_month' => ['開始後の期間設定は変更できません。']]);
+                throw ValidationException::withMessages(['start_month' => [__('messages.reward_period_locked')]]);
             }
         } elseif ($start->lessThan(CarbonImmutable::now($timezone)->startOfMonth())) {
-            throw ValidationException::withMessages(['start_month' => ['開始月は当月以降を指定してください。']]);
+            throw ValidationException::withMessages(['start_month' => [__('messages.reward_start_month')]]);
         }
         if ($reward && isset($data['timezone']) && $data['timezone'] !== $reward->timezone) {
-            throw ValidationException::withMessages(['timezone' => ['保存済みタイムゾーンは変更できません。']]);
+            throw ValidationException::withMessages(['timezone' => [__('messages.reward_timezone')]]);
         }
         $data['start_month'] = $start->toDateString();
         $data['timezone'] = $timezone;
@@ -113,7 +113,7 @@ class RewardController extends Controller
     {
         $count = Reward::query()->where('group_id', $group->id)->where('status', 'active')->count();
         if ($count >= $group->reward_active_limit) {
-            abort(response()->json(['message' => '有効リワードの上限に達しています。', 'limit' => $group->reward_active_limit, 'count' => $count], 409));
+            abort(response()->json(['message' => __('messages.reward_active_limit'), 'limit' => $group->reward_active_limit, 'count' => $count], 409));
         }
     }
 
@@ -132,7 +132,7 @@ class RewardController extends Controller
     public function index(Request $request, Group $group): JsonResponse
     {
         $member = $this->member($request, $group);
-        $request->validate(['status' => ['sometimes', Rule::in(['active', 'stopped'])]]);
+        $request->validate(['status' => ['sometimes', Rule::in(['active', 'stopped'])]], [], ['status' => __('messages.reward_status')]);
         $visible = [];
         $query = Reward::query()->where('group_id', $group->id)->whereIn('status', ['active', 'stopped']);
         if ($request->filled('status')) {
@@ -157,7 +157,7 @@ class RewardController extends Controller
         $this->editable($group);
         $count = Reward::query()->where('group_id', $group->id)->where('status', '!=', 'deleted')->count();
         if ($count >= $group->reward_management_limit) {
-            abort(response()->json(['message' => '管理リワードの上限に達しています。', 'limit' => $group->reward_management_limit, 'count' => $count], 409));
+            abort(response()->json(['message' => __('messages.reward_management_limit'), 'limit' => $group->reward_management_limit, 'count' => $count], 409));
         }
         $data = $this->validated($request, $group);
         $reward = Reward::query()->create(['group_id' => $group->id, ...array_intersect_key($data, array_flip(['start_month', 'cycle_months', 'timezone']))]);
@@ -194,16 +194,16 @@ class RewardController extends Controller
         $this->editable($group);
         $target = $this->target($group, $reward);
         $this->revision($request, $target);
-        $data = $request->validate(['status' => ['required', Rule::in(['active', 'stopped'])]]);
-        abort_if($target->status === $data['status'], 409, '既に指定の状態です。');
-        abort_if($target->status === 'draft' && $data['status'] === 'stopped', 409, '下書きは停止できません。不要な下書きは削除してください。');
+        $data = $request->validate(['status' => ['required', Rule::in(['active', 'stopped'])]], [], ['status' => __('messages.reward_status')]);
+        abort_if($target->status === $data['status'], 409, __('messages.reward_same_status'));
+        abort_if($target->status === 'draft' && $data['status'] === 'stopped', 409, __('messages.reward_draft_stop'));
         if ($data['status'] === 'active') {
             $this->checkActiveLimit($group);
             $version = $this->rewards->currentVersion($target);
             $ids = $version->targets->pluck('group_member_id');
-            abort_if($group->memberships()->whereIn('id', $ids)->where('status', 'active')->count() !== $ids->count(), 422, '無効化済み対象者がいます。対象者を確認してください。');
+            abort_if($group->memberships()->whereIn('id', $ids)->where('status', 'active')->count() !== $ids->count(), 422, __('messages.reward_inactive_targets'));
             if ($target->status === 'draft' && $target->start_month->format('Y-m') < CarbonImmutable::now($target->timezone)->format('Y-m')) {
-                abort(422, '開始月を当月以降に変更してください。');
+                abort(422, __('messages.reward_activate_month'));
             }
         }
         $target->update(['status' => $data['status'], 'revision' => $target->revision + 1]);
@@ -223,19 +223,19 @@ class RewardController extends Controller
         if ($target->status === 'draft') {
             abort_if($target->prepared_period !== null || $target->awards()->exists()
                 || DB::table('reward_periods')->where('reward_id', $target->id)->exists()
-                || DB::table('reward_progress')->where('reward_id', $target->id)->exists(), 409, '下書きに集計履歴があるため削除できません。');
+                || DB::table('reward_progress')->where('reward_id', $target->id)->exists(), 409, __('messages.reward_draft_history'));
             foreach ($target->versions()->get() as $version) {
                 $version->targets()->delete();
                 $version->delete();
             }
             $target->delete();
 
-            return response()->json(['message' => '下書きを完全に削除しました。']);
+            return response()->json(['message' => __('messages.reward_draft_deleted')]);
         }
-        abort_unless($target->status === 'stopped', 409, '下書きまたは停止中のリワードだけ削除できます。');
+        abort_unless($target->status === 'stopped', 409, __('messages.reward_delete_status'));
         $target->update(['status' => 'deleted', 'revision' => $target->revision + 1]);
 
-        return response()->json(['message' => 'リワードを削除しました。獲得履歴は残ります。']);
+        return response()->json(['message' => __('messages.reward_deleted')]);
     }
 
     public function awards(Request $request, Group $group): JsonResponse
@@ -251,7 +251,7 @@ class RewardController extends Controller
 
     public function notifications(Request $request, Group $group): JsonResponse
     {
-        abort_if($request->all() !== [], 422, '通知の対象は指定できません。');
+        abort_if($request->all() !== [], 422, __('messages.reward_notification_target'));
         $member = $request->attributes->get('group_membership');
         $awards = RewardAward::query()->where('group_id', $group->id)->where('group_member_id', $member->id)->whereNull('read_at')->orderBy('id')->lockForUpdate()->get();
         RewardAward::query()->whereIn('id', $awards->pluck('id'))->update(['read_at' => now()]);

@@ -5,6 +5,7 @@ export interface User {
   username: string
   display_name: string
   show_name_suffix: boolean
+  ui_locale: import('../utils/locale').UiLocalePreference
   email?: string | null
   email_verified_at?: string | null
   pending_email?: string | null

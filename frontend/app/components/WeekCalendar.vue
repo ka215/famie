@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import {
-  buildWeekDays,
-  formatLocalDate,
-  getCalendarDisplayLocale,
-  parseLocalDate,
-} from '#shared/utils/calendar'
+const { t } = useI18n()
+
+import { buildWeekDays, formatLocalDate, parseLocalDate } from '#shared/utils/calendar'
 import arrowLeftIcon from '~/assets/icons/arrow-left.svg'
 import arrowRightIcon from '~/assets/icons/arrow-right.svg'
 
@@ -23,7 +20,7 @@ const emit = defineEmits<{
 const arrowLeftStyle = { maskImage: `url("${arrowLeftIcon}")` }
 const arrowRightStyle = { maskImage: `url("${arrowRightIcon}")` }
 const today = computed(() => formatLocalDate(new Date()))
-const displayLocale = computed(() => getCalendarDisplayLocale(props.locale))
+const displayLocale = computed(() => props.locale)
 const days = computed(() => buildWeekDays(parseLocalDate(props.selectedDate), props.firstDay))
 
 const weekdayLabel = (date: string) =>
@@ -45,9 +42,9 @@ const weekdayClass = (dayOfWeek: number) => {
 </script>
 
 <template>
-  <section aria-label="週カレンダー" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2">
+  <section :aria-label="t('activity.weekCalendar')" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2">
     <div class="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-stretch gap-1">
-      <button type="button" aria-label="前週" class="week-nav-button" @click="emit('previous')">
+      <button type="button" :aria-label="t('activity.previousWeek')" class="week-nav-button" @click="emit('previous')">
         <span aria-hidden="true" class="week-nav-icon" :style="arrowLeftStyle" />
       </button>
 
@@ -76,7 +73,7 @@ const weekdayClass = (dayOfWeek: number) => {
         </button>
       </div>
 
-      <button type="button" aria-label="次週" class="week-nav-button" @click="emit('next')">
+      <button type="button" :aria-label="t('activity.nextWeek')" class="week-nav-button" @click="emit('next')">
         <span aria-hidden="true" class="week-nav-icon" :style="arrowRightStyle" />
       </button>
     </div>

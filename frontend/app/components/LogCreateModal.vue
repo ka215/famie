@@ -1,6 +1,8 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 import type { ApiRequestError, Category, DataResponse, Group } from '#shared/types/api'
-import { type ActivityLogForm, activityLogSchema } from '#shared/utils/activityLogSchema'
+import { type ActivityLogForm, createActivityLogSchema } from '#shared/utils/activityLogSchema'
 import closeIcon from '~/assets/icons/close.svg'
 
 const closeIconStyle = { maskImage: `url("${closeIcon}")` }
@@ -13,7 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['close', 'created'])
 const { fetchApi } = useApi()
-const { prepareFile } = useActivityImage()
+const { prepareFile, formatError: imageError } = useActivityImage()
 const { groupId } = useAuth()
 const { isMaintenance } = useMaintenance()
 const dialog = ref<HTMLDialogElement | null>(null)
@@ -73,7 +75,7 @@ const form = ref<ActivityLogForm>({
 })
 
 const isLoading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useUiMessage()
 const imagesEnabled = ref(false)
 const selectedImage = ref<File | null>(null)
 const previewUrl = ref('')
@@ -104,8 +106,7 @@ const selectImage = async (event: Event) => {
     selectedImage.value = prepared
     previewUrl.value = URL.createObjectURL(prepared)
   } catch (error) {
-    if (current === selectionId)
-      errorMessage.value = error instanceof Error ? error.message : '画像を変換できませんでした。'
+    if (current === selectionId) errorMessage.setLocal(() => imageError(error))
   } finally {
     if (current === selectionId) isConverting.value = false
   }
@@ -153,9 +154,15 @@ watch(
 const handleSubmit = async () => {
   if (isLoading.value || isConverting.value) return
   errorMessage.value = ''
-  const result = activityLogSchema.safeParse(form.value)
+  const result = createActivityLogSchema(t).safeParse(form.value)
   if (!result.success) {
-    errorMessage.value = result.error.issues[0]?.message ?? '入力内容を確認してください。'
+    const input = { ...form.value }
+    errorMessage.setLocal(() => {
+      const validation = createActivityLogSchema(t).safeParse(input)
+      return validation.success
+        ? ''
+        : (validation.error.issues[0]?.message ?? t('activity.checkInput'))
+    })
     return
   }
 
@@ -184,8 +191,9 @@ const handleSubmit = async () => {
     emit('close')
   } catch (err: unknown) {
     const e = err as ApiRequestError
-    errorMessage.value =
-      Object.values(e.data?.errors ?? {}).flat()[0] || e.data?.message || '登録に失敗しました。'
+    const message = Object.values(e.data?.errors ?? {}).flat()[0] || e.data?.message
+    if (message) errorMessage.value = message
+    else errorMessage.setKey('activity.createFailed')
   } finally {
     isLoading.value = false
   }
@@ -197,8 +205,8 @@ const handleSubmit = async () => {
   <dialog ref="dialog" aria-labelledby="log-create-title" class="log-create-dialog bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl" :style="viewportStyle" @cancel.prevent="emit('close')">
     <div class="p-6 space-y-4 log-create-content">
       <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
-        <h2 id="log-create-title" class="text-lg font-bold text-slate-800 dark:text-slate-100">アクティビティを記録</h2>
-        <button type="button" aria-label="閉じる" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" @click="emit('close')">
+        <h2 id="log-create-title" class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('activity.createTitle') }}</h2>
+        <button type="button" :aria-label="t('activity.close')" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" @click="emit('close')">
           <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="closeIconStyle" />
         </button>
       </div>
@@ -209,8 +217,8 @@ const handleSubmit = async () => {
 
       <form class="space-y-4" novalidate @submit.prevent="handleSubmit">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">カテゴリ</label>
-          <select
+          <label for="create-category" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ t('activity.category') }}</label>
+          <select id="create-category"
             v-model="form.category_id"
             class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
@@ -222,7 +230,7 @@ const handleSubmit = async () => {
 
         <div class="grid grid-cols-2 gap-2">
           <div class="min-w-0">
-            <label for="activity-date" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">実施日</label>
+            <label for="activity-date" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ t('activity.date') }}</label>
             <input
               id="activity-date"
               v-model="form.activity_date"
@@ -232,7 +240,7 @@ const handleSubmit = async () => {
             >
           </div>
           <div class="min-w-0">
-            <label for="activity-time" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">時刻（任意）</label>
+            <label for="activity-time" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ t('activity.timeOptional') }}</label>
             <input
               id="activity-time"
               v-model="form.activity_time"
@@ -243,33 +251,33 @@ const handleSubmit = async () => {
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">活動内容</label>
-          <textarea
+          <label for="create-content" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ t('activity.content') }}</label>
+          <textarea id="create-content"
             v-model="form.content"
             required
             rows="3"
-            placeholder="例: 算数のドリルを2ページ進めた"
+            :placeholder="t('activity.contentExample')"
             class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">補足メモ（任意）</label>
-          <input
+          <label for="create-note" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ t('activity.noteOptional') }}</label>
+          <input id="create-note"
             v-model="form.note"
             type="text"
-            placeholder="例: つまずいた箇所あり"
+            :placeholder="t('activity.noteExample')"
             class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
         </div>
 
         <div v-if="imagesEnabled" class="space-y-2">
-          <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">画像（任意・1枚）</p>
-          <input id="create-image" ref="imageInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" aria-label="画像（任意・1枚）" class="hidden" @change="selectImage">
-          <button type="button" :disabled="isConverting" class="min-h-11 rounded-lg border border-blue-600 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50 dark:bg-blue-950 dark:text-blue-200" @click="imageInput?.click()">画像を選択</button>
-          <p v-if="isConverting" role="status" class="text-xs text-slate-500">画像を変換中...</p>
-          <img v-if="previewUrl" :src="previewUrl" alt="添付予定の画像" class="max-h-48 rounded-lg object-contain">
-          <button v-if="selectedImage" type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200" @click="clearImage">選択を取り消す</button>
+          <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">{{ t('activity.imageOptional') }}</p>
+          <input id="create-image" ref="imageInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" :aria-label="t('activity.imageOptional')" class="hidden" @change="selectImage">
+          <button type="button" :disabled="isConverting" class="min-h-11 rounded-lg border border-blue-600 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50 dark:bg-blue-950 dark:text-blue-200" @click="imageInput?.click()">{{ t('activity.imageSelect') }}</button>
+          <p v-if="isConverting" role="status" class="text-xs text-slate-500">{{ t('activity.imageConverting') }}</p>
+          <img v-if="previewUrl" :src="previewUrl" :alt="t('activity.imagePreview')" class="max-h-48 rounded-lg object-contain">
+          <button v-if="selectedImage" type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200" @click="clearImage">{{ t('activity.imageCancel') }}</button>
         </div>
 
         <button
@@ -277,7 +285,7 @@ const handleSubmit = async () => {
           :disabled="isLoading || isConverting"
           class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-xs transition disabled:opacity-50"
         >
-          {{ isLoading ? '保存中...' : '記録を保存する' }}
+          {{ isLoading ? t('activity.saving') : t('activity.save') }}
         </button>
       </form>
     </div>

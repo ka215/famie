@@ -23,16 +23,16 @@ class LoginSecurityAlertController extends Controller
 
     public function read(Request $request, Group $group, string $alert): JsonResponse
     {
-        abort_if($request->all() !== [], 422, '通知の内容は変更できません。');
+        abort_if($request->all() !== [], 422, __('messages.alerts_fields'));
         $this->alerts($request, $group)->findOrFail($alert)->markAsRead();
 
-        return response()->json(['message' => '通知を確認済みにしました。']);
+        return response()->json(['message' => __('messages.alert_reviewed')]);
     }
 
     private function alerts(Request $request, Group $group): MorphMany
     {
         $membership = $request->attributes->get('group_membership');
-        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, '通知の確認権限がありません。');
+        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, __('messages.alerts_forbidden'));
 
         return $request->user()->notifications()->where('type', RepeatedLoginLockout::class)
             ->where('data->group_id', $group->id);

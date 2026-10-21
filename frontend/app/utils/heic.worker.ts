@@ -1,4 +1,5 @@
 import libheif from 'libheif-js/libheif-wasm/libheif-bundle.mjs'
+import { ActivityImageError } from '../../shared/utils/activityImageError'
 
 self.onmessage = async (event: MessageEvent<ArrayBuffer>) => {
   try {
@@ -8,18 +9,18 @@ self.onmessage = async (event: MessageEvent<ArrayBuffer>) => {
     const image =
       images.find((candidate: { is_primary?: () => boolean }) => candidate.is_primary?.()) ??
       images[0]
-    if (!image) throw new Error('画像を読み込めません')
+    if (!image) throw new ActivityImageError('loadFailed')
     const width = image.get_width()
     const height = image.get_height()
     const supportsOffscreen = typeof OffscreenCanvas !== 'undefined'
     const maxPixels = supportsOffscreen ? 24_000_000 : 12_000_000
     if (width < 1 || height < 1 || width * height > maxPixels) {
-      throw new Error(`画像の画素数が上限を超えています（${maxPixels / 10_000}万画素）`)
+      throw new ActivityImageError('pixels', maxPixels)
     }
     const pixels = { data: new Uint8ClampedArray(width * height * 4), width, height }
     await new Promise<void>((resolve, reject) => {
       image.display(pixels, (result: { data: Uint8ClampedArray } | null) =>
-        result ? resolve() : reject(new Error('HEIC画像を変換できません'))
+        result ? resolve() : reject(new ActivityImageError('heicFailed'))
       )
     })
     if (!supportsOffscreen) {
@@ -28,16 +29,18 @@ self.onmessage = async (event: MessageEvent<ArrayBuffer>) => {
     }
     const source = new OffscreenCanvas(width, height)
     const context = source.getContext('2d')
-    if (!context) throw new Error('画像変換を利用できません')
+    if (!context) throw new ActivityImageError('unavailable')
     context.putImageData(new ImageData(pixels.data, width, height), 0, 0)
     const scale = Math.min(1, 1600 / Math.max(width, height))
     const output = new OffscreenCanvas(Math.round(width * scale), Math.round(height * scale))
     const outputContext = output.getContext('2d')
-    if (!outputContext) throw new Error('画像変換を利用できません')
+    if (!outputContext) throw new ActivityImageError('unavailable')
     outputContext.drawImage(source, 0, 0, output.width, output.height)
     const blob = await output.convertToBlob({ type: 'image/png' })
     self.postMessage({ blob })
   } catch (error) {
-    self.postMessage({ error: error instanceof Error ? error.message : 'HEIC画像を変換できません' })
+    const failure =
+      error instanceof ActivityImageError ? error : new ActivityImageError('heicFailed')
+    self.postMessage({ error: failure.code, pixelLimit: failure.pixelLimit })
   }
 }

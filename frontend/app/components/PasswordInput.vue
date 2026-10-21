@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n()
 defineOptions({ inheritAttrs: false })
 defineProps<{ id: string; label: string; disabled?: boolean; strength?: boolean }>()
 const model = defineModel<string>({ required: true })
@@ -21,7 +22,7 @@ watch(model, (value) => {
     >
     <button
       type="button"
-      :aria-label="`${label}を${visible ? '隠す' : '表示する'}`"
+      :aria-label="t(visible ? 'auth.hidePassword' : 'auth.showPassword', { label })"
       :aria-pressed="visible"
       :aria-controls="id"
       :disabled="disabled"

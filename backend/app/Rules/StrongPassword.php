@@ -17,7 +17,7 @@ class StrongPassword implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! is_string($value) || ! PasswordStrength::acceptable($value)) {
-            $fail(PasswordStrength::MESSAGE);
+            $fail('messages.password_strength')->translate();
         }
     }
 }

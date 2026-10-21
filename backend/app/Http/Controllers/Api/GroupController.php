@@ -19,13 +19,13 @@ class GroupController extends Controller
     public function update(Request $request, Group $group): JsonResponse
     {
         $membership = $request->attributes->get('group_membership');
-        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, '家族設定の変更権限がありません。');
+        abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, __('messages.family_forbidden'));
         if (array_diff(array_keys($request->all()), ['name'])) {
-            throw ValidationException::withMessages(['group' => ['家族名以外は変更できません。']]);
+            throw ValidationException::withMessages(['group' => [__('messages.family_fields')]]);
         }
         $group->update($request->validate(['name' => ['required', 'string', 'max:50']]));
 
-        return response()->json(['message' => '家族名を変更しました。', 'data' => $this->payload($group)]);
+        return response()->json(['message' => __('messages.family_updated'), 'data' => $this->payload($group)]);
     }
 
     /** @return array<string, mixed> */

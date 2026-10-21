@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t, locale } = useI18n()
 defineProps<{ title: string; busy: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 const dialog = ref<HTMLDialogElement | null>(null)
@@ -14,7 +15,7 @@ watch(isMaintenance, (active) => {
   <dialog ref="dialog" aria-labelledby="settings-dialog-title" :aria-busy="busy" class="settings-dialog bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl p-5" @cancel.prevent="!busy && emit('close')">
     <div class="flex items-center justify-between gap-4 mb-4">
       <h2 id="settings-dialog-title" class="font-bold">{{ title }}</h2>
-      <button type="button" :disabled="busy" class="min-h-11 px-3 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50" @click="emit('close')">閉じる</button>
+      <button type="button" :disabled="busy" class="min-h-11 px-3 rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-50" @click="emit('close')">{{ t('common.close') }}</button>
     </div>
     <slot />
   </dialog>

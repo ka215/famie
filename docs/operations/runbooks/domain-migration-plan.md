@@ -108,3 +108,29 @@ COMMIT;
 5. ドメイン切替だけを理由としたDB復元は行わない。アプリ自体の切り戻しが必要なら既存rollback手順のDB互換性ガードに従う。
 
 旧SW・恒久転送キャッシュが残ると復帰が即時反映されない場合がある。初期に一時転送とする理由はここにある。新側へ再追加したPWAは旧側へ自動で戻らないため、ブラウザで旧URLを開く案内を併用する。
+
+## v0.17.0以降：旧ドメイン410案内JSONだけを更新する
+
+フェーズ5のローカル・ステージング検証では旧商用ドメインを更新しない。以下は全フェーズ完了後、最終候補に対する商用リリース承認を得た場合だけ実施する。ドメイン移管そのものは既に完了しているため、`migrate-domain.sh`を再実行しない。
+
+1. リリースセッションとIssueから最終承認済みのcandidate_commit／candidate_treeを確認する。次のように固定コミットからJSONを含むzipを取り出し、隔離した候補ディレクトリへ展開する。通常のアプリ成果物にはscripts配下が含まれないため、作業ツリー上のファイルをそのまま転送しない。
+
+   ```powershell
+   $candidateCommit = jq -er '.candidate_commit' .release/sessions/v0.17.0.json
+   $legacyCandidate = Join-Path (Get-Location) ".release/legacy/$candidateCommit"
+   New-Item -ItemType Directory -Path $legacyCandidate -Force | Out-Null
+   git archive --format=zip --output "$legacyCandidate/source.zip" $candidateCommit scripts/release/server/domain-moved.json
+   if ($LASTEXITCODE -ne 0) { throw 'Cannot export approved legacy asset' }
+   Expand-Archive -LiteralPath "$legacyCandidate/source.zip" -DestinationPath "$legacyCandidate/source"
+   $legacyJson = Join-Path $legacyCandidate 'source/scripts/release/server/domain-moved.json'
+   jq -e 'keys == ["message","url"] and .url == "https://famie.co/"' $legacyJson
+   Get-FileHash -Algorithm SHA256 -LiteralPath $legacyJson
+   ```
+
+2. このSHA256と候補commit/treeをIssueへ記録する。JSONのmessageが日英併記であることを確認し、既存デプロイと同じSSH接続でサーバーの非公開一時領域へ転送する。秘密値は文書・ログに記録しない。
+3. 更新先が `~/public_html/famie.ka2.org/domain-moved.json` であることをサーバー上の絶対パスで確認する。現在のJSONを既存の非公開リリースバックアップ領域へ保存し、バックアップの絶対パス・SHA256をIssueへ記録する。`.htaccess`、`api`リンク、新ドメイン公開先、DB、storageは操作しない。
+4. 転送ファイルのSHA256が手順1の値と一致することを確認する。旧JSONと同じ所有者・公開権限で隣接一時ファイルへ配置し、renameでJSONだけ切り替える。配置後のファイルSHA256と公開HTTPの読戻しJSONを再確認する。
+5. 旧ドメインのAPI GET／HEAD／POST等が410・application/json・no-storeのまま、messageが日英併記でurlが固定移転先であることを確認する。通常ページのGET／HEADが元のパス・クエリを保って新ドメインへ302、新ドメインに影響がないことも確認する。メールリンクのfragment保持は既存のブラウザ確認手順に従う。
+6. 不一致・応答異常の場合はバックアップしたJSONだけを同じ手順で復元し、ファイルSHA256とHTTPを再確認する。アプリの切り戻しとは別にJSONの復元結果もIssueへ記録する。
+
+Apacheルール自体は変更しない。ローカルの事前検証は `pwsh scripts/release/test-domain-migration.ps1` を使う。最終商用作業の記録には旧JSONと新JSONのSHA256・バックアップ先・確認日時・HTTP結果を含める。

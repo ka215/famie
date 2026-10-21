@@ -146,6 +146,26 @@ test('閲覧専用のダーク配色と、カード・画像・編集の独立�
 })
 
 for (const path of ['/', '/gallery']) {
+  test(`${path}: randomUUIDが利用できない環境でも詳細から元の一覧へ戻れる`, async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: undefined })
+    })
+    await setup(page)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto(path)
+    await page.getByRole('combobox').last().selectOption('1')
+    const card = page.locator('[data-log-id="2"]')
+    await card.getByRole('link').click()
+    await expect(page).toHaveURL(/\/logs\/2\?back=[0-9a-f]{32}$/)
+    await page
+      .getByRole('link', { name: path === '/' ? '← タイムラインへ' : '← ギャラリーへ' })
+      .click()
+    await expect(card).toBeVisible()
+    await expect(page.getByRole('combobox').last()).toHaveValue('1')
+    expect(errors).toEqual([])
+  })
+
   test(`${path}: 復帰時のカテゴリ取得失敗でも条件を残して再試行できる`, async ({ page }) => {
     const { failNextMetadata } = await setup(page)
     await page.goto(path)

@@ -101,7 +101,7 @@ class ProfileTest extends TestCase
             'username' => 'hijack', 'email' => 'hijack@example.test', 'role' => 'parent',
         ]);
 
-        $response->assertUnprocessable()->assertJsonPath('errors.profile.0', '表示名と敬称設定以外は変更できません。');
+        $response->assertUnprocessable()->assertJsonPath('errors.profile.0', '表示名・敬称・言語設定以外は変更できません。');
         $this->assertSame($original, $user->fresh()->getAttributes());
         $this->assertSame('別のユーザー', $other->fresh()->display_name);
     }

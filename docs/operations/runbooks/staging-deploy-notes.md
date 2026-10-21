@@ -22,11 +22,19 @@ v0.9.0の商用解除後もステージングは`IP_RESTRICTION_ENABLED=true`（
 - JS/CSSのMIME typeとHTMLフォールバックの混入
 - ChromiumとiPhone WebKitのconsole error、未知のwarning、page error
 
-自動検査後、iPhone等の実機で対象機能とPWA更新を確認し、次のコマンドで合格を記録する。
+自動検査後、iPhone等の実機で対象機能とPWA更新を確認し、次のコマンドで現在の候補のフェーズ合格を記録する。これは商用リリース承認を意味しない。
 
 ```powershell
 pwsh scripts/release/release.ps1 -Version X.Y.Z -Environment staging -ConfirmStaging -Apply
 ```
+
+## フェーズ合格後の継続
+
+フェーズ合格後は、GitHub Issueへ対象範囲・候補commit/tree SHA・workflow run・成果物SHA256・実機確認結果・日時を記録し、「フェーズ合格／商用未承認」とする。同じ候補版で次フェーズを開発し、新候補をステージングへ配置できる。検証中の候補を途中で上書きしない。NGの場合は合格を記録せず、ローカル確認から修正サイクルを繰り返す。
+
+次候補の準備では旧セッションを保管して新規作成し、旧候補の合格を引き継がない。フェーズごとの版上げ、確認済みコミットのまとめ直し、正式タグ発行は不要。手順は[フェーズ単位の確認と候補更新](release-script-notes.md#21-フェーズ単位の確認と候補更新)に従う。
+
+商用へ進むのは、全フェーズ完了・最終候補の回帰／実機確認後、ユーザーがその候補の商用リリースを明示承認した場合に限る。承認後に変更した候補は再検証・再承認する。
 
 ## 環境の固定値
 

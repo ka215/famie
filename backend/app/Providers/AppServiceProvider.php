@@ -23,12 +23,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('login-ip', fn (Request $request) => Limit::perMinute(config('famie.login_ip_per_minute'))->by('login-ip:'.$request->ip())
-            ->response(fn (Request $request, array $headers) => response()->json(['message' => 'ログイン操作が続いています。時間を置いて再試行してください。'], 429, $headers)));
+            ->response(fn (Request $request, array $headers) => response()->json(['message' => __('messages.login_ip_limited')], 429, $headers)));
         RateLimiter::for('account-mail-ip', fn (Request $request) => Limit::perMinute(10)->by('account-mail-ip:'.$request->ip()));
         RateLimiter::for('member-password-reset', fn (Request $request) => Limit::perMinutes(10, 5)->by('member-password-reset:'.$request->user()->id));
         RateLimiter::for('activity-likes', fn (Request $request) => Limit::perSecond(config('famie.like_rate_limit_per_second'))
             ->by('activity-likes:'.$request->user()->id)
-            ->response(fn (Request $request, array $headers) => response()->json(['message' => '操作が続いています。少し待ってから再試行してください。'], 429, $headers)));
+            ->response(fn (Request $request, array $headers) => response()->json(['message' => __('messages.operation_limited')], 429, $headers)));
         foreach ([
             'max_group_members',
             'like_rate_limit_per_second',

@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import {
-  buildCalendarCells,
-  formatLocalDate,
-  getCalendarDisplayLocale,
-  parseLocalDate,
-} from '#shared/utils/calendar'
+const { t } = useI18n()
+
+import { buildCalendarCells, formatLocalDate, parseLocalDate } from '#shared/utils/calendar'
 import arrowLeftIcon from '~/assets/icons/arrow-left.svg'
 import arrowRightIcon from '~/assets/icons/arrow-right.svg'
 
@@ -30,7 +27,7 @@ const emit = defineEmits<{
 
 const cells = computed(() => buildCalendarCells(props.year, props.month, props.firstDay))
 const today = computed(() => formatLocalDate(new Date()))
-const displayLocale = computed(() => getCalendarDisplayLocale(props.locale))
+const displayLocale = computed(() => props.locale)
 const monthLabel = computed(() =>
   new Intl.DateTimeFormat(displayLocale.value, { month: 'long' }).format(
     new Date(props.year, props.month, 1, 12)
@@ -71,23 +68,29 @@ const accessibleLabel = (date: string) => {
     day: 'numeric',
     weekday: 'short',
   }).format(parseLocalDate(date))
-  return count > 0 ? `${label}、アクティビティ${count}件` : `${label}、アクティビティなし`
+  return count > 0
+    ? t(
+        'activity.dayCount',
+        { date: label, count: new Intl.NumberFormat(props.locale).format(count) },
+        count
+      )
+    : t('activity.dayEmpty', { date: label })
 }
 </script>
 
 <template>
-  <section aria-label="月間カレンダー" class="space-y-3">
+  <section :aria-label="t('activity.monthCalendar')" class="space-y-3">
     <div class="flex items-center justify-between gap-2">
-      <button type="button" aria-label="前月" class="calendar-nav-button" @click="emit('previous')">
+      <button type="button" :aria-label="t('activity.previousMonth')" class="calendar-nav-button" @click="emit('previous')">
         <span aria-hidden="true" class="calendar-nav-icon" :style="arrowLeftStyle" />
       </button>
       <div class="text-center">
         <h2 class="text-base font-bold text-slate-800 dark:text-slate-100" aria-live="polite">{{ monthLabel }}</h2>
         <button type="button" class="text-xs font-medium text-blue-600 dark:text-blue-300" @click="emit('current')">
-          今月へ戻る
+          {{ t('activity.currentMonth') }}
         </button>
       </div>
-      <button type="button" aria-label="次月" class="calendar-nav-button" @click="emit('next')">
+      <button type="button" :aria-label="t('activity.nextMonth')" class="calendar-nav-button" @click="emit('next')">
         <span aria-hidden="true" class="calendar-nav-icon" :style="arrowRightStyle" />
       </button>
     </div>
@@ -131,7 +134,7 @@ const accessibleLabel = (date: string) => {
       </button>
     </div>
 
-    <LoadingIndicator v-if="isLoading" label="月の記録を読み込み中..." />
+    <LoadingIndicator v-if="isLoading" :label="t('activity.monthLoading')" />
   </section>
 </template>
 

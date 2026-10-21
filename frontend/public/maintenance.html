@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
-    <title>メンテナンス中 | Famie</title>
+    <title data-i18n="title">メンテナンス中 | Famie / Maintenance | Famie</title>
     <meta name="theme-color" content="#f8fafc">
     <script src="/theme.js"></script>
     <style>
@@ -26,17 +26,19 @@
   <body>
     <main>
       <p class="brand">Famie</p>
-      <h1>ただいまメンテナンス中です</h1>
-      <p>しばらくしてから再試行してください。</p>
-      <button type="button" id="retry">再試行</button>
+      <h1><!-- i18n:heading --><span lang="ja">ただいまメンテナンス中です</span><br><span lang="en">Maintenance in progress</span><!-- /i18n:heading --></h1>
+      <p><!-- i18n:help --><span lang="ja">しばらくしてから再試行してください。</span><br><span lang="en">Please try again later.</span><!-- /i18n:help --></p>
+      <button type="button" id="retry"><!-- i18n:retry --><span lang="ja">再試行</span><br><span lang="en">Try again</span><!-- /i18n:retry --></button>
       <p id="message" role="status"></p>
-      <noscript>再開後にページを読み込み直してください。</noscript>
+      <noscript><!-- i18n:noscript --><span lang="ja">再開後にページを読み込み直してください。</span><br><span lang="en">Reload this page after service resumes.</span><!-- /i18n:noscript --></noscript>
     </main>
     <script>
+      const staticMessages = /* i18n:messages */{"retry":"再試行 / Try again","checking":"確認中… / Checking…","stillDown":"まだメンテナンス中です。しばらくしてから再試行してください。 / Maintenance is still in progress. Please try again later.","checkFailed":"復旧状況を確認できませんでした。通信環境を確認して再試行してください。 / Could not check service availability. Check your connection and try again."}/* /i18n:messages */
       const button = document.getElementById('retry')
       const message = document.getElementById('message')
       button.addEventListener('click', async () => {
         button.disabled = true
+        button.textContent = staticMessages.checking
         message.textContent = ''
         try {
           const response = await fetch('/api/v1/status', { cache: 'no-store', headers: { Accept: 'application/json' } })
@@ -46,12 +48,13 @@
             return
           }
           message.textContent = response.status === 503 && data.code === 'maintenance'
-            ? 'まだメンテナンス中です。しばらくしてから再試行してください。'
-            : '復旧状況を確認できませんでした。通信環境を確認して再試行してください。'
+            ? staticMessages.stillDown
+            : staticMessages.checkFailed
         } catch {
-          message.textContent = '復旧状況を確認できませんでした。通信環境を確認して再試行してください。'
+          message.textContent = staticMessages.checkFailed
         } finally {
           button.disabled = false
+          button.textContent = staticMessages.retry
         }
       })
     </script>

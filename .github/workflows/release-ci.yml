@@ -46,6 +46,9 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist
+      - name: Check translations and static localization
+        working-directory: frontend
+        run: pnpm i18n:check
       - name: Lint frontend
         working-directory: frontend
         run: pnpm lint
@@ -182,6 +185,10 @@ jobs:
           node-version: 24.19.0
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          coverage: none
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile

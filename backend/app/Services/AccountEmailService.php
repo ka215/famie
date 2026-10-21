@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\AccountMail;
 use App\Models\Group;
 use App\Models\User;
+use App\Support\UiLocale;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -15,15 +16,20 @@ use Throwable;
 
 class AccountEmailService
 {
-    public const INVALID_LINK = 'リンクが無効か、有効期限が切れています。もう一度申請してください。';
+    public const INVALID_LINK = 'messages.invalid_link';
+
+    public function language(User $user, string $requestLocale): string
+    {
+        return $user->ui_locale === null ? $requestLocale : UiLocale::fromTag($user->ui_locale);
+    }
 
     public function withActiveUser(User $user, Closure $callback, bool $public = false): mixed
     {
         return DB::transaction(function () use ($user, $callback, $public): mixed {
             $membership = $user->membership()->first();
-            abort_unless($membership, $public ? 422 : 403, $public ? self::INVALID_LINK : 'このアカウントは現在利用できません。');
+            abort_unless($membership, $public ? 422 : 403, $public ? __(self::INVALID_LINK) : __('messages.account_unavailable'));
             Group::query()->whereKey($membership->group_id)->lockForUpdate()->firstOrFail();
-            abort_unless($user->activeMembership()->exists(), $public ? 422 : 403, $public ? self::INVALID_LINK : 'このアカウントは現在利用できません。');
+            abort_unless($user->activeMembership()->exists(), $public ? 422 : 403, $public ? __(self::INVALID_LINK) : __('messages.account_unavailable'));
 
             return $callback(User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail());
         });

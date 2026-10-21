@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t, locale } = useI18n()
+
 import type { ApiRequestError, MessageResponse } from '#shared/types/api'
 
 const { user, fetchUser } = useAuth()
@@ -29,47 +31,51 @@ async function submit(action: 'request' | 'resend' | 'cancel') {
     message.value = result.message
     password.value = ''
   } catch (err) {
-    error.value =
-      (err as ApiRequestError).data?.message ?? '処理に失敗しました。通信環境を確認してください。'
+    error.value = (err as ApiRequestError).data?.message ?? t('errors.operationFailed')
   } finally {
     try {
       await fetchUser()
     } catch {
-      refreshError.value = '最新の状態を取得できませんでした。画面を再読み込みしてください。'
+      refreshError.value = t('errors.refreshFailed')
     }
     busy.value = false
   }
 }
+watch(locale, () => {
+  message.value = ''
+  error.value = ''
+  refreshError.value = ''
+})
 </script>
 
 <template>
-  <SettingsCard title="メールアドレス">
-    <p class="text-sm break-all">{{ user?.email || '未登録' }} <span v-if="user?.email">（{{ user.email_verified_at ? '確認済み' : '未認証' }}）</span></p>
-    <p v-if="!user?.email_verified_at" class="text-sm text-slate-600 dark:text-slate-300">メールを確認すると、パスワードを忘れた場合に再設定できます。未登録・未認証のままではメールによる復旧は利用できません。</p>
+  <SettingsCard :title="t('auth.email')">
+    <p class="text-sm break-all">{{ user?.email || t('settings.email.notRegistered') }} <span v-if="user?.email">（{{ user.email_verified_at ? t('settings.email.verified') : t('settings.email.unverified') }}）</span></p>
+    <p v-if="!user?.email_verified_at" class="text-sm text-slate-600 dark:text-slate-300">{{ t('settings.email.intro') }}</p>
     <p v-if="message" role="status" class="text-sm text-green-700 dark:text-green-300">{{ message }}</p>
     <p v-if="error" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ error }}</p>
     <p v-if="refreshError" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ refreshError }}</p>
     <div v-if="user?.pending_email" class="space-y-2 rounded-lg bg-slate-100 p-3 text-sm dark:bg-slate-900">
-      <p class="break-all">確認待ち：{{ user.pending_email }}</p>
-      <p>確認メールが届いた場合、リンクの有効期限は申請から60分です。再送後は古いリンクを使用できません。</p>
-      <p>届かない場合は迷惑メールや入力内容を確認し、60秒以上待って再試行してください。他のアカウントで使用中など、登録できない場合は送信されません。</p>
+      <p class="break-all">{{ t('settings.email.pending') }}{{ user.pending_email }}</p>
+      <p>{{ t('settings.email.expiryHelp') }}</p>
+      <p>{{ t('settings.email.deliveryHelp') }}</p>
       <div class="flex flex-wrap gap-4">
-        <button type="button" :disabled="busy" class="text-blue-600 disabled:opacity-50 dark:text-blue-300" @click="submit('resend')">確認メールを再送</button>
-        <button type="button" :disabled="busy" class="text-red-600 disabled:opacity-50 dark:text-red-300" @click="submit('cancel')">申請を取り消す</button>
+        <button type="button" :disabled="busy" class="text-blue-600 disabled:opacity-50 dark:text-blue-300" @click="submit('resend')">{{ t('settings.email.resend') }}</button>
+        <button type="button" :disabled="busy" class="text-red-600 disabled:opacity-50 dark:text-red-300" @click="submit('cancel')">{{ t('settings.email.cancel') }}</button>
       </div>
     </div>
     <form class="space-y-3" @submit.prevent="submit('request')">
       <div>
-        <label for="account-email" class="block text-sm">追加・変更するメールアドレス</label>
+        <label for="account-email" class="block text-sm">{{ t('settings.email.newAddress') }}</label>
         <input id="account-email" v-model="email" type="email" autocomplete="email" required maxlength="255" :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600">
       </div>
-      <p v-if="user?.email && !user.email_verified_at" class="text-xs text-slate-600 dark:text-slate-300">現在と同じメールアドレスを入力して確認することもできます。</p>
+      <p v-if="user?.email && !user.email_verified_at" class="text-xs text-slate-600 dark:text-slate-300">{{ t('settings.email.sameAddressHelp') }}</p>
       <div>
-        <label for="email-current-password" class="block text-sm">メール変更確認用パスワード</label>
-        <PasswordInput id="email-current-password" v-model="password" label="メール変更確認用パスワード" autocomplete="current-password" required :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
+        <label for="email-current-password" class="block text-sm">{{ t('settings.email.passwordLabel') }}</label>
+        <PasswordInput id="email-current-password" v-model="password" :label="t('settings.email.passwordLabel')" autocomplete="current-password" required :disabled="busy" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
       </div>
-      <p class="text-xs text-slate-600 dark:text-slate-300">現在のパスワードを入力してください。新しいメールの確認が終わるまで、現在のメールを維持します。</p>
-      <button type="submit" :disabled="busy" class="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50">{{ busy ? '処理中...' : '確認メールを送信' }}</button>
+      <p class="text-xs text-slate-600 dark:text-slate-300">{{ t('settings.email.passwordHelp') }}</p>
+      <button type="submit" :disabled="busy" class="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50">{{ busy ? t('common.processing') : t('settings.email.send') }}</button>
     </form>
   </SettingsCard>
 </template>

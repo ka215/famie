@@ -29,3 +29,42 @@ test('新しい親が家族を登録し、家族名を変更できる', async ({
   await expect(page.getByText('家族名を変更しました。', { exact: true })).toBeVisible()
   await expect(page.getByLabel('家族名')).toHaveValue('変更後の家族名')
 })
+
+test('英語ゲストで登録した初期カテゴリは本人の自動言語へ戻っても原文を保持する', async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem('famie.uiLocale.guest', 'en'))
+  await page.goto('/register')
+  await page.getByLabel('Family name', { exact: true }).fill('English preset family')
+  await page.getByLabel('Login ID', { exact: true }).fill(`english-family-${Date.now()}`)
+  await page.getByLabel("Parent's display name", { exact: true }).fill('Original parent')
+  await page.getByLabel('Password', { exact: true }).fill('registration-password')
+  await page.getByLabel('Confirm password', { exact: true }).fill('registration-password')
+  const registered = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/auth/register') && response.request().method() === 'POST'
+  )
+  await page.getByRole('button', { name: 'Register family', exact: true }).click()
+  const response = await registered
+  expect(response.status()).toBe(201)
+  expect(response.request().headers()['accept-language']).toBe('en')
+  const account = await response.json()
+  expect(account.user.ui_locale).toBeNull()
+  await expect(
+    page.getByRole('button', { name: 'アクティビティを記録する', exact: true })
+  ).toBeVisible()
+  const categories = await page.request.get(
+    `/api/v1/groups/${account.membership.group.id}/categories`,
+    { headers: { Authorization: `Bearer ${account.access_token}`, 'Accept-Language': 'ja' } }
+  )
+  expect(categories.ok()).toBeTruthy()
+  expect((await categories.json()).map((category: { name: string }) => category.name)).toEqual([
+    'Study & homework',
+    'Chores & helping out',
+    'Exercise & sports',
+    'Lessons & activities',
+    'Health & daily life',
+    'Outings',
+    'Other',
+  ])
+})

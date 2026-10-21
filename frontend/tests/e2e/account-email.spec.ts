@@ -44,15 +44,17 @@ for (const account of ['parent1', 'child1']) {
     await page.getByLabel('追加・変更するメールアドレス').fill('new@example.test')
     await page.getByLabel('メール変更確認用パスワード', { exact: true }).fill('password')
     await page.getByRole('button', { name: '確認メールを送信', exact: true }).click()
-    await expect(page.getByRole('status').filter({ hasText: /.+/ })).toContainText(
-      '申請を受け付けました。'
-    )
+    await expect(
+      page.getByRole('main').getByRole('status').filter({ hasText: /.+/ })
+    ).toContainText('申請を受け付けました。')
     await expect(page.getByText('確認待ち：new@example.test')).toBeVisible()
     await expect(page.getByLabel('メール変更確認用パスワード', { exact: true })).toHaveValue('')
     await page.getByRole('button', { name: '確認メールを再送' }).click()
     await expect(page.getByRole('alert').filter({ hasText: '60秒待って' })).toBeVisible()
     await page.getByRole('button', { name: '申請を取り消す' }).click()
-    await expect(page.getByRole('status').filter({ hasText: /.+/ })).toContainText('取り消しました')
+    await expect(
+      page.getByRole('main').getByRole('status').filter({ hasText: /.+/ })
+    ).toContainText('取り消しました')
     await expect(page.getByText('確認待ち：new@example.test')).toHaveCount(0)
   })
 }
@@ -62,7 +64,7 @@ test('ログインから再設定申請へ移動し受付結果を表示する',
   await page.getByRole('link', { name: 'パスワードを忘れた方' }).click()
   await page.getByLabel('メールアドレス', { exact: true }).fill('absent@example.test')
   await page.getByRole('button', { name: '再設定メールを送信' }).click()
-  await expect(page.getByRole('status').filter({ hasText: /.+/ })).toContainText(
+  await expect(page.getByRole('main').getByRole('status').filter({ hasText: /.+/ })).toContainText(
     '再設定が可能な場合'
   )
 })
@@ -84,7 +86,7 @@ test('メール確認はログイン中も表示し、ボタン操作のみで�
   await expect(page).toHaveURL(/\/verify-email$/)
   expect(requests).toBe(0)
   await page.getByRole('button', { name: 'メールアドレスを確認する' }).click()
-  await expect(page.getByRole('status').filter({ hasText: /.+/ })).toHaveText(
+  await expect(page.getByRole('main').getByRole('status').filter({ hasText: /.+/ })).toHaveText(
     'メールアドレスを確認しました。'
   )
   expect(requests).toBe(1)
@@ -116,7 +118,7 @@ test('再設定の不一致・APIエラー・成功を表示する', async ({ pa
   await page.getByRole('button', { name: 'パスワードを再設定', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('リンクが無効')
   await page.getByRole('button', { name: 'パスワードを再設定', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: /.+/ })).toContainText(
+  await expect(page.getByRole('main').getByRole('status').filter({ hasText: /.+/ })).toContainText(
     '新しいパスワードでログイン'
   )
   await expect(page.getByLabel('新しいパスワード', { exact: true })).toHaveCount(0)
