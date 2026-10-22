@@ -29,9 +29,10 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 11.20.0
+          standalone: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.19.0
+          node-version: 24.22.1
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - uses: shivammathur/setup-php@v2
@@ -124,9 +125,10 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 11.20.0
+          standalone: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.19.0
+          node-version: 24.22.1
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - uses: shivammathur/setup-php@v2
@@ -180,9 +182,10 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 11.20.0
+          standalone: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.19.0
+          node-version: 24.22.1
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - uses: shivammathur/setup-php@v2
