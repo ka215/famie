@@ -13,7 +13,7 @@ v0.16.0公開時点の構成・運用に合わせた開発情報をまとめる�
 | `version.json` | 公開済み版と次回版の正本 |
 | `.temp/` | Git管理外の一時調査・検証結果 |
 
-ローカルはWindows／PowerShell、Frontendはpnpm、BackendはComposerを使用する。PHP 8.4、Node.js、pnpm、Composer、GitとDB接続に必要なPHP拡張を準備する。商用DBはPostgreSQL、通常の自動テストは分離したSQLiteを利用する。PostgreSQL固有の制約・競合は専用DBで確認する。
+ローカルはWindows／PowerShell、Frontendはpnpm、BackendはComposerを使用する。PHP 8.4.27、Node.js 24.22.1、pnpm 11.20.0、Composer、GitとDB接続に必要なPHP拡張を準備する。v0.17.2でNode.jsのセキュリティ修正版へ更新し、CIと配置後テストも24.22.1に揃える。商用DBはPostgreSQL、通常の自動テストは分離したSQLiteを利用する。PostgreSQL固有の制約・競合は専用DBで確認する。
 
 ```powershell
 Get-Location
@@ -23,6 +23,8 @@ php -v
 composer -V
 git --version
 ```
+
+Node.jsの対象版はルートの`.node-version`にも記載する。pnpm管理の通常nodeは`pnpm runtime set node 24.22.1 -g`で切り替えられる。`@pnpm/exe`はNode.jsを内蔵するため通常nodeの更新だけでは切り替わらない。v0.17.2ではpnpm 11.20.0のJavaScript版を修正版nodeで動かす構成にし、`node -v`、`frontend/`内の`pnpm exec node -v`と、pnpm起動ファイルが`node`で`pnpm.mjs`を実行することを確認する。CIは`standalone: false`を明示する。Actions／runnerの内蔵ランタイムはこの指定とは別管理であり、[v0.17.2の残事項](../issues/v0.17.2.md#2-別管理ランタイムの確認と残事項)を参照する。
 
 検索は `rg` / `rg --files`、JSON操作は `jq`、YAML操作は `yq`、GitHub操作は `gh` を使用する。Pythonを前提にしない。
 
