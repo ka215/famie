@@ -1,6 +1,10 @@
-<h1><img src="frontend/public/icon.svg" width="40" height="40" alt=""> Famie</h1>
+<h1 align="center"><img src="frontend/public/icon.svg" width="32" height="32" alt="Famie"> Famie</h1>
+
+<div align="center">
 
 [![Latest release](https://img.shields.io/github/v/release/ka215/famie?style=flat&sort=semver)](https://github.com/ka215/famie/releases/latest) [![Languages: Japanese / English](https://img.shields.io/badge/Languages-Japanese%20%2F%20English-blue?style=flat)](#your-language-your-style) [![PWA: Installable](https://img.shields.io/badge/PWA-Installable-2563eb?style=flat)](https://famie.co/)
+
+</div>
 
 **Small moments. Shared as a family.**
 
@@ -8,7 +12,7 @@ Famie is a simple place to record everyday activities, see what your family has 
 
 **[Start using Famie at famie.co](https://famie.co/)**
 
-<table>
+<table align="center">
   <thead>
     <tr><th>Timeline</th><th>Rewards</th><th>Gallery</th></tr>
   </thead>
@@ -20,10 +24,9 @@ Famie is a simple place to record everyday activities, see what your family has 
     </tr>
   </tbody>
 </table>
+<div align="right"><sub>Sample photos: <a href="https://www.pexels.com/">Pexels</a>.</sub></div>
 
 *English interface with illustrative sample data. Select an image to view it at full size.*
-
-<sub>Sample photos: <a href="https://www.pexels.com/">Pexels</a>.</sub>
 
 ## A little encouragement, every day
 
@@ -50,4 +53,4 @@ Nuxt 4, Vue, TypeScript, and Tailwind CSS on the frontend; Laravel, Sanctum, and
 
 ---
 
-Copyright © 2026 MAGICMETHODS.
+<h6 align="center">Copyright © 2026 MAGIC METHODS.</h6>
