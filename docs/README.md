@@ -33,6 +33,10 @@ docs/
 - 通常リリースの操作は[リリース自動化 運用手順](operations/runbooks/release-script-notes.md)を入口とする。
 - 課題の最新状態は`issues/summary.md`、確定した版別要件は`issues/vX.Y.Z.md`を参照する。
 
+## 正式ロードマップ
+
+- [v1.0.0公開・公開後の正式ロードマップ](development/v1.0.0-roadmap-plan.md)：2026-10-23承認。v0.17.3以降の対応範囲・順序、v1.0.0公開条件、公開後の拡張方針。
+
 ## API契約
 
 - [現行API契約（OpenAPI）](api/README.md)：入力・応答・権限と保守・検証方法。
