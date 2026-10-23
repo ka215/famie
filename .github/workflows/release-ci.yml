@@ -143,9 +143,16 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist
-      - name: Install Playwright browsers
+      - name: Install Playwright OS dependencies
+        timeout-minutes: 8
         working-directory: frontend
-        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+        run: bash ../scripts/release/install-playwright-deps.sh ${{ matrix.browser }}
+      - name: Install Playwright browsers
+        timeout-minutes: 5
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '60000'
+        run: pnpm exec playwright install ${{ matrix.browser }}
       - name: Application E2E
         working-directory: frontend
         run: pnpm test:e2e --project=${{ matrix.project }}
@@ -195,9 +202,16 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Install Playwright browsers
+      - name: Install Playwright OS dependencies
+        timeout-minutes: 8
         working-directory: frontend
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: bash ../scripts/release/install-playwright-deps.sh chromium webkit
+      - name: Install Playwright browsers
+        timeout-minutes: 5
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '60000'
+        run: pnpm exec playwright install chromium webkit
       - name: Clean release build
         working-directory: frontend
         run: |
