@@ -41,9 +41,9 @@ jobs:
     env:
       RELEASE_BASE_URL: ${{ inputs.environment == 'production' && 'https://famie.co' || 'https://stg-famie.ka2.org' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Download immutable release artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.2
         with:
           run-id: ${{ inputs.artifact_run_id }}
           github-token: ${{ github.token }}
@@ -97,11 +97,11 @@ jobs:
             "export PATH=\"\$HOME/bin:\$PATH\"; chmod 700 \"\$HOME/famie-release-incoming/$remote\"/*.sh; \"\$HOME/famie-release-incoming/$remote/deploy-artifact.sh\" --env '${{ inputs.environment }}' --bundle \"\$HOME/famie-release-incoming/$remote/$(basename "$archive")\" --checksum \"\$HOME/famie-release-incoming/$remote/$(basename "$checksum")\" ${apply[*]}"
       - name: Install browser dependencies
         if: inputs.apply
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6.1.0
         with:
           version: 11.20.0
           standalone: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         if: inputs.apply
         with:
           node-version: 24.22.1
@@ -117,7 +117,7 @@ jobs:
           pnpm test:release
       - name: Upload deployment smoke report on failure
         if: failure() && inputs.apply
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: deploy-smoke-${{ inputs.environment }}-${{ github.run_id }}
           path: |
