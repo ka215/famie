@@ -69,7 +69,7 @@ const close = () => {
     <p v-else-if="error" class="p-2 text-xs text-red-600" role="alert">{{ t('activity.imageLoadFailed') }}</p>
   </div>
   <Teleport to="body">
-    <div v-if="expanded && url" role="dialog" aria-modal="true" :aria-label="t('activity.imageAttached')" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4" @keydown.esc="close">
+    <div v-if="expanded && url" role="dialog" aria-modal="true" :aria-label="t('activity.imageAttached')" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4 backdrop-blur-xs" @keydown.esc="close">
       <button type="button" :aria-label="t('activity.close')" class="flex h-11 w-11 self-end items-center justify-center border-0 bg-transparent text-white" autofocus @click="close">
         <span aria-hidden="true" class="h-7 w-7 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="closeIconStyle" />
       </button>
