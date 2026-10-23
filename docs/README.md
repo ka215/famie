@@ -9,7 +9,7 @@
 
 正式文書の変更は、関連する意思決定を `development/decisions/` に記録したうえで行う。
 
-現行公開版はv0.17.1、商用URLは `https://famie.co`。[文書の適用範囲](development/decisions/2026-10-17-current-documentation-scope.md)に従い、初期リリースの表と後続の確定仕様を区別する。最新状況は[課題・リリース一覧](issues/summary.md)、APIの具体的な入力・応答は[OpenAPI](api/README.md)を参照する。
+現行公開版はv0.17.2、商用URLは `https://famie.co`。[文書の適用範囲](development/decisions/2026-10-17-current-documentation-scope.md)に従い、初期リリースの表と後続の確定仕様を区別する。最新状況は[課題・リリース一覧](issues/summary.md)、APIの具体的な入力・応答は[OpenAPI](api/README.md)を参照する。
 
 ## ディレクトリ構成
 
@@ -32,6 +32,10 @@ docs/
 - 本番作業の手順は `operations/runbooks/`、実施履歴は `operations/change-log/`、バックアップ運用は `operations/backup/` に記録する。
 - 通常リリースの操作は[リリース自動化 運用手順](operations/runbooks/release-script-notes.md)を入口とする。
 - 課題の最新状態は`issues/summary.md`、確定した版別要件は`issues/vX.Y.Z.md`を参照する。
+
+## 正式ロードマップ
+
+- [v1.0.0公開・公開後の正式ロードマップ](development/v1.0.0-roadmap-plan.md)：2026-10-23承認。v0.17.3以降の対応範囲・順序、v1.0.0公開条件、公開後の拡張方針。
 
 ## API契約
 
