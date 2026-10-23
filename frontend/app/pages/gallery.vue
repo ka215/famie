@@ -7,6 +7,11 @@ import {
   getWeekRange,
   parseLocalDate,
 } from '#shared/utils/calendar'
+import arrowLeftIcon from '~/assets/icons/arrow-left.svg'
+import arrowRightIcon from '~/assets/icons/arrow-right.svg'
+
+const arrowLeftStyle = { maskImage: `url("${arrowLeftIcon}")` }
+const arrowRightStyle = { maskImage: `url("${arrowRightIcon}")` }
 
 const { t } = useI18n()
 const { intlLocale } = useUiLocale()
@@ -224,9 +229,13 @@ onBeforeUnmount(() => {
         <button v-for="choice in (['week', 'month', 'custom'] as const)" :key="choice" type="button" :aria-pressed="period === choice" class="rounded-lg px-3 py-2 text-xs" :class="period === choice ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-700'" @click="period = choice">{{ t(`gallery.${choice}`) }}</button>
       </div>
       <div v-if="period !== 'custom'" class="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <button type="button" class="px-3 py-2" @click="movePeriod(-1)">{{ t('gallery.previous') }}</button>
+        <button type="button" :aria-label="t('gallery.previous')" class="gallery-nav-button" @click="movePeriod(-1)">
+          <span aria-hidden="true" class="gallery-nav-icon" :style="arrowLeftStyle" />
+        </button>
         <span class="min-w-0 text-center">{{ t('gallery.range', { from: dateLabel(range.from), to: dateLabel(range.to) }) }}</span>
-        <button type="button" class="px-3 py-2" @click="movePeriod(1)">{{ t('gallery.next') }}</button>
+        <button type="button" :aria-label="t('gallery.next')" class="gallery-nav-button" @click="movePeriod(1)">
+          <span aria-hidden="true" class="gallery-nav-icon" :style="arrowRightStyle" />
+        </button>
       </div>
       <div v-else class="flex flex-wrap items-center gap-2 text-xs">
         <input v-model="from" type="date" :aria-label="t('gallery.startDate')" class="min-w-0 flex-1 border rounded-lg p-2">
@@ -253,3 +262,34 @@ onBeforeUnmount(() => {
     <button v-if="error" type="button" class="rounded-lg bg-blue-600 px-4 py-2 text-white" @click="retryList">{{ t('gallery.retry') }}</button>
   </div>
 </template>
+
+<style scoped>
+.gallery-nav-button {
+  display: flex;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  color: var(--color-slate-600);
+}
+
+.gallery-nav-button:focus-visible {
+  outline: 2px solid var(--color-blue-600);
+  outline-offset: 1px;
+}
+
+.gallery-nav-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  background: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+:global([data-theme="dark"] .gallery-nav-button) {
+  color: var(--color-slate-300);
+}
+</style>
