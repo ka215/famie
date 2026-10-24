@@ -119,7 +119,7 @@ test('スマホの入力欄は16px以上で、日時フィルターと登録フ�
     'static'
   )
   await checkFields()
-  await page.goto('/logs/1')
+  await page.goto('/logs/1?mode=edit')
   await expect(page.getByLabel('実施日', { exact: true })).toBeVisible()
   await checkFields()
   await page.goto('/')
@@ -172,7 +172,18 @@ test('編集・閲覧専用の日時欄は狭い画面でも重ならず、編�
   })
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
-    await page.goto('/logs/1')
+    await page.goto('/logs/1?mode=edit')
+    if (readonly) {
+      await expect(page).toHaveURL(/\/logs\/1$/)
+      await expect(page.getByRole('article')).toContainText('確認用記録')
+      await expect(page.locator('input, textarea, select')).toHaveCount(0)
+      expect(
+        await page
+          .getByRole('article')
+          .evaluate((element) => element.scrollWidth <= element.clientWidth)
+      ).toBe(true)
+      continue
+    }
     const date = page.getByLabel('実施日', { exact: true })
     const time = page.getByLabel('実施時刻', { exact: true })
     await expect(date).toBeVisible()
@@ -186,7 +197,8 @@ test('編集・閲覧専用の日時欄は狭い画面でも重ならず、編�
       await date.fill('2026-09-26')
       await time.fill('')
       await page.getByRole('button', { name: '更新する', exact: true }).click()
-      await expect(page).toHaveURL(/\/$/)
+      await expect(page).toHaveURL(/\/logs\/1$/)
+      await expect(page.getByRole('article')).toBeVisible()
       expect(saved).toMatchObject({ activity_date: '2026-09-26', activity_time: null })
     }
     readonly = true

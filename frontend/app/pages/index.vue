@@ -11,17 +11,12 @@ import {
   getWeekRange,
   parseLocalDate,
 } from '#shared/utils/calendar'
-import { categoryStyle } from '#shared/utils/categoryColor'
-import noteIcon from '~/assets/icons/note-text-outline.svg'
 import plusIcon from '~/assets/icons/plus.svg'
-import editIcon from '~/assets/icons/square-edit-outline.svg'
 
 const { fetchApi } = useApi()
 const { user, groupId } = useAuth()
 const groupPath = (path: string) => `/groups/${groupId.value}${path}`
-const editIconStyle = { maskImage: `url("${editIcon}")` }
 const plusIconStyle = { maskImage: `url("${plusIcon}")` }
-const noteIconStyle = { maskImage: `url("${noteIcon}")` }
 
 const listReturn = useListReturn()
 const restoring = ref(true)
@@ -29,21 +24,26 @@ const metadataReady = ref(false)
 let savedReturn = listReturn.current('/')
 const returnPage = ref(savedReturn?.page ?? 1)
 const openDetail = (event: MouseEvent, id: number) =>
-  listReturn.open(event, id, {
-    path: '/',
-    page: currentPage.value,
-    filters: {
-      period: filterPeriod.value,
-      from: filterFrom.value,
-      to: filterTo.value,
-      userId: filterUserId.value,
-      categoryId: filterCategoryId.value,
-      year: calendarYear.value,
-      month: calendarMonth.value,
-      selectedDate: selectedDate.value,
-      dayView: isDayView.value,
+  listReturn.open(
+    event,
+    id,
+    {
+      path: '/',
+      page: currentPage.value,
+      filters: {
+        period: filterPeriod.value,
+        from: filterFrom.value,
+        to: filterTo.value,
+        userId: filterUserId.value,
+        categoryId: filterCategoryId.value,
+        year: calendarYear.value,
+        month: calendarMonth.value,
+        selectedDate: selectedDate.value,
+        dayView: isDayView.value,
+      },
     },
-  })
+    'edit'
+  )
 const retryList = async () => {
   if (!metadataReady.value) return initialize()
   if (filterPeriod.value === 'month') await fetchMonthCounts()
@@ -66,7 +66,6 @@ const categories = ref<Category[]>([])
 const familyMembers = ref<FamilyMember[]>([])
 const isLoading = ref(false)
 const isModalOpen = ref(false)
-const badgeStyle = categoryStyle
 const openCreateModal = (event: MouseEvent) => {
   // Safariはタップしたボタンへ自動でフォーカスしないため、復帰先を明示する。
   const trigger = event.currentTarget as HTMLButtonElement
@@ -79,12 +78,6 @@ const lastPage = ref(1)
 const total = ref(0)
 const { intlLocale: locale } = useUiLocale()
 const formatCount = (value: number) => new Intl.NumberFormat(locale.value).format(value)
-const activityDateLabel = (value: string) =>
-  new Intl.DateTimeFormat(locale.value, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(parseLocalDate(value))
 useHead(() => ({ title: `${t('activity.title')} | Famie` }))
 const firstDayOfWeek = ref(0)
 const calendarYear = ref(new Date().getFullYear())
@@ -499,48 +492,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else class="space-y-3">
-          <article
-            v-for="log in logs"
-            :key="log.id"
-            :data-log-id="log.id"
-            class="block bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-2 relative transition"
-            :class="log.user_id === user?.id ? 'focus-within:ring-2 focus-within:ring-blue-500' : ''"
-          >
-            <div class="flex flex-wrap gap-2 items-center justify-between">
-              <div class="flex flex-wrap gap-2 items-center">
-                <span
-                  class="px-2 py-0.5 text-xs font-semibold text-white rounded-full"
-                  :style="badgeStyle(log.category?.color_code)"
-                >
-                  {{ log.category?.name }}
-                </span>
-                <span class="text-xs font-bold text-slate-700 dark:text-slate-200">{{ log.user?.display_name }}</span>
-              </div>
-
-              <span class="ml-auto text-xs text-slate-400 dark:text-slate-400 whitespace-nowrap">
-                {{ activityDateLabel(log.activity_date) }} {{ log.activity_time ? log.activity_time.slice(0, 5) : '' }}
-              </span>
-            </div>
-
-            <p class="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap font-normal">
-              {{ log.content }}
-            </p>
-
-            <p v-if="log.note" class="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg">
-              <span aria-hidden="true" class="mt-0.5 h-4 w-4 shrink-0 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="noteIconStyle" />
-              <span class="sr-only">{{ t('activity.noteLabel') }}: </span>
-              <span class="min-w-0 whitespace-pre-wrap wrap-anywhere">{{ log.note }}</span>
-            </p>
-            <ActivityImageView v-if="log.image" :image-id="log.image.id" :width="log.image.width" :height="log.image.height" />
-            <div class="flex items-center justify-between">
-              <ActivityLikeButton :state="likeState(log)" :own="log.user_id === user?.id" :pending="likeOperations[log.id]?.pending" :uncertain="likeOperations[log.id]?.uncertain" :waiting="likesWaiting" @toggle="toggleLike(log)" />
-              <NuxtLink v-if="log.user_id === user?.id" :to="`/logs/${log.id}`" @click="openDetail($event, log.id)" :aria-label="t('activity.editLabel', { date: activityDateLabel(log.activity_date) })" class="edit-link flex h-11 w-11 items-center justify-center rounded-lg text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950">
-                <span aria-hidden="true" class="h-5 w-5 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="editIconStyle" />
-              </NuxtLink>
-            </div>
-            <p v-if="likeError(log.id)" role="alert" class="relative z-1 text-xs text-red-600 dark:text-red-300">{{ likeError(log.id) }}</p>
-            <p v-if="likesWaiting && log.user_id !== user?.id" role="status" class="text-xs text-slate-500 dark:text-slate-400">{{ t('activity.wait', { count: formatCount(likeWaitSeconds) }, likeWaitSeconds) }}</p>
-          </article>
+          <ActivityCard v-for="log in logs" :key="log.id" :log="log" :state="likeState(log)" :pending="likeOperations[log.id]?.pending" :uncertain="likeOperations[log.id]?.uncertain" :waiting="likesWaiting" :wait-seconds="likeWaitSeconds" :error="likeError(log.id)" @toggle="toggleLike(log)" @edit="openDetail($event, log.id)" />
 
           <div v-if="lastPage > 1" class="flex items-center justify-between pt-2">
             <button

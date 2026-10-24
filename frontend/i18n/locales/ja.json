@@ -93,7 +93,10 @@
       "title": "ログインの安全性を確認してください",
       "intro": "以下のメンバーで、24時間以内にログイン失敗による10分停止が2回以上発生しました。本人の入力間違いの可能性もあります。状況を確認し、必要に応じてメンバー管理からパスワード再発行・無効化を行ってください。",
       "markRead": "確認済みにする",
-      "openMembers": "メンバー管理を開く"
+      "openMembers": "メンバー管理を開く",
+      "loadFailed": "ログイン警告を取得できませんでした。再試行してください。",
+      "latest": "未確認{count}件のうち最新20件を表示しています。",
+      "openMember": "{name}の未確認ログイン警告を表示"
     },
     "showPassword": "{label}を表示する",
     "hidePassword": "{label}を隠す"
@@ -371,8 +374,8 @@
     "delete": "削除",
     "loading": "読み込み中...",
     "readOnly": "この記録は閲覧のみ可能です。",
-    "backTimeline": "← タイムラインへ",
-    "backGallery": "← ギャラリーへ",
+    "backTimeline": "タイムラインへ",
+    "backGallery": "ギャラリーへ",
     "deleteConfirm": "この記録を削除しますか？",
     "invalidRange": "開始日は終了日以前の日付を指定してください。",
     "fetchFailed": "記録の取得に失敗しました。通信環境を確認してください。",
@@ -435,7 +438,11 @@
     "imagePngFailed": "PNG画像を生成できません。",
     "imageHeicFailed": "HEIC画像を変換できません。",
     "imagePixels": "画像の画素数が上限を超えています（上限{pixels}画素）",
-    "noteLabel": "メモ"
+    "noteLabel": "メモ",
+    "backDetail": "詳細へ戻る",
+    "saved": "記録を保存しました。",
+    "savedRefreshFailed": "記録は保存済みですが、更新後の表示を取得できませんでした。再試行してください。",
+    "cancelEdit": "編集を取り消す"
   },
   "gallery": {
     "title": "画像ギャラリー",

@@ -120,10 +120,8 @@ test('monthly count and activity details use account language over browser langu
   await expect(month.getByRole('button', { name: /October 9.*2 activities$/ })).toBeVisible()
   await page.goto('/logs/1')
   await expect(page.getByText('Activity by はる', { exact: true })).toBeVisible()
-  await expect(page.getByText('You can only view this activity.')).toBeVisible()
-  await expect(page.getByLabel('Activity description', { exact: true })).toHaveValue(
-    '夕ごはんの準備をお手伝い'
-  )
+  await expect(page.locator('form, input, textarea')).toHaveCount(0)
+  await expect(page.getByRole('article')).toContainText('夕ごはんの準備をお手伝い')
   await expect(page).toHaveTitle('Activity details | Famie')
 })
 

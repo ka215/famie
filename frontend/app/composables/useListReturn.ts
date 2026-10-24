@@ -62,7 +62,8 @@ export const useListReturn = () => {
   const open = (
     event: MouseEvent,
     id: number,
-    state: Omit<ReturnEntry, 'cardId' | 'offset' | 'scrollTop'>
+    state: Omit<ReturnEntry, 'cardId' | 'offset' | 'scrollTop'>,
+    mode?: 'edit'
   ) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
       return
@@ -81,7 +82,7 @@ export const useListReturn = () => {
     }
     for (const old of Object.keys(entries.value).slice(0, -32)) delete entries.value[old]
     window.history.replaceState({ ...window.history.state, famieList: key }, '')
-    return navigateTo({ path: `/logs/${id}`, query: { back: key } })
+    return navigateTo({ path: `/logs/${id}`, query: { back: key, ...(mode ? { mode } : {}) } })
   }
   const restoreScroll = async (entry: ReturnEntry) => {
     await nextTick()

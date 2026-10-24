@@ -156,7 +156,7 @@ test('gallery restores pages and filters after changing language in activity det
   const card = page.getByRole('article').nth(4)
   await card.getByRole('link', { name: 'View activity' }).click()
   await language(page, 'ja-JP')
-  await page.getByRole('link', { name: '← ギャラリーへ' }).click()
+  await page.getByRole('link', { name: 'ギャラリーへ' }).click()
   await expect(page).toHaveTitle('画像ギャラリー | Famie')
   await expect(page.getByRole('combobox', { name: '投稿者', exact: true })).toHaveValue('1')
   await expect(page.getByRole('combobox', { name: 'カテゴリー', exact: true })).toHaveValue('1')

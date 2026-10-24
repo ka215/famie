@@ -93,7 +93,10 @@
       "title": "Review login security",
       "intro": "The following members have had at least two 10-minute login lockouts within 24 hours. This may be caused by typing mistakes. Check the situation and reset the password or deactivate the account in member management if needed.",
       "markRead": "Mark as reviewed",
-      "openMembers": "Open member management"
+      "openMembers": "Open member management",
+      "loadFailed": "Could not load login alerts. Please try again.",
+      "latest": "Showing the latest 20 of {count} unreviewed alerts.",
+      "openMember": "Show unreviewed login alerts for {name}"
     },
     "showPassword": "Show {label}",
     "hidePassword": "Hide {label}"
@@ -371,8 +374,8 @@
     "delete": "Delete",
     "loading": "Loading...",
     "readOnly": "You can only view this activity.",
-    "backTimeline": "← Back to timeline",
-    "backGallery": "← Back to gallery",
+    "backTimeline": "Back to timeline",
+    "backGallery": "Back to gallery",
     "deleteConfirm": "Delete this activity?",
     "invalidRange": "The start date must be on or before the end date.",
     "fetchFailed": "Could not load activities. Check your connection.",
@@ -435,7 +438,11 @@
     "imagePngFailed": "Could not create a PNG image.",
     "imageHeicFailed": "Could not convert the HEIC image.",
     "imagePixels": "The image exceeds the limit of {pixels} pixels.",
-    "noteLabel": "Notes"
+    "noteLabel": "Notes",
+    "backDetail": "Back to details",
+    "saved": "Activity saved.",
+    "savedRefreshFailed": "The activity was saved, but the updated details could not be loaded. Please try again.",
+    "cancelEdit": "Cancel editing"
   },
   "gallery": {
     "title": "Image gallery",

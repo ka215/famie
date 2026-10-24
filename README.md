@@ -1,10 +1,15 @@
 <h1 align="center"><img src="frontend/public/icon.svg" width="32" height="32" alt="Famie"> Famie</h1>
 
+**English** | [日本語](README-ja.md)
+
 <div align="center">
 
-[![Latest release](https://img.shields.io/github/v/release/ka215/famie?style=flat&sort=semver)](https://github.com/ka215/famie/releases/latest) [![Languages: Japanese / English](https://img.shields.io/badge/Languages-Japanese%20%2F%20English-blue?style=flat)](#your-language-your-style) [![PWA: Installable](https://img.shields.io/badge/PWA-Installable-2563eb?style=flat)](https://famie.co/)
+[![Latest release](https://img.shields.io/github/v/release/ka215/famie?style=flat&sort=semver)](https://github.com/ka215/famie/releases/latest) [![Languages: Japanese / English](https://img.shields.io/badge/Languages-Japanese%20%2F%20English-blue?style=flat)](#your-language-your-style) [![PWA: Installable](https://img.shields.io/badge/PWA-Installable-2563eb?style=flat)](https://famie.co/) [![Release CI](https://github.com/ka215/famie/actions/workflows/release-ci.yml/badge.svg?branch=main)](https://github.com/ka215/famie/actions/workflows/release-ci.yml?query=branch%3Amain)
 
 </div>
+<div align="center"><sup><i>
+Release CI shows checks for the main branch, not production deployment or uptime.
+</i></sup></div>
 
 **Small moments. Shared as a family.**
 
@@ -24,7 +29,7 @@ Famie is a simple place to record everyday activities, see what your family has 
     </tr>
   </tbody>
 </table>
-<div align="right"><sub>Sample photos: <a href="https://www.pexels.com/">Pexels</a>.</sub></div>
+<div align="right"><sub>Sample photos: <a href="https://www.pexels.com/">Pexels</a></sub></div>
 
 *English interface with illustrative sample data. Select an image to view it at full size.*
 

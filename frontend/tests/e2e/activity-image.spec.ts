@@ -118,7 +118,7 @@ test('編集画面で画像の差し替えと削除をボタンで操作でき�
     return route.fulfill({ json: {} })
   })
 
-  await page.goto('/logs/1')
+  await page.goto('/logs/1?mode=edit')
   await expect(page.getByRole('button', { name: '画像を差し替える' })).toBeVisible()
   await page.getByRole('button', { name: '保存時に画像を削除' }).click()
   await expect(page.getByRole('button', { name: '削除を取り消す' })).toBeVisible()

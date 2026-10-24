@@ -1,5 +1,24 @@
 export type MembershipRole = 'admin' | 'member'
 
+export interface SecurityAlert {
+  id: string
+  group_id: number
+  membership_id: number
+  display_name: string
+  username: string
+  occurred_at: string
+}
+
+export interface SecurityAlertsResponse {
+  data: SecurityAlert[]
+  meta: {
+    unread_total: number
+    unread_by_member: { membership_id: number; count: number }[]
+    limit: number
+    has_more: boolean
+  }
+}
+
 export interface User {
   id: number
   username: string
