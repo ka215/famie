@@ -44,9 +44,14 @@ for (const role of ['parent', 'child']) {
     await expect(page).toHaveURL(/\/logs\/1\?back=/)
     await expect(page.getByRole('button', { name: '更新する' })).toBeVisible()
     await page.goto('/logs/2')
-    await expect(page.getByText('この記録は閲覧のみ可能です。')).toBeVisible()
+    await expect(page.getByRole('article')).toContainText('他人の記録')
+    await expect(page.locator('form, input, textarea')).toHaveCount(0)
     await expect(page.getByRole('button', { name: '更新する' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: '削除', exact: true })).toHaveCount(0)
+    await page.goto('/logs/2?mode=edit')
+    await expect(page).toHaveURL(/\/logs\/2$/)
+    await expect(page.getByRole('article')).toContainText('他人の記録')
+    await expect(page.locator('form')).toHaveCount(0)
   })
 }
 

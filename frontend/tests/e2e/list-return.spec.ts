@@ -108,39 +108,24 @@ test('閲覧専用のダーク配色と、カード・画像・編集の独立�
   await expect(page.getByRole('dialog', { name: '添付画像' })).toBeVisible()
   await page.getByRole('button', { name: '閉じる', exact: true }).click()
   await card.getByRole('link', { name: /記録を編集/ }).click()
-  await expect(page.getByRole('link', { name: '← タイムラインへ' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'タイムラインへ' })).toBeVisible()
   await page.getByRole('navigation').getByRole('link', { name: 'ギャラリー' }).click()
   await page
     .locator('[data-log-id="1"]')
     .getByRole('link', { name: 'アクティビティを見る' })
     .click()
-  await expect(page.getByRole('link', { name: '← ギャラリーへ' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'ギャラリーへ' })).toBeVisible()
   for (const theme of ['light', 'dark']) {
     await page.evaluate(
       (value) => document.documentElement.setAttribute('data-theme', value),
       theme
     )
-    for (const field of await page
-      .locator('.activity-detail input, .activity-detail textarea, .activity-detail select')
-      .all()) {
-      await expect(field).toBeDisabled()
-      await expect(field).toHaveCSS(
-        'background-color',
-        theme === 'dark' ? /^oklch\(0\.208 / : /^oklch\(0\.968 /
-      )
-      const colors = await field.evaluate((element) => {
-        const css = getComputedStyle(element)
-        return {
-          background: css.backgroundColor,
-          text: css.color,
-          fill: css.webkitTextFillColor,
-          opacity: css.opacity,
-        }
-      })
-      expect(colors.text).not.toBe(colors.background)
-      expect(colors.fill).not.toBe(colors.background)
-      expect(colors.opacity).toBe('1')
-    }
+    await expect(page.locator('form, input, textarea, select')).toHaveCount(0)
+    await expect(page.getByRole('article')).toContainText('活動1')
+    await expect(page.getByRole('article')).toHaveCSS(
+      'background-color',
+      theme === 'dark' ? /^oklch\(0\.279 / : 'rgb(255, 255, 255)'
+    )
   }
   await expect(page.getByRole('button', { name: '更新する' })).toHaveCount(0)
 })
@@ -157,10 +142,8 @@ for (const path of ['/', '/gallery']) {
     await page.getByRole('combobox').last().selectOption('1')
     const card = page.locator('[data-log-id="2"]')
     await card.getByRole('link').click()
-    await expect(page).toHaveURL(/\/logs\/2\?back=[0-9a-f]{32}$/)
-    await page
-      .getByRole('link', { name: path === '/' ? '← タイムラインへ' : '← ギャラリーへ' })
-      .click()
+    await expect(page).toHaveURL(/\/logs\/2\?back=[0-9a-f]{32}(?:&mode=edit)?$/)
+    await page.getByRole('link', { name: path === '/' ? 'タイムラインへ' : 'ギャラリーへ' }).click()
     await expect(card).toBeVisible()
     await expect(page.getByRole('combobox').last()).toHaveValue('1')
     expect(errors).toEqual([])
@@ -172,11 +155,11 @@ for (const path of ['/', '/gallery']) {
     await page.getByRole('combobox').last().selectOption('1')
     const card = page.locator('[data-log-id="2"]')
     await card.getByRole('link').click()
-    await expect(page.getByRole('button', { name: '更新する', exact: true })).toBeVisible()
+    await expect(
+      path === '/' ? page.locator('form') : page.getByRole('article').filter({ hasText: '活動2' })
+    ).toBeVisible()
     failNextMetadata()
-    await page
-      .getByRole('link', { name: path === '/' ? '← タイムラインへ' : '← ギャラリーへ' })
-      .click()
+    await page.getByRole('link', { name: path === '/' ? 'タイムラインへ' : 'ギャラリーへ' }).click()
     await expect(page.getByRole('alert')).toBeVisible()
     await page.getByRole('button', { name: '再試行' }).click()
     await expect(card).toBeVisible()
@@ -189,16 +172,16 @@ test('新規タブでは復帰情報を共有せず、元タブの情報も壊�
   await page.goto('/gallery')
   await page.getByRole('combobox').last().selectOption('1')
   await page.locator('[data-log-id="2"]').getByRole('link').click()
-  await expect(page.getByRole('link', { name: '← ギャラリーへ' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'ギャラリーへ' })).toBeVisible()
   const other = await context.newPage()
   try {
     await setup(other)
     await other.goto(page.url())
-    await expect(other.getByRole('link', { name: '← タイムラインへ' })).toHaveAttribute('href', '/')
+    await expect(other.getByRole('link', { name: 'タイムラインへ' })).toHaveAttribute('href', '/')
   } finally {
     await other.close()
   }
-  await page.getByRole('link', { name: '← ギャラリーへ' }).click()
+  await page.getByRole('link', { name: 'ギャラリーへ' }).click()
   await expect(page.getByRole('combobox').last()).toHaveValue('1')
 })
 
@@ -216,7 +199,7 @@ test('ギャラリーの追加読込・条件・カード位置を戻る／保�
   await card.scrollIntoViewIfNeeded()
   const before = await card.evaluate((element) => element.getBoundingClientRect().top)
   await card.getByRole('link').click()
-  await page.getByRole('link', { name: '← ギャラリーへ' }).click()
+  await page.getByRole('link', { name: 'ギャラリーへ' }).click()
   await expect(card).toBeVisible()
   await expect(page.getByRole('combobox').first()).toHaveValue('1')
   await expect(page.getByRole('combobox').last()).toHaveValue('1')
@@ -231,7 +214,10 @@ test('ギャラリーの追加読込・条件・カード位置を戻る／保�
     ).length
   ).toBeGreaterThanOrEqual(2)
   await card.getByRole('link').click()
+  await page.getByRole('link', { name: /記録を編集/ }).click()
   await page.getByRole('button', { name: '更新する', exact: true }).click()
+  await expect(page.getByRole('article')).toContainText('活動6')
+  await page.getByRole('link', { name: 'ギャラリーへ' }).click()
   await expect(page.getByRole('heading', { name: '画像ギャラリー' })).toBeVisible()
   await expect(page.getByRole('combobox').last()).toHaveValue('1')
   await card.getByRole('link').click()
@@ -263,7 +249,7 @@ test('タイムラインの指定期間・ページをブラウザ戻るで復�
   await expect(page.locator('[data-log-id="6"]')).toBeVisible()
   expect(queries.at(-1)?.searchParams.get('page')).toBe('2')
   await page.goto('/logs/6?back=https://example.com')
-  await expect(page.getByRole('link', { name: '← タイムラインへ' })).toHaveAttribute('href', '/')
+  await expect(page.getByRole('link', { name: 'タイムラインへ' })).toHaveAttribute('href', '/')
 })
 
 test('ギャラリー復帰の通信失敗を再試行し、削除後も条件を維持する', async ({ page }) => {
@@ -274,11 +260,12 @@ test('ギャラリー復帰の通信失敗を再試行し、削除後も条件�
   const card = page.locator('[data-log-id="2"]')
   await card.getByRole('link').click()
   failNext()
-  await page.getByRole('link', { name: '← ギャラリーへ' }).click()
+  await page.getByRole('link', { name: 'ギャラリーへ' }).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await page.getByRole('button', { name: '再試行' }).click()
   await expect(card).toBeVisible()
   await card.getByRole('link').click()
+  await page.getByRole('link', { name: /記録を編集/ }).click()
   page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: '削除', exact: true }).click()
   await expect(page.getByRole('heading', { name: '画像ギャラリー' })).toBeVisible()
@@ -298,7 +285,7 @@ test('月表示の日別選択を保持し、フッター経由では規定値�
   await page.getByRole('button', { name: /2026年10月15日/ }).click()
   const card = page.locator('[data-log-id="2"]')
   await card.getByRole('link', { name: /記録を編集/ }).click()
-  await page.getByRole('link', { name: '← タイムラインへ' }).click()
+  await page.getByRole('link', { name: 'タイムラインへ' }).click()
   await expect(page.getByRole('button', { name: 'カレンダーに戻る' })).toBeVisible()
   await expect(card).toBeVisible()
   await card.getByRole('link', { name: /記録を編集/ }).click()
@@ -313,7 +300,7 @@ test('ログアウト後に別ユーザーで入ると、過去の詳細履歴�
   await page.goto('/gallery')
   await page.getByRole('combobox').last().selectOption('1')
   await page.locator('[data-log-id="2"]').getByRole('link').click()
-  await expect(page.getByRole('link', { name: '← ギャラリーへ' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'ギャラリーへ' })).toBeVisible()
   const detailPosition = await page.evaluate(() => window.history.state.position as number)
   await page.getByRole('navigation').getByRole('link', { name: '設定', exact: true }).click()
   await page.getByRole('button', { name: 'ログアウト', exact: true }).click()
@@ -327,8 +314,9 @@ test('ログアウト後に別ユーザーで入ると、過去の詳細履歴�
     (position) => window.history.go(position - window.history.state.position),
     detailPosition
   )
-  await expect(page.getByRole('link', { name: '← タイムラインへ' })).toHaveAttribute('href', '/')
-  await expect(page.getByText('この記録は閲覧のみ可能です。')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'タイムラインへ' })).toHaveAttribute('href', '/')
+  await expect(page.getByRole('article')).toContainText('活動2')
+  await expect(page.locator('form')).toHaveCount(0)
 })
 
 for (const path of ['/', '/gallery']) {
@@ -339,7 +327,7 @@ for (const path of ['/', '/gallery']) {
     await page.goto(path)
     await page.getByRole('combobox').last().selectOption('1')
     const card = page.locator('[data-log-id="2"]')
-    const label = path === '/' ? '← タイムラインへ' : '← ギャラリーへ'
+    const label = path === '/' ? 'タイムラインへ' : 'ギャラリーへ'
     await card.getByRole('link').click()
     await page.getByRole('link', { name: label }).click()
     await expect(page.getByRole('combobox').last()).toHaveValue('1')

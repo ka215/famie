@@ -109,7 +109,7 @@ test('ダーク表示でタイムライン・登録・編集・設定の文字�
   await expect(dialog.getByRole('alert')).toBeVisible()
   await expectReadable(dialog.getByRole('alert'))
   await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
-  await page.goto('/logs/1')
+  await page.goto('/logs/1?mode=edit')
   await expect(page.getByLabel('実施日', { exact: true })).toHaveCSS('background-color', darkCard)
   await page.goto('/settings')
   await expect(page.getByLabel('自分の表示名')).toHaveCSS('background-color', darkCard)

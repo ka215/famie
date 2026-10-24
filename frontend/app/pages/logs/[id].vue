@@ -3,6 +3,8 @@ const { t } = useI18n()
 
 import type { ActivityLog, ApiRequestError, Category, DataResponse, Group } from '#shared/types/api'
 import { type ActivityLogForm, createActivityLogSchema } from '#shared/utils/activityLogSchema'
+import chevronDoubleLeft from '~/assets/icons/chevron-double-left.svg'
+import chevronLeft from '~/assets/icons/chevron-left.svg'
 
 const route = useRoute()
 const listReturn = useListReturn()
@@ -17,9 +19,12 @@ const returnLabel = computed(() =>
 )
 const { fetchApi } = useApi()
 const { prepareFile, formatError: imageError } = useActivityImage()
-const { user, groupId } = useAuth()
+const { user, groupId, token } = useAuth()
+const identity = computed(
+  () => `${user.value?.id}:${groupId.value}:${token.value}:${route.params.id}`
+)
 const groupPath = (path: string) => `/groups/${groupId.value}${path}`
-
+const likes = useActivityLikes()
 const log = ref<ActivityLog | null>(null)
 const categories = ref<Category[]>([])
 const form = ref<ActivityLogForm>({
@@ -31,8 +36,11 @@ const form = ref<ActivityLogForm>({
 })
 const isLoading = ref(true)
 const isSaving = ref(false)
+const metadataLoading = ref(false)
+const metadataReady = ref(false)
+const savedAwaitingRefresh = ref(false)
 const errorMessage = useUiMessage()
-const successMessage = ref('')
+const successMessage = computed(() => (savedAwaitingRefresh.value ? t('activity.saved') : ''))
 useHead(() => ({ title: `${t('activity.detailTitle')} | Famie` }))
 const imagesEnabled = ref(false)
 const selectedImage = ref<File | null>(null)
@@ -41,7 +49,46 @@ const previewUrl = ref('')
 const isConverting = ref(false)
 const imageInput = ref<HTMLInputElement | null>(null)
 let selectionId = 0
-
+let disposed = false
+let loadId = 0
+let metadataId = 0
+const canEdit = computed(() => log.value !== null && log.value.user_id === user.value?.id)
+const isEditing = computed(() => canEdit.value && route.query.mode === 'edit')
+const detailBackIconStyle = { maskImage: `url("${chevronLeft}")` }
+const listBackIconStyle = computed(() => ({
+  maskImage: `url("${isEditing.value ? chevronDoubleLeft : chevronLeft}")`,
+}))
+const editTarget = computed(() => ({ path: route.path, query: { ...route.query, mode: 'edit' } }))
+const setMode = (edit: boolean) => {
+  const query = { ...route.query }
+  if (edit) query.mode = 'edit'
+  else delete query.mode
+  return navigateTo({ path: route.path, query }, { replace: true })
+}
+const beginEdit = (event: MouseEvent) => {
+  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+  event.preventDefault()
+  if (canEdit.value) void setMode(true)
+}
+const clearSelectedImage = () => {
+  selectionId++
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = ''
+  selectedImage.value = null
+  isConverting.value = false
+}
+const resetForm = () => {
+  clearSelectedImage()
+  removeImage.value = false
+  if (log.value)
+    form.value = {
+      category_id: log.value.category_id,
+      activity_date: log.value.activity_date,
+      activity_time: log.value.activity_time?.slice(0, 5) ?? '',
+      content: log.value.content,
+      note: log.value.note ?? '',
+    }
+}
 const selectImage = async (event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -63,49 +110,70 @@ const selectImage = async (event: Event) => {
     if (current === selectionId) isConverting.value = false
   }
 }
-const clearSelectedImage = () => {
-  selectionId++
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  previewUrl.value = ''
-  selectedImage.value = null
-  isConverting.value = false
-}
-onBeforeUnmount(clearSelectedImage)
-
-const canEdit = computed(() => log.value !== null && log.value.user_id === user.value?.id)
-
-const loadLog = async () => {
-  isLoading.value = true
-  errorMessage.value = ''
-
+const loadEditMetadata = async () => {
+  const current = ++metadataId
+  const owner = identity.value
+  metadataLoading.value = true
+  metadataReady.value = false
   try {
-    const [logResponse, categoryResponse, groupResponse] = await Promise.all([
-      fetchApi<DataResponse<ActivityLog>>(groupPath(`/logs/${route.params.id}`)),
+    const [categoryResponse, groupResponse] = await Promise.all([
       fetchApi<Category[]>(groupPath('/categories')),
       fetchApi<DataResponse<Group>>(groupPath('')),
     ])
-    log.value = logResponse.data
+    if (current !== metadataId || disposed || owner !== identity.value || !isEditing.value) return
     categories.value = categoryResponse
     imagesEnabled.value = groupResponse.data.images?.enabled ?? false
-    form.value = {
-      category_id: logResponse.data.category_id,
-      activity_date: logResponse.data.activity_date,
-      activity_time: logResponse.data.activity_time?.slice(0, 5) ?? '',
-      content: logResponse.data.content,
-      note: logResponse.data.note ?? '',
-    }
-  } catch (error: unknown) {
-    const status = (error as ApiRequestError).response?.status
-    errorMessage.setKey(status === 404 ? 'activity.notFound' : 'activity.fetchFailed')
+    metadataReady.value = true
+  } catch {
+    if (current === metadataId && !disposed && owner === identity.value && isEditing.value)
+      errorMessage.setKey('activity.fetchFailed')
   } finally {
-    isLoading.value = false
+    if (current === metadataId) metadataLoading.value = false
   }
 }
-
-const handleUpdate = async () => {
-  if (!canEdit.value || isSaving.value || isConverting.value) return
+const loadLog = async () => {
+  const current = ++loadId
+  const owner = identity.value
+  const readRevision = likes.beginRead()
+  isLoading.value = true
   errorMessage.value = ''
-  successMessage.value = ''
+  log.value = null
+  try {
+    const response = await fetchApi<DataResponse<ActivityLog>>(
+      groupPath(`/logs/${route.params.id}`)
+    )
+    if (current !== loadId || disposed || owner !== identity.value) return
+    log.value = response.data
+    likes.acceptLogs([response.data], readRevision)
+    savedAwaitingRefresh.value = false
+    resetForm()
+    if (route.query.mode && (!canEdit.value || route.query.mode !== 'edit')) await setMode(false)
+    if (isEditing.value) await loadEditMetadata()
+  } catch (error: unknown) {
+    if (current !== loadId || disposed || owner !== identity.value) return
+    log.value = null
+    const apiError = error as ApiRequestError
+    const status = apiError.response?.status ?? apiError.statusCode
+    errorMessage.setKey(
+      savedAwaitingRefresh.value
+        ? 'activity.savedRefreshFailed'
+        : status === 404
+          ? 'activity.notFound'
+          : 'activity.fetchFailed'
+    )
+  } finally {
+    if (current === loadId) isLoading.value = false
+  }
+}
+const cancelEdit = async () => {
+  if (isSaving.value) return
+  resetForm()
+  errorMessage.value = ''
+  await setMode(false)
+}
+const handleUpdate = async () => {
+  if (!isEditing.value || !metadataReady.value || isSaving.value || isConverting.value) return
+  errorMessage.value = ''
   const result = createActivityLogSchema(t).safeParse(form.value)
   if (!result.success) {
     const input = { ...form.value }
@@ -117,9 +185,8 @@ const handleUpdate = async () => {
     })
     return
   }
-
+  const owner = identity.value
   isSaving.value = true
-
   try {
     if (selectedImage.value) {
       const body = new FormData()
@@ -139,57 +206,105 @@ const handleUpdate = async () => {
         },
       })
     }
-    await navigateTo(returnTarget.value)
+    if (disposed || owner !== identity.value) return
+    savedAwaitingRefresh.value = true
+    clearSelectedImage()
+    await setMode(false)
+    await loadLog()
   } catch (error: unknown) {
+    if (disposed || owner !== identity.value) return
     const apiError = error as ApiRequestError
     const message = Object.values(apiError.data?.errors ?? {}).flat()[0] || apiError.data?.message
+    const status = apiError.response?.status ?? apiError.statusCode
+    if (status === 403 || status === 404) {
+      log.value = null
+      metadataReady.value = false
+      clearSelectedImage()
+      await setMode(false)
+    }
     if (message) errorMessage.value = message
     else errorMessage.setKey('activity.updateFailed')
   } finally {
-    isSaving.value = false
+    if (!disposed && owner === identity.value) isSaving.value = false
   }
 }
-
 const handleDelete = async () => {
-  if (!canEdit.value || !window.confirm(t('activity.deleteConfirm'))) {
-    return
-  }
-
+  if (!isEditing.value || isSaving.value || !window.confirm(t('activity.deleteConfirm'))) return
+  const owner = identity.value
   isSaving.value = true
   errorMessage.value = ''
-
   try {
     await fetchApi(groupPath(`/logs/${route.params.id}`), { method: 'DELETE' })
-    await navigateTo(returnTarget.value)
+    if (!disposed && owner === identity.value) await navigateTo(returnTarget.value)
   } catch (error: unknown) {
+    if (disposed || owner !== identity.value) return
     const apiError = error as ApiRequestError
     if (apiError.data?.message) errorMessage.value = apiError.data.message
     else errorMessage.setKey('activity.deleteFailed')
   } finally {
-    isSaving.value = false
+    if (!disposed && owner === identity.value) isSaving.value = false
   }
 }
-
+watch(
+  () => route.query.mode,
+  () => {
+    errorMessage.value = ''
+    metadataId++
+    metadataLoading.value = false
+    resetForm()
+    if (isEditing.value) void loadEditMetadata()
+    else if (route.query.mode && log.value) void setMode(false)
+  }
+)
+watch(identity, () => {
+  loadId++
+  metadataId++
+  log.value = null
+  clearSelectedImage()
+  metadataReady.value = false
+  metadataLoading.value = false
+  isSaving.value = false
+  savedAwaitingRefresh.value = false
+  if (!disposed && token.value && user.value && groupId.value) void loadLog()
+})
 onMounted(loadLog)
+onBeforeUnmount(() => {
+  disposed = true
+  loadId++
+  metadataId++
+  clearSelectedImage()
+})
 </script>
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <NuxtLink :to="returnTarget" class="text-sm text-blue-600 dark:text-blue-300">{{ returnLabel }}</NuxtLink>
-      <span v-if="log" class="text-xs text-slate-500 dark:text-slate-400">{{ t('activity.by', { name: log.user.display_name }) }}</span>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap gap-3">
+        <button v-if="isEditing" type="button" :disabled="isSaving" class="inline-flex min-h-11 items-center gap-1 text-sm text-blue-600 dark:text-blue-300 disabled:opacity-50" @click="cancelEdit">
+          <span aria-hidden="true" class="h-5 w-5 shrink-0 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="detailBackIconStyle" />
+          {{ t('activity.backDetail') }}
+        </button>
+        <NuxtLink :to="returnTarget" class="inline-flex min-h-11 items-center gap-1 text-sm text-blue-600 dark:text-blue-300">
+          <span aria-hidden="true" class="h-5 w-5 shrink-0 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :style="listBackIconStyle" />
+          {{ returnLabel }}
+        </NuxtLink>
+      </div>
+      <span v-if="log" class="min-w-0 break-all text-xs text-slate-500 dark:text-slate-400">{{ t('activity.by', { name: log.user.display_name }) }}</span>
     </div>
 
     <div v-if="errorMessage" role="alert" class="p-3 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm rounded-lg border border-red-200 dark:border-red-800">
       {{ errorMessage }}
+      <button v-if="!isEditing || !metadataReady" type="button" :disabled="isLoading || metadataLoading" class="min-h-11 px-3 underline" @click="loadLog">{{ t('activity.retry') }}</button>
     </div>
     <div v-if="successMessage" class="p-3 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-sm rounded-lg">
       {{ successMessage }}
     </div>
 
-    <div v-if="isLoading" class="text-center py-8 text-slate-400 dark:text-slate-400 text-sm">{{ t('activity.loading') }}</div>
+    <div v-if="isLoading || metadataLoading" class="text-center py-8 text-slate-400 dark:text-slate-400 text-sm">{{ t('activity.loading') }}</div>
 
-    <form v-else-if="log" class="activity-detail bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4" novalidate @submit.prevent="handleUpdate">
+    <ActivityCard v-else-if="log && !isEditing" :log="log" :state="likes.stateFor(log)" :pending="likes.operations.value[log.id]?.pending" :uncertain="likes.operations.value[log.id]?.uncertain" :waiting="likes.waiting.value" :wait-seconds="likes.waitSeconds.value" :error="likes.errorFor(log.id)" :edit-to="editTarget" @toggle="likes.toggle(log)" @edit="beginEdit" />
+
+    <form v-else-if="log && isEditing && metadataReady" class="activity-detail bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4" novalidate @submit.prevent="handleUpdate">
       <div>
         <label for="edit-category" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ t('activity.category') }}</label>
         <select id="edit-category"
@@ -247,8 +362,8 @@ onMounted(loadLog)
         <button type="button" :disabled="isSaving" class="px-4 py-2.5 border border-red-300 dark:border-red-600 text-red-600 dark:text-red-300 rounded-lg disabled:opacity-50" @click="handleDelete">
           {{ t('activity.delete') }}
         </button>
+        <button type="button" :disabled="isSaving" class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-600 disabled:opacity-50" @click="cancelEdit">{{ t('activity.cancelEdit') }}</button>
       </div>
-      <p v-else class="text-xs text-slate-500 dark:text-slate-400">{{ t('activity.readOnly') }}</p>
     </form>
   </div>
 </template>
