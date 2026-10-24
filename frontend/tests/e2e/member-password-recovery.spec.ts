@@ -89,12 +89,20 @@ test('親への安全性通知からメンバー管理へ移動し、確認済�
           ? [
               {
                 id: '12345678-1234-4234-8234-123456789abc',
+                group_id: family.membership.group.id,
+                membership_id: family.membership.id,
                 display_name: '通知対象<script>',
                 username: 'notice-member',
                 occurred_at: '2026-10-16T06:00:00+00:00',
               },
             ]
           : [],
+        meta: {
+          unread_total: unread ? 1 : 0,
+          unread_by_member: unread ? [{ membership_id: family.membership.id, count: 1 }] : [],
+          limit: 20,
+          has_more: false,
+        },
       },
     })
   )
@@ -131,4 +139,158 @@ test('親への安全性通知からメンバー管理へ移動し、確認済�
   await page.reload()
   await expect(page.getByRole('button', { name: '復旧確認の親を管理', exact: true })).toBeVisible()
   await expect(notice).toHaveCount(0)
+})
+
+test('20件外の警告もメンバー別に再表示でき、失敗では消さず確認後に操作位置へ戻る', async ({
+  page,
+}) => {
+  const family = await createFamily(page)
+  const parentId = family.membership.id
+  const created = await page.request.post(`/api/v1/groups/${family.membership.group.id}/members`, {
+    headers: { Authorization: `Bearer ${family.access_token}` },
+    data: {
+      username: `${family.username}child`,
+      display_name: '別の対象',
+      role: 'member',
+      password: initialPassword,
+      password_confirmation: initialPassword,
+    },
+  })
+  expect(created.status()).toBe(201)
+  const childId = (await created.json()).data.membership_id
+  const childAlerts = Array.from({ length: 21 }, (_, index) => ({
+    id: `child-alert-${index}`,
+    group_id: family.membership.group.id,
+    membership_id: childId,
+    display_name: '別の対象',
+    username: 'child-notice',
+    occurred_at: '2026-10-24T06:00:00+00:00',
+  }))
+  const parentAlert = {
+    ...childAlerts[0],
+    id: 'parent-alert',
+    membership_id: parentId,
+    display_name: '通知時点の親',
+    username: family.username,
+  }
+  let parentUnread = true
+  let failLoad = false
+  let failRead = true
+  let malformed: 'data' | 'meta' | '' = ''
+  let holdFilter = false
+  let releaseFilter: (() => void) | undefined
+  await page.route('**/groups/*/security-alerts*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    if (malformed === 'meta') return route.fulfill({ json: { data: childAlerts.slice(0, 20) } })
+    if (malformed === 'data')
+      return route.fulfill({
+        json: {
+          data: [{ id: 1, content: '通知ではないデータ' }],
+          meta: { unread_total: 1, unread_by_member: [], limit: 20, has_more: false },
+        },
+      })
+    const memberId = new URL(route.request().url()).searchParams.get('membership_id')
+    if (memberId && holdFilter) {
+      await new Promise<void>((resolve) => {
+        releaseFilter = resolve
+      })
+    }
+    if (memberId && failLoad)
+      return route.fulfill({ status: 500, json: { message: 'temporary failure' } })
+    const all = [...childAlerts, ...(parentUnread ? [parentAlert] : [])]
+    const filtered = memberId
+      ? all.filter((alert) => alert.membership_id === Number(memberId))
+      : all
+    return route.fulfill({
+      json: {
+        data: filtered.slice(0, 20),
+        meta: {
+          unread_total: filtered.length,
+          limit: 20,
+          has_more: filtered.length > 20,
+          unread_by_member: [
+            { membership_id: childId, count: childAlerts.length },
+            ...(parentUnread ? [{ membership_id: parentId, count: 1 }] : []),
+          ],
+        },
+      },
+    })
+  })
+  await page.route('**/security-alerts/*/read', (route) => {
+    if (failRead) return route.fulfill({ status: 500, json: { message: 'temporary failure' } })
+    parentUnread = false
+    return route.fulfill({ json: { message: 'OK' } })
+  })
+  await login(page, family.username)
+  const dialog = page.getByRole('dialog', { name: 'ログインの安全性に関する通知' })
+  await expect(dialog).toContainText('未確認22件のうち最新20件')
+  await dialog.getByRole('link', { name: 'メンバー管理を開く' }).click()
+  const parentButton = page.getByRole('button', {
+    name: '復旧確認の親の未確認ログイン警告を表示',
+    exact: true,
+  })
+  await expect(parentButton).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: '別の対象の未確認ログイン警告を表示', exact: true })
+  ).toBeVisible()
+  failLoad = true
+  await parentButton.click()
+  await expect(dialog.getByRole('alert')).toContainText('取得できませんでした')
+  failLoad = false
+  await dialog.getByRole('button', { name: '再試行', exact: true }).click()
+  await expect(dialog).toContainText('通知時点の親')
+  await expect(dialog).not.toContainText('別の対象')
+  await dialog.getByRole('button', { name: '確認済みにする' }).click()
+  await expect(dialog.getByRole('alert')).toContainText('確認済みにできませんでした')
+  failRead = false
+  await dialog.getByRole('button', { name: '確認済みにする' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(parentButton).toHaveCount(0)
+  await expect(page.locator('[data-alert-focus]').first()).toBeFocused()
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(dialog).toHaveCount(0)
+  await page
+    .getByRole('button', { name: '別の対象の未確認ログイン警告を表示', exact: true })
+    .click()
+  await expect(dialog).toContainText('未確認21件のうち最新20件')
+  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  holdFilter = true
+  await page
+    .getByRole('button', { name: '別の対象の未確認ログイン警告を表示', exact: true })
+    .click()
+  await expect.poll(() => !!releaseFilter).toBe(true)
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  holdFilter = false
+  const lateResponse = page.waitForResponse((response) =>
+    response.url().includes('security-alerts?membership_id=')
+  )
+  releaseFilter?.()
+  await lateResponse
+  await expect(dialog).toHaveCount(0)
+  childAlerts.unshift({ ...childAlerts[0], id: 'new-alert' })
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('未確認22件のうち最新20件')
+  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  malformed = 'meta'
+  await page
+    .getByRole('button', { name: '別の対象の未確認ログイン警告を表示', exact: true })
+    .click()
+  await expect(dialog.getByRole('alert')).toContainText('取得できませんでした')
+  await expect(dialog).toContainText('別の対象')
+  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  malformed = 'data'
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.locator('#family-members').getByRole('alert')).toContainText(
+    '取得できませんでした'
+  )
+  await expect(dialog).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: '別の対象の未確認ログイン警告を表示', exact: true })
+  ).toBeVisible()
+  malformed = ''
+  await page.getByRole('button', { name: '再試行', exact: true }).click()
+  await expect(page.locator('#family-members').getByRole('alert')).toHaveCount(0)
 })

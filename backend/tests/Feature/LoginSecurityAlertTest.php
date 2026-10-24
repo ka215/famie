@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
+use App\Notifications\RepeatedLoginLockout;
 use App\Services\LoginSecurityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -154,6 +156,77 @@ class LoginSecurityAlertTest extends TestCase
         $this->postJson('/v1/auth/login', ['login' => $child->user->username, 'password' => 'password'])->assertOk();
         $this->failFiveTimes($child->user);
         $this->assertSame(1, $parent->user->unreadNotifications()->count());
+    }
+
+    public function test_parent_without_unread_alerts_receives_empty_list_and_zero_totals(): void
+    {
+        $group = Group::factory()->create();
+        $parent = $this->member($group, 'admin');
+        Sanctum::actingAs($parent->user);
+
+        $this->getJson("/v1/groups/{$group->id}/security-alerts")->assertOk()->assertExactJson([
+            'data' => [],
+            'meta' => ['unread_total' => 0, 'unread_by_member' => [], 'limit' => 20, 'has_more' => false],
+        ]);
+    }
+
+    public function test_member_filter_preserves_all_member_counts_beyond_twenty_and_reading_is_parent_specific(): void
+    {
+        $group = Group::factory()->create();
+        $parent = $this->member($group, 'admin');
+        $otherParent = $this->member($group, 'admin');
+        $older = $this->member($group, 'member', 'inactive');
+        $recent = $this->member($group);
+        $foreign = $this->member(Group::factory()->create());
+        foreach ([$parent, $otherParent] as $recipient) {
+            foreach ([$older, ...array_fill(0, 21, $recent), $foreign] as $index => $target) {
+                $notification = new RepeatedLoginLockout([
+                    'group_id' => $target->group_id, 'membership_id' => $target->id,
+                    'display_name' => '同名メンバー', 'username' => $target->user->username,
+                    'occurred_at' => now()->toIso8601String(),
+                ]);
+                $notification->id = (string) Str::uuid();
+                $recipient->user->notify($notification);
+                $recipient->user->notifications()->findOrFail($notification->id)->update(['created_at' => now()->addSeconds($index)]);
+            }
+        }
+        Sanctum::actingAs($parent->user);
+        $base = "/v1/groups/{$group->id}/security-alerts";
+        $this->getJson($base)->assertOk()->assertJsonCount(20, 'data')
+            ->assertJsonPath('meta.unread_total', 22)->assertJsonPath('meta.has_more', true)
+            ->assertJsonFragment(['membership_id' => $older->id, 'count' => 1])
+            ->assertJsonMissing(['membership_id' => $foreign->id]);
+        $filtered = $this->getJson($base.'?membership_id='.$older->id)->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('meta.unread_total', 1)
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonFragment(['membership_id' => $recent->id, 'count' => 21]);
+        $this->putJson($base.'/'.$filtered->json('data.0.id').'/read')->assertOk();
+        $this->getJson($base.'?membership_id='.$older->id)->assertOk()->assertJsonPath('meta.unread_total', 0);
+        $recentPage = $this->getJson($base.'?membership_id='.$recent->id)->assertOk()
+            ->assertJsonCount(20, 'data')->assertJsonPath('meta.unread_total', 21);
+        $readId = $recentPage->json('data.0.id');
+        $this->putJson($base.'/'.$readId.'/read')->assertOk();
+        $this->getJson($base.'?membership_id='.$recent->id)->assertOk()
+            ->assertJsonCount(20, 'data')->assertJsonPath('meta.unread_total', 20)
+            ->assertJsonPath('meta.has_more', false)->assertJsonMissing(['id' => $readId]);
+        Sanctum::actingAs($otherParent->user);
+        $this->getJson($base.'?membership_id='.$older->id)->assertOk()->assertJsonPath('meta.unread_total', 1);
+    }
+
+    public function test_member_filter_rejects_invalid_and_foreign_members_without_disclosing_alerts(): void
+    {
+        $group = Group::factory()->create();
+        $parent = $this->member($group, 'admin');
+        $foreign = $this->member(Group::factory()->create());
+        Sanctum::actingAs($parent->user);
+        $base = "/v1/groups/{$group->id}/security-alerts";
+        foreach (['0', '-1', 'abc', '1.5', '', '1&membership_id[]=2'] as $invalid) {
+            $this->getJson($base.'?membership_id='.$invalid)->assertUnprocessable()->assertJsonValidationErrors('membership_id');
+        }
+        $this->getJson($base.'?membership_id='.$foreign->id)->assertNotFound();
+        $this->getJson($base.'?membership_id=99999999')->assertNotFound();
+        Sanctum::actingAs($this->member($group)->user);
+        $this->getJson($base.'?membership_id='.$parent->id)->assertForbidden();
     }
 
     private function member(Group $group, string $role = 'member', string $status = 'active'): GroupMember

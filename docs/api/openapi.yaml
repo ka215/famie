@@ -1166,7 +1166,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, meta]
                 properties:
                   data:
                     type: array
@@ -1189,6 +1189,39 @@ paths:
                         occurred_at:
                           type: string
                           format: date-time
+                  meta:
+                    type: object
+                    required:
+                      - unread_total
+                      - unread_by_member
+                      - limit
+                      - has_more
+                    properties:
+                      unread_total:
+                        type: integer
+                        minimum: 0
+                        description: 絞り込み後の全未確認件数
+                      unread_by_member:
+                        type: array
+                        description: 絞り込みによらず親本人宛て・同一家族の全未確認を集計
+                        items:
+                          type: object
+                          required:
+                            - membership_id
+                            - count
+                          properties:
+                            membership_id:
+                              type: integer
+                              minimum: 1
+                            count:
+                              type: integer
+                              minimum: 1
+                      limit:
+                        type: integer
+                        enum:
+                          - 20
+                      has_more:
+                        type: boolean
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1197,6 +1230,16 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/Unavailable'
+        "422":
+          $ref: '#/components/responses/Validation'
+      parameters:
+        - name: membership_id
+          in: query
+          required: false
+          description: 同一家族の所属ID。無効化済みも指定可。未指定時は全員。
+          schema:
+            type: integer
+            minimum: 1
   /groups/{group}/security-alerts/{alert}/read:
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
