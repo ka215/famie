@@ -93,7 +93,10 @@
       "title": "Review login security",
       "intro": "The following members have had at least two 10-minute login lockouts within 24 hours. This may be caused by typing mistakes. Check the situation and reset the password or deactivate the account in member management if needed.",
       "markRead": "Mark as reviewed",
-      "openMembers": "Open member management"
+      "openMembers": "Open member management",
+      "loadFailed": "Could not load login alerts. Please try again.",
+      "latest": "Showing the latest 20 of {count} unreviewed alerts.",
+      "openMember": "Show unreviewed login alerts for {name}"
     },
     "showPassword": "Show {label}",
     "hidePassword": "Hide {label}"

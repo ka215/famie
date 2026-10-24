@@ -15,6 +15,7 @@ import type { UiLocalePreference } from '#shared/utils/locale'
 import { createProfileSchema, type ProfileForm } from '#shared/utils/profileSchema'
 
 const { user, membership, groupId, isParent, logout, token } = useAuth()
+const securityAlerts = useSecurityAlerts()
 const route = useRoute()
 const groupPath = (path = '') => `/groups/${groupId.value}${path}`
 const { public: publicConfig } = useRuntimeConfig()
@@ -498,7 +499,10 @@ watch(locale, () => {
       <div class="divide-y divide-slate-100 dark:divide-slate-700">
         <div v-for="member in familyMembers" :key="member.id" class="py-2.5 flex justify-between items-center first:pt-0 last:pb-0">
           <div class="min-w-0 break-all">
-            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ member.display_name }}</p>
+            <div class="flex items-center" tabindex="-1" data-alert-focus>
+              <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ member.display_name }}</p>
+              <MemberSecurityAlert v-if="isParent" :membership-id="member.membership_id" :name="member.display_name" />
+            </div>
             <p class="text-xs text-slate-400 dark:text-slate-400">@{{ member.username }}</p>
           </div>
           <div class="flex shrink-0 items-center gap-2">
@@ -513,12 +517,16 @@ watch(locale, () => {
         <button type="button" :disabled="inactiveLoading" class="min-h-11 text-sm text-blue-600 dark:text-blue-300 disabled:opacity-50" @click="memberError = ''; fetchInactiveMembers()">{{ t('settings.members.restoreInactive') }}</button>
         <p v-if="inactiveLoaded && !inactiveMembers.length" class="text-sm text-slate-600 dark:text-slate-300">{{ t('settings.members.noInactive') }}</p>
         <div v-for="member in inactiveMembers" :key="member.membership_id" class="flex items-center justify-between gap-3">
-          <div class="min-w-0 text-sm break-all">{{ member.display_name }}（@{{ member.username }}）<span class="ml-2">{{ member.role === 'admin' ? t('settings.role.parentShort') : t('settings.role.childShort') }}</span></div>
+          <div class="min-w-0 text-sm break-all" tabindex="-1" data-alert-focus>{{ member.display_name }}<MemberSecurityAlert :membership-id="member.membership_id" :name="member.display_name" />（@{{ member.username }}）<span class="ml-2">{{ member.role === 'admin' ? t('settings.role.parentShort') : t('settings.role.childShort') }}</span></div>
           <button type="button" :aria-label="t('settings.members.restoreName', { value1: member.display_name })" class="min-h-11 shrink-0 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-600" @click="openMember(member, true)">{{ t('common.restore') }}</button>
         </div>
       </div>
       <p v-if="memberMessage" role="status" class="text-sm text-emerald-600 dark:text-emerald-300">{{ memberMessage }}</p>
       <p v-if="memberError" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ memberError }}</p>
+      <div v-if="isParent && securityAlerts.error.value" role="alert" class="text-sm text-red-600 dark:text-red-300">
+        {{ securityAlerts.error.value }}
+        <button type="button" :disabled="securityAlerts.state.value.loading || securityAlerts.state.value.busy" class="min-h-11 px-3 underline" @click="securityAlerts.refresh(true)">{{ t('common.retry') }}</button>
+      </div>
     </SettingsCard>
 
     <SettingsCard :title="t('settings.category.title')">
