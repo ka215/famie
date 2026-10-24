@@ -28,6 +28,20 @@ for (const locale of ['ja', 'en'] as const) {
         true
       )
       await expect(page.getByRole('article').nth(1).locator('p .sr-only')).toHaveCount(0)
+      if (firstLog.user) firstLog.user.display_name = 'LongName'.repeat(30)
+      await page.goto('/logs/1')
+      await page.evaluate(
+        (theme) => document.documentElement.setAttribute('data-theme', theme),
+        theme
+      )
+      await expect(page.getByRole('article')).toContainText(original)
+      await expect(page.locator('form, input, textarea')).toHaveCount(0)
+      expect(
+        await page
+          .locator('.app-scroll-area')
+          .evaluate((element) => element.scrollWidth <= element.clientWidth)
+      ).toBe(true)
+      await page.screenshot({ path: testInfo.outputPath(`activity-detail-${locale}-${theme}.png`) })
       await context.clearCookies()
       await page.evaluate((locale) => localStorage.setItem('famie.uiLocale.guest', locale), locale)
       await page.goto('/register')

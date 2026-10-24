@@ -42,7 +42,7 @@ for (const mode of ['create', 'edit'] as const) {
       if (path.endsWith('/logs/1')) return route.fulfill({ json: { data: log } })
       return route.fulfill({ json: { data: [], current_page: 1, last_page: 1, total: 0 } })
     })
-    await page.goto(mode === 'create' ? '/' : '/logs/1')
+    await page.goto(mode === 'create' ? '/' : '/logs/1?mode=edit')
     if (mode === 'create')
       await page.getByRole('button', { name: 'アクティビティを記録する' }).click()
     const form = page.locator('form')
@@ -98,7 +98,8 @@ for (const mode of ['create', 'edit'] as const) {
         page.getByRole('heading', { name: 'アクティビティを記録', exact: true })
       ).toHaveCount(0)
     } else {
-      await expect(page).toHaveURL(/\/$/)
+      await expect(page).toHaveURL(/\/logs\/1$/)
+      await expect(page.getByRole('article')).toBeVisible()
     }
   })
 }

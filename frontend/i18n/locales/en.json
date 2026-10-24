@@ -374,8 +374,8 @@
     "delete": "Delete",
     "loading": "Loading...",
     "readOnly": "You can only view this activity.",
-    "backTimeline": "← Back to timeline",
-    "backGallery": "← Back to gallery",
+    "backTimeline": "Back to timeline",
+    "backGallery": "Back to gallery",
     "deleteConfirm": "Delete this activity?",
     "invalidRange": "The start date must be on or before the end date.",
     "fetchFailed": "Could not load activities. Check your connection.",
@@ -438,7 +438,11 @@
     "imagePngFailed": "Could not create a PNG image.",
     "imageHeicFailed": "Could not convert the HEIC image.",
     "imagePixels": "The image exceeds the limit of {pixels} pixels.",
-    "noteLabel": "Notes"
+    "noteLabel": "Notes",
+    "backDetail": "Back to details",
+    "saved": "Activity saved.",
+    "savedRefreshFailed": "The activity was saved, but the updated details could not be loaded. Please try again.",
+    "cancelEdit": "Cancel editing"
   },
   "gallery": {
     "title": "Image gallery",
