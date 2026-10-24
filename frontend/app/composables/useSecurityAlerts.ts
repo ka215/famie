@@ -1,5 +1,40 @@
 import type { ApiRequestError, SecurityAlert, SecurityAlertsResponse } from '#shared/types/api'
 
+function isSecurityAlertsResponse(value: unknown): value is SecurityAlertsResponse {
+  if (!value || typeof value !== 'object') return false
+  const response = value as Partial<SecurityAlertsResponse>
+  return (
+    Array.isArray(response.data) &&
+    response.data.every(
+      (alert) =>
+        alert &&
+        typeof alert.id === 'string' &&
+        Number.isInteger(alert.group_id) &&
+        alert.group_id > 0 &&
+        Number.isInteger(alert.membership_id) &&
+        alert.membership_id > 0 &&
+        typeof alert.display_name === 'string' &&
+        typeof alert.username === 'string' &&
+        typeof alert.occurred_at === 'string' &&
+        !Number.isNaN(Date.parse(alert.occurred_at))
+    ) &&
+    !!response.meta &&
+    Number.isInteger(response.meta.unread_total) &&
+    response.meta.unread_total >= 0 &&
+    response.meta.limit === 20 &&
+    typeof response.meta.has_more === 'boolean' &&
+    Array.isArray(response.meta.unread_by_member) &&
+    response.meta.unread_by_member.every(
+      (item) =>
+        item &&
+        Number.isInteger(item.membership_id) &&
+        item.membership_id > 0 &&
+        Number.isInteger(item.count) &&
+        item.count > 0
+    )
+  )
+}
+
 export const useSecurityAlerts = () => {
   const { user, token, groupId, isParent } = useAuth()
   const { isMaintenance } = useMaintenance()
@@ -97,6 +132,9 @@ export const useSecurityAlerts = () => {
           ? all
           : await fetchApi<SecurityAlertsResponse>(`${base}?membership_id=${memberId}`)
       if (!current()) return
+      if (!isSecurityAlertsResponse(all) || !isSecurityAlertsResponse(selected)) {
+        throw new Error('Invalid login security alert response')
+      }
       state.value.latest = all.data
       state.value.counts = all.meta.unread_by_member
       state.value.selected = selected.data
