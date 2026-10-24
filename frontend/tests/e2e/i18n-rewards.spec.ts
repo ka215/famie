@@ -7,7 +7,7 @@ async function language(page: Page, value: string) {
     window.dispatchEvent(new Event('languagechange'))
   }, value)
 }
-async function setup(page: Page) {
+async function setup(page: Page, notificationCount = 1) {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'languages', { configurable: true, get: () => ['en-US'] })
     Object.defineProperty(navigator, 'language', { configurable: true, get: () => 'en-US' })
@@ -84,7 +84,13 @@ async function setup(page: Page) {
     if (path.endsWith('/prepare'))
       return route.fulfill({ json: { status: state.processing ? 'processing' : 'complete' } })
     if (path.endsWith('/notifications'))
-      return route.fulfill({ json: { data: state.notification ? [award] : [] } })
+      return route.fulfill({
+        json: {
+          data: state.notification
+            ? Array.from({ length: notificationCount }, (_, index) => ({ ...award, id: index + 1 }))
+            : [],
+        },
+      })
     if (method === 'POST' && path.endsWith('/rewards'))
       return route.fulfill({
         status: 422,
@@ -211,6 +217,7 @@ test('earned notification translates in place without claiming again and history
   await page.getByRole('dialog').getByRole('button', { name: '閉じる', exact: true }).click()
   await page.getByRole('button', { name: 'インベントリ', exact: true }).click()
   await expect(page.getByRole('article')).toContainText('2026/10/18 09:30:00')
+  await expect(page.locator('.reward-celebration')).toHaveCount(0)
   expect(state.calls.filter((call) => call.endsWith('/notifications'))).toHaveLength(1)
 })
 
@@ -228,4 +235,141 @@ test.describe('reward timestamp in a different device time zone', () => {
     await page.getByRole('button', { name: 'Inventory', exact: true }).click()
     await expect(page.getByRole('article')).toContainText('10/17/2026, 17:30:00')
   })
+})
+
+test('earned focus lines rotate twice in 24 seconds then stay still without restarting', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(45000)
+  const state = await setup(page, 3)
+  state.notification = true
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 320, height: 480 })
+  await page.goto('/rewards')
+  const dialog = page.getByRole('dialog')
+  const effect = dialog.locator('.reward-celebration')
+  await expect(effect).toHaveCount(1)
+  await expect(dialog.getByRole('article')).toHaveCount(3)
+  await expect(effect).toHaveAttribute('aria-hidden', 'true')
+  await expect(effect).toHaveCSS('pointer-events', 'none')
+  await page
+    .getByRole('link', { name: 'Settings', exact: true })
+    .evaluate((el) => (el as HTMLElement).focus())
+  expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+  await expect
+    .poll(() => effect.evaluate((el) => getComputedStyle(el, '::before').animationPlayState))
+    .toBe('running')
+  await expect
+    .poll(
+      () => effect.evaluate((el) => Number(el.getAnimations({ subtree: true })[0]?.currentTime)),
+      { timeout: 6000 }
+    )
+    .toBeGreaterThan(4200)
+  const elapsed = await effect.evaluate((el) => el.getAnimations({ subtree: true })[0]?.currentTime)
+  expect(await effect.evaluate((el) => getComputedStyle(el, '::before').animationPlayState)).toBe(
+    'running'
+  )
+  expect(
+    await effect.evaluate((el) => getComputedStyle(el, '::before').animationIterationCount)
+  ).toBe('2')
+  expect(await effect.evaluate((el) => getComputedStyle(el, '::before').animationDuration)).toBe(
+    '12s'
+  )
+  expect(
+    await effect.evaluate((el) => getComputedStyle(el, '::before').animationTimingFunction)
+  ).toBe('linear')
+  expect(await effect.evaluate((el) => getComputedStyle(el, '::before').animationDirection)).toBe(
+    'normal'
+  )
+  await page.screenshot({ path: testInfo.outputPath('reward-focus-light-320.png') })
+  await language(page, 'ja-JP')
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  await dialog.locator('.settings-dialog-panel').evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  await expect(effect).toBeVisible()
+  expect(
+    Number(await effect.evaluate((el) => el.getAnimations({ subtree: true })[0]?.currentTime))
+  ).toBeGreaterThanOrEqual(Number(elapsed))
+  await page.screenshot({ path: testInfo.outputPath('reward-focus-dark-320.png') })
+  await expect(effect).not.toHaveClass(/is-moving/, { timeout: 27000 })
+  const finished = await effect.evaluate(
+    (el) => el.getAnimations({ subtree: true })[0]?.currentTime
+  )
+  expect(Number(finished)).toBeCloseTo(24000, 0)
+  await language(page, 'en-US')
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'))
+  await expect(effect).toBeVisible()
+  expect(await effect.evaluate((el) => el.getAnimations({ subtree: true })[0]?.currentTime)).toBe(
+    finished
+  )
+  await language(page, 'ja-JP')
+  await dialog.locator('.settings-dialog-panel').evaluate((el) => {
+    el.scrollTop = 0
+  })
+  const close = dialog.getByRole('button', { name: '閉じる', exact: true })
+  expect(
+    await close.evaluate((el) => {
+      const box = el.getBoundingClientRect()
+      return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2))
+    })
+  ).toBe(true)
+  await close.click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page.locator('.reward-celebration')).toHaveCount(0)
+  expect(state.calls.filter((call) => call.endsWith('/notifications'))).toHaveLength(1)
+  await page.getByRole('button', { name: '管理', exact: true }).click()
+  await page.getByRole('button', { name: 'リワードを作成', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.locator('.reward-celebration')).toHaveCount(0)
+})
+
+test('reduced motion starts static and changing the preference never restarts the same notification', async ({
+  page,
+}, testInfo) => {
+  const state = await setup(page)
+  state.notification = true
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/rewards')
+  const effect = page.locator('.reward-celebration')
+  await expect(effect).toBeVisible()
+  await expect(effect).not.toHaveClass(/is-moving/)
+  await page.screenshot({ path: testInfo.outputPath('reward-focus-reduced-motion.png') })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await expect(effect).not.toHaveClass(/is-moving/)
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+  await page.reload()
+  await expect(effect).toHaveClass(/is-moving/)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(effect).not.toHaveClass(/is-moving/)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await expect(effect).not.toHaveClass(/is-moving/)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('hiding the document stops focus lines without restarting on return, and early close remains available', async ({
+  page,
+}) => {
+  const state = await setup(page)
+  state.notification = true
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/rewards')
+  const effect = page.locator('.reward-celebration')
+  await expect(effect).toHaveClass(/is-moving/)
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(effect).not.toHaveClass(/is-moving/)
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(effect).not.toHaveClass(/is-moving/)
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+  await page.reload()
+  await expect(effect).toHaveClass(/is-moving/)
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(effect).toHaveCount(0)
 })

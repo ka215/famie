@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
     <p class="text-sm break-all">{{ t(deleting.status === 'draft' ? 'reward.deleteDraftConfirm' : 'reward.deleteConfirm', { name: deleting.version.name }) }}</p>
     <button type="button" class="reward-button mt-4 w-full bg-red-600 text-white" :disabled="!manageable" @click="remove">{{ t('reward.deleteAction') }}</button>
   </SettingsDialog>
-  <SettingsDialog v-if="notifications.length" :title="t('reward.earnedTitle')" :busy="false" @close="notifications = []">
+  <SettingsDialog v-if="notifications.length" :title="t('reward.earnedTitle')" :busy="false" celebrate @close="notifications = []">
     <div class="space-y-4"><article v-for="award in notifications" :key="award.id" class="space-y-2"><RewardTrophy :color="award.snapshot.color" label-only /><h3 class="flex items-start gap-2 font-bold break-all"><RewardTrophy :color="award.snapshot.color" icon-only /><span class="min-w-0">{{ award.snapshot.name }}</span></h3><p class="text-sm whitespace-pre-wrap break-all">{{ award.snapshot.description }}</p><p class="text-xs">{{ range(award.snapshot.starts_on, award.snapshot.ends_on) }}</p></article></div>
     <p class="mt-4 text-sm">{{ t('reward.inventoryHelp') }}</p>
   </SettingsDialog>
