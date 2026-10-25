@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Rules\AvailableUsername;
 use Illuminate\Validation\Rule;
 
 final class UsernameRules
@@ -11,7 +12,7 @@ final class UsernameRules
     /** @return array<int, mixed> */
     public static function create(): array
     {
-        return ['required', 'string', 'min:3', 'max:50', 'regex:'.self::PATTERN, Rule::unique('users', 'username')];
+        return ['bail', ...self::syntax(), new AvailableUsername, Rule::unique('users', 'username')];
     }
 
     /** @return array<int, mixed> */

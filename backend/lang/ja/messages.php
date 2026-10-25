@@ -14,6 +14,7 @@ return [
     'account_unavailable' => 'このアカウントは現在利用できません。',
     'email_verified' => 'このメールアドレスは確認済みです。',
     'username_taken' => 'このログインIDは既に使用されています。',
+    'username_unavailable' => 'このアカウント名は使用できません。別の名前を入力してください。',
     'password_strength' => 'パスワードは15文字以上・72バイト以内で、よく使われる語や単純な繰り返しを避けてください。',
     'password_reset' => 'パスワードを再設定しました。新しいパスワードでログインしてください。',
     'member_password_reset' => 'パスワードを再発行しました。新しいパスワードを本人へ伝えてください。',

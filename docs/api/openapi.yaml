@@ -80,7 +80,7 @@ paths:
       tags: [auth]
       security: []
       description: >-
-        group_id・type・role・status・emailの指定禁止。IP毎に既定10分5試行、超過で10分停止。
+        group_id・type・role・status・emailの指定禁止。IP毎に既定10分5試行、超過で10分停止。 新規usernameは登録禁止名（大小文字を区別しない完全一致）を422で拒否。入力は引き続き小文字のみ。既存アカウントへ遡及適用しない。
       requestBody:
         required: true
         content:
@@ -105,7 +105,7 @@ paths:
       tags: [auth]
       security: []
       description: >-
-        30回/分/IP。構文検証後に空き状態を返す。
+        30回/分/IP。構文検証後に空き状態を返す。 選別済み登録禁止名と使用済み名はいずれもavailable=false。禁止定義の欠落・不正時は503。
       requestBody:
         required: true
         content:
@@ -404,7 +404,7 @@ paths:
       summary: 新規メンバーを作成
       tags: [groups]
       description: >-
-        admin専用。人数上限は家族設定（既定10）。既存ユーザーを招待する操作ではない。
+        admin専用。人数上限は家族設定（既定10）。既存ユーザーを招待する操作ではない。 登録禁止名は新規家族登録と同じ共通ルールで422。禁止定義の欠落・不正時は503。
       requestBody:
         required: true
         content:

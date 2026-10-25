@@ -14,6 +14,7 @@ return [
     'account_unavailable' => 'This account is currently unavailable.',
     'email_verified' => 'This email address is already verified.',
     'username_taken' => 'This login ID is already in use.',
+    'username_unavailable' => 'This username is unavailable. Choose another name.',
     'password_strength' => 'Use at least 15 characters and no more than 72 bytes. Avoid common words and simple repetitions.',
     'password_reset' => 'Your password has been reset. Log in with your new password.',
     'member_password_reset' => 'Password reset. Tell the member their new password.',
