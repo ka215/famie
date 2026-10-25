@@ -8,12 +8,12 @@
 | 版数 | 1.2 |
 | 対象フェーズ | 初期リリース |
 | 作成日 | 2026-09-21 |
-| 更新日 | 2026-10-17 |
+| 更新日 | 2026-10-26 |
 | 関連文書 | `fixed_requirements.md` |
 
 本書は Famie の外部仕様および主要な内部構成を定義する。詳細なクラス実装、マイグレーション、画面コンポーネントの実装手順は本書の対象外とする。
 
-現行版はv0.16.0。初期リリース時の画面・API・テーブル・ロールの一覧は、その後の確定仕様で更新されている。[正式要件の現行仕様適用表](fixed_requirements.md)、[現行モデル](development/knowledge/current-data-model-spec.md)、[OpenAPI契約](api/README.md)、[v0.16.0](issues/v0.16.0.md)を該当部分で優先する。[文書適用範囲の決定](development/decisions/2026-10-17-current-documentation-scope.md)に基づき、初期の図表を現行DBや権限の唯一の正本とはしない。
+現行版はv0.18.1。初期リリース時の画面・API・テーブル・ロールの一覧は、その後の確定仕様で更新されている。[正式要件の現行仕様適用表](fixed_requirements.md)、[現行モデル](development/knowledge/current-data-model-spec.md)、[OpenAPI契約](api/README.md)、公開先の[v0.16.0](issues/v0.16.0.md)と登録禁止名・トロフィー累計の[v0.18.1](issues/v0.18.1.md)を該当部分で優先する。[文書適用範囲の決定](development/decisions/2026-10-17-current-documentation-scope.md)に基づき、初期の図表を現行DBや権限の唯一の正本とはしない。
 
 ## 2. システム構成
 
