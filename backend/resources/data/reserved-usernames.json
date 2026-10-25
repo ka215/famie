@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "base_source": {
+    "repository": "shouldbee/reserved-usernames",
+    "commit": "0302214e8c1363fc5877ce3343ef6262e8852e96",
+    "file": "reserved-usernames.json",
+    "license": "MIT",
+    "sha256": "892df73c798b8c66910be6aa7cc489e944237a99fd1debcef8cd8a8a2acb8572",
+    "retrieved_on": "2026-10-25"
+  },
+  "base_exact": [
+    "admin",
+    "administration",
+    "administrator",
+    "hostmaster",
+    "official",
+    "operator",
+    "postmaster",
+    "root",
+    "security",
+    "ssladmin",
+    "ssladministrator",
+    "sslwebmaster",
+    "staff",
+    "support",
+    "sysadmin",
+    "sysadministrator",
+    "system",
+    "webmaster"
+  ],
+  "exact": [
+    "abuse",
+    "famie",
+    "famie-admin",
+    "famie-official",
+    "famie-support",
+    "famie_admin",
+    "famie_official",
+    "famie_support",
+    "helpdesk",
+    "mailer-daemon",
+    "no-reply",
+    "noreply"
+  ]
+}

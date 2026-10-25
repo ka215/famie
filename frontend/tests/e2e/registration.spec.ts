@@ -1,5 +1,67 @@
 import { expect, test } from '@playwright/test'
 
+for (const locale of ['ja', 'en'] as const) {
+  test(`禁止名は入力を保持して利用不可と表示し、言語切替でも維持する（${locale}）`, async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      (language) => localStorage.setItem('famie.uiLocale.guest', language),
+      locale
+    )
+    await page.goto('/register')
+    const username = page.locator('input[autocomplete="username"]')
+    const family = page.getByLabel(locale === 'ja' ? '家族名' : 'Family name', { exact: true })
+    await family.fill('Retained family')
+    for (const name of ['admin', 'famie_support']) {
+      const checked = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/username-availability') &&
+          response.request().postDataJSON().username === name
+      )
+      await username.fill(name)
+      expect(await (await checked).json()).toEqual({ available: false })
+      await expect(page.locator('#username-status')).toHaveText(
+        locale === 'ja'
+          ? 'このアカウント名は使用できません。別の名前を入力してください。'
+          : 'This username is unavailable. Choose another name.'
+      )
+      await expect(family).toHaveValue('Retained family')
+    }
+    await page
+      .getByRole('button', { name: locale === 'ja' ? '言語' : 'Language', exact: true })
+      .click()
+    await page.getByRole('combobox').selectOption(locale === 'ja' ? 'en' : 'ja')
+    await expect(page.locator('#username-status')).toHaveText(
+      locale === 'ja'
+        ? 'This username is unavailable. Choose another name.'
+        : 'このアカウント名は使用できません。別の名前を入力してください。'
+    )
+    await expect(username).toHaveValue('famie_support')
+  })
+}
+
+test('利用可否の遅い失敗応答で新しい不正形式の入力状態を上書きしない', async ({ page }) => {
+  let releaseResponse: (() => void) | undefined
+  const pending = new Promise<void>((resolve) => {
+    releaseResponse = resolve
+  })
+  await page.route('**/auth/register/username-availability', async (route) => {
+    await pending
+    await route.fulfill({ status: 503, json: { message: 'Unavailable' } })
+  })
+  await page.goto('/register')
+  const username = page.getByLabel('ログインID', { exact: true })
+  const request = page.waitForRequest('**/auth/register/username-availability')
+  await username.fill('old-family')
+  await request
+  await username.fill('A')
+  const response = page.waitForResponse('**/auth/register/username-availability')
+  releaseResponse?.()
+  await response
+  await expect(page.locator('#username-status')).toHaveCount(0)
+  await expect(username).toHaveValue('A')
+})
+
 test('新しい親が家族を登録し、家族名を変更できる', async ({ page }) => {
   const suffix = Date.now().toString()
   await page.goto('/login')
@@ -7,7 +69,9 @@ test('新しい親が家族を登録し、家族名を変更できる', async ({
   await page.getByLabel('家族名').fill('新規家族')
   await page.getByLabel('ログインID').fill('parent1')
   await expect(
-    page.getByText('このログインIDは既に使用されています。', { exact: true })
+    page.getByText('このアカウント名は使用できません。別の名前を入力してください。', {
+      exact: true,
+    })
   ).toBeVisible()
   await page.getByLabel('ログインID').fill(`new-parent-${suffix}`)
   await expect(page.getByText('このログインIDは利用できます。', { exact: true })).toBeVisible()

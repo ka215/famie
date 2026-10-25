@@ -35,7 +35,8 @@
       "displayNameHelp": "Enter 1–50 characters for the parent account's display name.",
       "passwordHelp": "You can also use a phrase in your own language.",
       "busy": "Registering...",
-      "submit": "Register family"
+      "submit": "Register family",
+      "usernameUnavailable": "This username is unavailable. Choose another name."
     },
     "loginId": "Login ID",
     "confirmPassword": "Confirm password",
@@ -559,6 +560,9 @@
     "progress": "Current {current}/{required}",
     "notCalculated": "Not calculated",
     "progressLabel": "Reward progress",
-    "progressAria": "{current}/{required} ({percent}%)"
+    "progressAria": "{current}/{required} ({percent}%)",
+    "trophyTotals": "Lifetime trophy totals",
+    "trophyTotal": "{trophy}: {count} trophy | {trophy}: {count} trophies",
+    "trophyTotalUnknown": "{trophy}: —"
   }
 }

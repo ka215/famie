@@ -80,7 +80,7 @@ paths:
       tags: [auth]
       security: []
       description: >-
-        group_id・type・role・status・emailの指定禁止。IP毎に既定10分5試行、超過で10分停止。
+        group_id・type・role・status・emailの指定禁止。IP毎に既定10分5試行、超過で10分停止。 新規usernameは登録禁止名（大小文字を区別しない完全一致）を422で拒否。入力は引き続き小文字のみ。既存アカウントへ遡及適用しない。
       requestBody:
         required: true
         content:
@@ -105,7 +105,7 @@ paths:
       tags: [auth]
       security: []
       description: >-
-        30回/分/IP。構文検証後に空き状態を返す。
+        30回/分/IP。構文検証後に空き状態を返す。 選別済み登録禁止名と使用済み名はいずれもavailable=false。禁止定義の欠落・不正時は503。
       requestBody:
         required: true
         content:
@@ -404,7 +404,7 @@ paths:
       summary: 新規メンバーを作成
       tags: [groups]
       description: >-
-        admin専用。人数上限は家族設定（既定10）。既存ユーザーを招待する操作ではない。
+        admin専用。人数上限は家族設定（既定10）。既存ユーザーを招待する操作ではない。 登録禁止名は新規家族登録と同じ共通ルールで422。禁止定義の欠落・不正時は503。
       requestBody:
         required: true
         content:
@@ -1020,7 +1020,7 @@ paths:
       summary: 獲得履歴を取得
       tags: [rewards]
       description: >-
-        10件単位、獲得日時・ID降順。確定時snapshotと定義削除済みフラグを返す。
+        10件単位、獲得日時・ID降順。確定時snapshotと定義削除済みフラグを返す。 meta.trophy_totalsは同じメンバーの全期間・全ページを対象に獲得時snapshot.color別の件数（金・銀・銅、0以上の整数）を返す。削除済み定義の保持履歴も含む。
       parameters:
         - {name: member_id, in: query, schema: {$ref: '#/components/schemas/Id'}, description: 省略時は本人の所属ID。admin以外は本人のみ}
         - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
@@ -1029,7 +1029,7 @@ paths:
           description: 成功
           content:
             application/json:
-              schema: {allOf: [{$ref: '#/components/schemas/Page'}, {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Award'}}}}]}
+              schema: {$ref: '#/components/schemas/AwardsPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
@@ -1598,6 +1598,41 @@ components:
         display_name:
           type: string
           maxLength: 50
+    TrophyTotals:
+      type: object
+      required:
+        - gold
+        - silver
+        - bronze
+      properties:
+        gold:
+          type: integer
+          minimum: 0
+        silver:
+          type: integer
+          minimum: 0
+        bronze:
+          type: integer
+          minimum: 0
+    AwardsPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          required:
+            - data
+            - meta
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Award'
+            meta:
+              type: object
+              required:
+                - trophy_totals
+              properties:
+                trophy_totals:
+                  $ref: '#/components/schemas/TrophyTotals'
   responses:
     Unauthorized:
       description: Bearer未指定・失効
