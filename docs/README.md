@@ -9,7 +9,7 @@
 
 正式文書の変更は、関連する意思決定を `development/decisions/` に記録したうえで行う。
 
-現行公開版はv0.18.0、商用URLは `https://famie.co`。[文書の適用範囲](development/decisions/2026-10-17-current-documentation-scope.md)に従い、初期リリースの表と後続の確定仕様を区別する。最新状況は[課題・リリース一覧](issues/summary.md)、公開結果は[v0.18.0公開記録](operations/change-log/2026-10-25-v0180-release-notes.md)、APIの具体的な入力・応答は[OpenAPI](api/README.md)を参照する。
+現行公開版はv0.18.1、商用URLは `https://famie.co`。[文書の適用範囲](development/decisions/2026-10-17-current-documentation-scope.md)に従い、初期リリースの表と後続の確定仕様を区別する。最新状況は[課題・リリース一覧](issues/summary.md)、公開結果は[v0.18.1公開記録](operations/change-log/2026-10-26-v0181-release-notes.md)、APIの具体的な入力・応答は[OpenAPI](api/README.md)を参照する。
 
 ## ディレクトリ構成
 
