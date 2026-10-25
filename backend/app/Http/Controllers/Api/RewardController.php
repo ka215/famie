@@ -242,11 +242,18 @@ class RewardController extends Controller
     {
         $member = $this->member($request, $group);
         $request->validate(['page' => ['sometimes', 'integer', 'min:1']]);
-        $page = RewardAward::query()->where('group_id', $group->id)->where('group_member_id', $member->id)->orderByDesc('awarded_at')->orderByDesc('id')->paginate(10);
+        $query = RewardAward::query()->where('group_id', $group->id)->where('group_member_id', $member->id);
+        $totals = ['gold' => 0, 'silver' => 0, 'bronze' => 0];
+        foreach ((clone $query)->toBase()->select('snapshot->color as color')->selectRaw('COUNT(*) as aggregate')->groupBy('snapshot->color')->get() as $row) {
+            if (array_key_exists($row->color, $totals)) {
+                $totals[$row->color] = (int) $row->aggregate;
+            }
+        }
+        $page = $query->orderByDesc('awarded_at')->orderByDesc('id')->paginate(10);
         $deleted = Reward::query()->where('group_id', $group->id)->whereIn('id', $page->pluck('reward_id'))->where('status', 'deleted')->pluck('id')->all();
         $page->through(fn (RewardAward $award) => [...$award->toArray(), 'deleted' => in_array($award->reward_id, $deleted, true)]);
 
-        return response()->json($page);
+        return response()->json([...$page->toArray(), 'meta' => ['trophy_totals' => $totals]]);
     }
 
     public function notifications(Request $request, Group $group): JsonResponse

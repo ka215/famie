@@ -7,10 +7,13 @@ use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\Reward;
+use App\Models\RewardAward;
+use App\Models\RewardPeriod;
 use App\Models\RewardVersion;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\Sanctum;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -50,6 +53,28 @@ class RewardPostgresTest extends TestCase
         $category = Category::query()->create(['group_id' => $group->id, 'name' => '勉強', 'sort_order' => 1]);
 
         return [$group, $member, $category];
+    }
+
+    public function test_inventory_totals_use_snapshot_colors_across_pages_on_postgresql(): void
+    {
+        config(['famie.allowed_ips' => ['127.0.0.1']]);
+        [$group, $member] = $this->family();
+        foreach (['gold', 'gold', 'silver', ...array_fill(0, 10, 'bronze')] as $color) {
+            $reward = $this->definition($group, $member, 'deleted');
+            $period = RewardPeriod::query()->create(['group_id' => $group->id, 'reward_id' => $reward->id,
+                'reward_version_id' => $reward->versions()->firstOrFail()->id,
+                'starts_on' => '2026-01-01', 'ends_on' => '2026-01-31', 'timezone' => 'UTC']);
+            RewardAward::factory()->create(['reward_period_id' => $period->id, 'group_member_id' => $member->id,
+                'achieved_count' => 500, 'read_at' => now(), 'snapshot' => ['name' => 'Past award', 'color' => $color]]);
+        }
+        Sanctum::actingAs($member->user);
+        foreach ([1 => 10, 2 => 3] as $page => $count) {
+            $this->getJson("/v1/groups/{$group->id}/rewards/awards?page=$page")->assertOk()->assertJsonCount($count, 'data')
+                ->assertJsonPath('meta.trophy_totals', ['gold' => 2, 'silver' => 1, 'bronze' => 10]);
+        }
+        $other = GroupMember::factory()->create(['group_id' => $group->id]);
+        $this->getJson("/v1/groups/{$group->id}/rewards/awards?member_id={$other->id}")->assertOk()
+            ->assertJsonPath('meta.trophy_totals', ['gold' => 0, 'silver' => 0, 'bronze' => 0]);
     }
 
     private function definition(Group $group, GroupMember $member, string $status = 'active'): Reward
