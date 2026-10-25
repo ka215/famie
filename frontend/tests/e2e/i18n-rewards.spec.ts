@@ -99,6 +99,9 @@ async function setup(page: Page, notificationCount = 1) {
     return route.fulfill({
       json: {
         data: path.endsWith('/awards') ? [award] : rewards,
+        ...(path.endsWith('/awards')
+          ? { meta: { trophy_totals: { gold: 1, silver: 0, bronze: 0 } } }
+          : {}),
         current_page: 1,
         last_page: 1,
         sync_status: state.processing ? 'processing' : 'complete',

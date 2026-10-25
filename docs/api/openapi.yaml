@@ -1020,7 +1020,7 @@ paths:
       summary: 獲得履歴を取得
       tags: [rewards]
       description: >-
-        10件単位、獲得日時・ID降順。確定時snapshotと定義削除済みフラグを返す。
+        10件単位、獲得日時・ID降順。確定時snapshotと定義削除済みフラグを返す。 meta.trophy_totalsは同じメンバーの全期間・全ページを対象に獲得時snapshot.color別の件数（金・銀・銅、0以上の整数）を返す。削除済み定義の保持履歴も含む。
       parameters:
         - {name: member_id, in: query, schema: {$ref: '#/components/schemas/Id'}, description: 省略時は本人の所属ID。admin以外は本人のみ}
         - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
@@ -1029,7 +1029,7 @@ paths:
           description: 成功
           content:
             application/json:
-              schema: {allOf: [{$ref: '#/components/schemas/Page'}, {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Award'}}}}]}
+              schema: {$ref: '#/components/schemas/AwardsPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
@@ -1598,6 +1598,41 @@ components:
         display_name:
           type: string
           maxLength: 50
+    TrophyTotals:
+      type: object
+      required:
+        - gold
+        - silver
+        - bronze
+      properties:
+        gold:
+          type: integer
+          minimum: 0
+        silver:
+          type: integer
+          minimum: 0
+        bronze:
+          type: integer
+          minimum: 0
+    AwardsPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          required:
+            - data
+            - meta
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Award'
+            meta:
+              type: object
+              required:
+                - trophy_totals
+              properties:
+                trophy_totals:
+                  $ref: '#/components/schemas/TrophyTotals'
   responses:
     Unauthorized:
       description: Bearer未指定・失効

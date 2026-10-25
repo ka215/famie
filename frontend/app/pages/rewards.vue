@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import type { ApiRequestError, Category, FamilyMember } from '#shared/types/api'
-import type { Reward, RewardAward, RewardPage, RewardSyncStatus } from '#shared/types/rewards'
+import type {
+  Reward,
+  RewardAward,
+  RewardAwardsPage,
+  RewardPage,
+  RewardSyncStatus,
+  TrophyColor,
+  TrophyTotals,
+} from '#shared/types/rewards'
 import { parseLocalDate } from '#shared/utils/calendar'
 import inventoryIcon from '~/assets/icons/inventory.svg'
 import medalIcon from '~/assets/icons/medal-outline.svg'
@@ -54,6 +62,8 @@ const page = ref(1)
 const lastPage = ref(1)
 const rewards = ref<Reward[]>([])
 const awards = ref<RewardAward[]>([])
+const trophyColors: TrophyColor[] = ['gold', 'silver', 'bronze']
+const trophyTotals = ref<TrophyTotals | null>(null)
 const notifications = ref<RewardAward[]>([])
 const members = ref<FamilyMember[]>([])
 const categories = ref<Category[]>([])
@@ -81,20 +91,32 @@ const showError = (cause: unknown) => {
 }
 const fetchPage = async () => {
   const own = ++generation
+  const requestedGroup = groupId.value
   busy.value = true
   error.value = ''
+  trophyTotals.value = null
+  if (mode.value === 'awards') awards.value = []
   try {
     const endpoint = mode.value === 'manage' ? '/manage' : mode.value === 'awards' ? '/awards' : ''
     const query = new URLSearchParams({ page: String(page.value) })
     if (mode.value !== 'manage' && selectedMember.value)
       query.set('member_id', selectedMember.value)
     if (mode.value === 'conditions') query.set('status', conditionStatus.value)
-    const result = await fetchApi<RewardPage<Reward> | RewardPage<RewardAward>>(
+    const result = await fetchApi<RewardPage<Reward> | RewardAwardsPage>(
       `${base.value}${endpoint}?${query}`
     )
-    if (!alive || own !== generation) return
-    if (mode.value === 'awards') awards.value = result.data as RewardAward[]
-    else rewards.value = result.data as Reward[]
+    if (!alive || own !== generation || requestedGroup !== groupId.value) return
+    if (mode.value === 'awards') {
+      const totals = 'meta' in result ? result.meta?.trophy_totals : undefined
+      if (
+        !Array.isArray(result.data) ||
+        !totals ||
+        trophyColors.some((color) => !Number.isSafeInteger(totals[color]) || totals[color] < 0)
+      )
+        throw new Error('Invalid award totals')
+      awards.value = result.data as RewardAward[]
+      trophyTotals.value = { gold: totals.gold, silver: totals.silver, bronze: totals.bronze }
+    } else rewards.value = result.data as Reward[]
     lastPage.value = result.last_page
     if (result.sync_status) syncStatus.value = result.sync_status
     if (result.limits) limits.value = result.limits
@@ -191,10 +213,14 @@ const changePage = (next: number) => {
   page.value = next
   fetchPage()
 }
-watch(selectedMember, () => {
-  page.value = 1
-  fetchPage()
-})
+watch(
+  selectedMember,
+  () => {
+    page.value = 1
+    fetchPage()
+  },
+  { flush: 'sync' }
+)
 watch(conditionStatus, () => {
   page.value = 1
   fetchPage()
@@ -265,6 +291,16 @@ onBeforeUnmount(() => {
       </article>
     </template>
     <template v-else>
+      <div role="group" :aria-label="t('reward.trophyTotals')" class="relative flex max-w-full items-center gap-3 overflow-x-auto whitespace-nowrap py-1 text-sm tabular-nums" data-testid="trophy-totals">
+        <template v-for="(color, index) in trophyColors" :key="color">
+          <span v-if="index" aria-hidden="true" class="text-slate-400">|</span>
+          <span class="inline-flex shrink-0 items-center gap-1.5">
+            <RewardTrophy :color="color" icon-only />
+            <span aria-hidden="true">{{ trophyTotals ? number(trophyTotals[color]) : '—' }}</span>
+            <span class="sr-only">{{ trophyTotals ? t('reward.trophyTotal', { trophy: t(`reward.trophy${color}`), count: number(trophyTotals[color]) }, trophyTotals[color]) : t('reward.trophyTotalUnknown', { trophy: t(`reward.trophy${color}`) }) }}</span>
+          </span>
+        </template>
+      </div>
       <p v-if="!busy && !error && !awards.length" class="py-8 text-center text-sm text-slate-500">{{ t('reward.emptyAwards') }}</p>
       <article v-for="award in awards" :key="award.id" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-2">
         <RewardTrophy :color="award.snapshot.color" label-only badge /><h3 class="flex items-start gap-2 font-bold break-all"><RewardTrophy :color="award.snapshot.color" icon-only /><span class="min-w-0">{{ award.snapshot.name }}</span></h3>

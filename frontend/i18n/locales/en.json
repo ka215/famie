@@ -560,6 +560,9 @@
     "progress": "Current {current}/{required}",
     "notCalculated": "Not calculated",
     "progressLabel": "Reward progress",
-    "progressAria": "{current}/{required} ({percent}%)"
+    "progressAria": "{current}/{required} ({percent}%)",
+    "trophyTotals": "Lifetime trophy totals",
+    "trophyTotal": "{trophy}: {count} trophy | {trophy}: {count} trophies",
+    "trophyTotalUnknown": "{trophy}: —"
   }
 }

@@ -195,6 +195,8 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
   await page.getByRole('dialog').getByRole('button', { name: '削除する', exact: true }).click()
   await page.getByRole('button', { name: 'インベントリ', exact: true }).click()
   await expect(page.getByText('削除済みリワード', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('trophy-totals')).toContainText('金トロフィー 1個')
+  await expect(page.getByTestId('trophy-totals')).toContainText('銀トロフィー 0個')
   await expect(page.getByText('好きなおやつ', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '管理', exact: true }).click()
   await page.getByRole('button', { name: 'リワードを作成', exact: true }).click()

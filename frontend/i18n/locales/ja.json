@@ -560,6 +560,9 @@
     "progress": "現在 {current}/{required}",
     "notCalculated": "未集計",
     "progressLabel": "リワードの進捗",
-    "progressAria": "{current}/{required}（{percent}%）"
+    "progressAria": "{current}/{required}（{percent}%）",
+    "trophyTotals": "トロフィー累計",
+    "trophyTotal": "{trophy} {count}個",
+    "trophyTotalUnknown": "{trophy}: —"
   }
 }
