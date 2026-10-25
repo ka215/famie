@@ -24,12 +24,13 @@ let usernameRequestId = 0
 
 const checkUsername = async (immediate = false) => {
   if (usernameTimer) clearTimeout(usernameTimer)
+  const requestId = ++usernameRequestId
+  usernameStatus.value = 'idle'
   const username = form.value.username
   if (!usernamePattern.test(username)) {
     usernameStatus.value = 'idle'
     return
   }
-  const requestId = ++usernameRequestId
   const run = async () => {
     usernameStatus.value = 'checking'
     try {
@@ -44,7 +45,8 @@ const checkUsername = async (immediate = false) => {
         usernameStatus.value = response.available ? 'available' : 'unavailable'
       }
     } catch {
-      if (requestId === usernameRequestId) usernameStatus.value = 'error'
+      if (requestId === usernameRequestId && username === form.value.username)
+        usernameStatus.value = 'error'
     }
   }
   if (immediate) await run()
@@ -56,6 +58,7 @@ watch(
   () => checkUsername()
 )
 onBeforeUnmount(() => {
+  ++usernameRequestId
   if (usernameTimer) clearTimeout(usernameTimer)
 })
 
@@ -66,7 +69,7 @@ const handleRegister = async () => {
     return
   }
   if (usernameStatus.value === 'unavailable') {
-    errorMessage.setKey('auth.register.usernameTaken')
+    errorMessage.setKey('auth.register.usernameUnavailable')
     return
   }
   isLoading.value = true
@@ -114,7 +117,7 @@ useHead(() => ({ title: `${t('auth.register.title')} | Famie` }))
           <p id="username-help" class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ t('auth.register.usernameHelp') }}</p>
           <p v-if="usernameStatus === 'checking'" id="username-status" role="status" class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ t('auth.register.checking') }}</p>
           <p v-else-if="usernameStatus === 'available'" id="username-status" role="status" class="mt-1 text-xs text-emerald-600 dark:text-emerald-300">{{ t('auth.register.available') }}</p>
-          <p v-else-if="usernameStatus === 'unavailable'" id="username-status" role="alert" class="mt-1 text-xs text-red-600 dark:text-red-300">{{ t('auth.register.usernameTaken') }}</p>
+          <p v-else-if="usernameStatus === 'unavailable'" id="username-status" role="alert" class="mt-1 text-xs text-red-600 dark:text-red-300">{{ t('auth.register.usernameUnavailable') }}</p>
           <p v-else-if="usernameStatus === 'error'" id="username-status" role="status" class="mt-1 text-xs text-amber-700 dark:text-amber-300">{{ t('auth.register.checkFailed') }}</p>
         </div>
         <div>

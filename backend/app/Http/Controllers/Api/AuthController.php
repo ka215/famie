@@ -11,6 +11,7 @@ use App\Services\AccountEmailService;
 use App\Services\LoginThrottle;
 use App\Support\InitialCategories;
 use App\Support\PasswordStrength;
+use App\Support\ReservedUsernames;
 use App\Support\UiLocale;
 use App\Support\UsernameRules;
 use Closure;
@@ -111,7 +112,8 @@ class AuthController extends Controller
         $validated = $request->validate(['username' => UsernameRules::syntax()], UsernameRules::messages());
 
         return response()->json([
-            'available' => ! User::query()->where('username', $validated['username'])->exists(),
+            'available' => ! app(ReservedUsernames::class)->contains($validated['username'])
+                && ! User::query()->where('username', $validated['username'])->exists(),
         ]);
     }
 

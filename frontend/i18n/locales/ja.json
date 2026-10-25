@@ -35,7 +35,8 @@
       "displayNameHelp": "作成する親アカウントに表示する名前を1〜50文字で入力してください。",
       "passwordHelp": "日本語のフレーズも使用できます。",
       "busy": "登録中...",
-      "submit": "家族を登録する"
+      "submit": "家族を登録する",
+      "usernameUnavailable": "このアカウント名は使用できません。別の名前を入力してください。"
     },
     "loginId": "ログインID",
     "confirmPassword": "パスワード（確認）",
