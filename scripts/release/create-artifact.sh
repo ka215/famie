@@ -12,6 +12,7 @@ cd "$repo"
 for tool in git jq tar sha256sum find sort xargs; do command -v "$tool" >/dev/null || fail "Missing tool: $tool"; done
 [[ -f frontend/.output/public/index.html ]] || fail 'Build frontend before creating an artifact.'
 node scripts/release/verify-static-assets.mjs frontend/.output/public
+node scripts/security/check-forge-scope.mjs --built
 
 metadata=$(jq -ser -f scripts/release/version-state.jq version.json backend/package.json frontend/package.json)
 IFS=$'\t' read -r current next state <<< "$metadata"

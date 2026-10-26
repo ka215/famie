@@ -1,0 +1,70 @@
+name: Staging security checks
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging]
+        default: staging
+        required: true
+      candidate_sha:
+        description: Full deployed candidate SHA (reviewed dev commit)
+        type: string
+        required: true
+  schedule:
+    - cron: '41 21 * * 0'
+  workflow_call:
+    inputs:
+      candidate_sha:
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: staging-security
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      candidate: ${{ steps.candidate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require reviewed candidate
+        id: candidate
+        shell: pwsh
+        env:
+          REQUESTED_SHA: ${{ inputs.candidate_sha || vars.FAMIE_SECURITY_CANDIDATE }}
+        run: |-
+          $candidate = $env:REQUESTED_SHA
+          if ($candidate -notmatch '\A[0-9a-f]{40}\z') { throw 'Configure a fixed, reviewed staging candidate before scanning.' }
+          git merge-base --is-ancestor $candidate origin/dev
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate is not in reviewed dev history.' }
+          "sha=$candidate" >> $env:GITHUB_OUTPUT
+  dynamic:
+    needs: validate
+    runs-on: [self-hosted, Windows, X64, famie-release]
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.22.1
+      - name: Verify deployed SHA and run bounded dedicated-account checks
+        shell: pwsh
+        env:
+          REQUESTED_SHA: ${{ needs.validate.outputs.candidate }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          FAMIE_SECURITY_FIXTURE: ${{ secrets.FAMIE_SECURITY_FIXTURE }}
+        run: ./scripts/security/staging-check.ps1 -Candidate $env:REQUESTED_SHA

@@ -3,5 +3,5 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@redocly/cli@2.64.0'
 overrides:
-  serialize-javascript@7.1.1: 7.1.2
+  serialize-javascript@7.1.1: 7.1.3
   ajv@8.17.1: 8.20.0

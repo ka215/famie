@@ -1,0 +1,89 @@
+rules:
+  - id: famie.php-request-command
+    languages: [php]
+    severity: ERROR
+    message: Request data reaches a command execution sink. Use an argument array and validate each argument.
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $REQUEST->input(...)
+          - pattern: $REQUEST->query(...)
+          - pattern: $REQUEST->get(...)
+          - pattern: $_GET[...]
+          - pattern: $_POST[...]
+          - pattern: $REQUEST->all(...)
+          - pattern: $REQUEST->validated(...)
+          - pattern: $REQUEST->string(...)
+          - pattern: $REQUEST->header(...)
+          - pattern: $_REQUEST[...]
+    pattern-sinks:
+      - pattern-either:
+          - pattern: shell_exec(...)
+          - pattern: exec(...)
+          - pattern: system(...)
+          - pattern: passthru(...)
+          - pattern: Process::run(...)
+  - id: famie.php-request-sql
+    languages: [php]
+    severity: ERROR
+    message: Request data reaches raw SQL. Use bound parameters.
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $REQUEST->input(...)
+          - pattern: $REQUEST->query(...)
+          - pattern: $_GET[...]
+          - pattern: $_POST[...]
+          - pattern: $REQUEST->all(...)
+          - pattern: $REQUEST->validated(...)
+          - pattern: $REQUEST->string(...)
+          - pattern: $REQUEST->header(...)
+          - pattern: $_REQUEST[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: DB::select($SQL, ...)
+              - pattern: DB::statement($SQL, ...)
+              - pattern: DB::unprepared($SQL)
+              - pattern: $QUERY->whereRaw($SQL, ...)
+          - focus-metavariable: $SQL
+  - id: famie.php-unsafe-deserialization
+    languages: [php]
+    severity: ERROR
+    message: PHP object deserialization needs an explicit security review; prefer JSON.
+    pattern: unserialize(...)
+  - id: famie.php-eval
+    languages: [php]
+    severity: ERROR
+    message: Dynamic PHP evaluation is prohibited.
+    pattern: eval(...)
+  - id: famie.js-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Dynamic JavaScript evaluation is prohibited.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: famie.js-dom-html
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Review HTML injection; render untrusted content as text.
+    pattern-either:
+      - pattern: $ELEMENT.innerHTML = $VALUE
+      - pattern: $ELEMENT.outerHTML = $VALUE
+      - pattern: $ELEMENT.insertAdjacentHTML(...)
+      - pattern: document.write(...)
+  - id: famie.vue-raw-html
+    languages: [generic]
+    severity: ERROR
+    message: Review Vue raw HTML rendering; use escaped interpolation for untrusted content.
+    paths:
+      include: ['*.vue']
+    pattern-regex: '\bv-html\s*='
+  - id: famie.actions-untrusted-expression
+    languages: [generic]
+    severity: ERROR
+    message: Do not interpolate untrusted event text into workflow scripts. Pass it through an environment variable.
+    paths:
+      include: ['.github/workflows/*.yml']
+    pattern-regex: '\$\{\{\s*github\.event\.(pull_request\.(title|body|head\.ref)|issue\.(title|body)|comment\.body)\b'

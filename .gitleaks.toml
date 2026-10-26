@@ -1,0 +1,10 @@
+title = "Famie secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "private-key"
+[[rules.allowlists]]
+description = "Public localhost-only Playwright TLS fixture; never use for real TLS. Review by v0.21.0."
+paths = ['''^frontend/tests/support/tls/key\.pem$''']
