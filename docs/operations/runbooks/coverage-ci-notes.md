@@ -80,3 +80,13 @@ A12に従い、日英READMEのカバレッジバッジは保留。job artifact�
 2026-10-26、frontend Lint151ファイル・型検査・OpenAPI49操作の照合が成功。frontend coverage20テスト、TypeScript coverage境界試験、PR必須チェック待機5ケースが成功。backend全体は327成功／39skip、2,273 assertions。skipは専用DB・競合・バックアップ等の環境条件であり、PostgreSQL専用jobでの実行を代替しない。workflowはactionlint1.7.12、追加PHPはPint・構文検査、追加MJSは構文検査、差分はgit diff --checkが成功した。
 
 PHP coverage driver・PostgreSQL14クライアントのCI導入と初回集計は未実行。アプリ本体のソース・依存lock・画面は変更していないため、新たな主要操作の再試行は求めず、変更内容と自動検証結果のユーザー確認後にコミット・PRへ進む。
+
+## フェーズ3の初回CIとテストデータ修正
+
+PR #170、run40293795463でfrontendとbackend-sqliteの計測が成功した。PR検証用merge commit `cb0c981222af10b0a00b6febdcf025f1d362480f`、dirty=false。PHP8.4.27／PHPUnit12.5.35／PCOV1.0.12、app61ファイル、行1487/1732（85.85%）。frontendはローカルと同じ268/284（94.37%）だった。これは途中結果であり、run全体の合格ではない。
+
+PostgreSQL重点検証は110成功・7失敗。全7件がPostgresConcurrencyTestのpassword reset入力で、従来の`new-password`が現行の15文字以上という要件に反し、ロック到達前に422となった。アプリの検証を緩めず、既存PasswordSecurityTestで受入済みの`river otter orchard`へテスト入力・保存結果の期待値を変更した。実行順・ロック待ちの検証・認可・トークン失効の期待値は維持する。
+
+修正後のローカル関連テストは20成功／31skip、87 assertions。Pint・差分検査は成功。ローカルDB接続ユーザーには一時DB作成権限がなく、専用famie_testも未用意のため、競合31ケースの実行は明示フラグ付きCIで再確認する。ローカルの既存アプリDBへmigrate等は実施していない。修正内容のローカル再確認・合格後に追加コミットする。
+
+SQLiteで未実行だったCLI3件（画像audit・設定・削除retry）、DailyBackupのPostgreSQL専用経路、SafeExceptionHandlerや画像Policy等の未実行行を不足一覧へ追加する。CLI入力異常と直接実行、例外handlerの残るfallback、画像Policyの拒否分岐を追試候補とする。DailyBackupの専用DB経路はPostgreSQL初回計測成功後に確認し、SQLite低値だけで不足と断定しない。
