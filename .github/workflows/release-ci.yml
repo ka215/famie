@@ -182,7 +182,8 @@ jobs:
         env:
           CHECKS_RESULT: ${{ needs.checks.result }}
           E2E_RESULT: ${{ needs.e2e.result }}
-        run: '[[ "$CHECKS_RESULT" == success && "$E2E_RESULT" == success ]]'
+          SECURITY_RESULT: ${{ needs.security.result }}
+        run: '[[ "$CHECKS_RESULT" == success && "$E2E_RESULT" == success && "$SECURITY_RESULT" == success ]]'
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
@@ -257,10 +258,17 @@ jobs:
           path: release-dist/
           if-no-files-found: error
           retention-days: 30
+      - name: Verify approved development dependency stays outside the static runtime
+        run: node scripts/security/check-forge-scope.mjs --built
     needs:
       - checks
       - e2e
+      - security
     if: ${{ always() }}
+  security:
+    uses: ./.github/workflows/security-checks.yml
+    with:
+      base_commit: ${{ github.event.pull_request.base.sha || '' }}
 env:
   CI: 'true'
   DEBUG: ''

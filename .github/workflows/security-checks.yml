@@ -1,0 +1,80 @@
+name: Security checks
+on:
+  workflow_call:
+    inputs:
+      base_commit:
+        type: string
+        required: false
+        default: ''
+  workflow_dispatch:
+  schedule:
+    - cron: '23 21 * * 0'
+permissions:
+  contents: read
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: 11.20.0
+          standalone: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.22.1
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
+        with:
+          php-version: '8.4'
+          tools: composer:2.8.10
+          coverage: none
+      - name: Validate staging scan boundaries
+        run: node --test scripts/security/staging-check.test.mjs
+      - name: Install verified native security tools
+        shell: pwsh
+        run: ./scripts/security/install-tools.ps1
+      - name: Validate security rule detection
+        shell: pwsh
+        run: ./scripts/security/test-rules.ps1
+      - name: Check secrets, history, PR diff, source and workflows
+        shell: pwsh
+        env:
+          SECURITY_BASE_COMMIT: ${{ inputs.base_commit }}
+        run: |
+          $parameters = @{ History = $true }
+          if ($env:SECURITY_BASE_COMMIT) { $parameters.BaseCommit = $env:SECURITY_BASE_COMMIT }
+          ./scripts/security/scan.ps1 @parameters
+      - name: Audit locked dependencies including development dependencies
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: ./scripts/security/audit.ps1
+      - name: Validate dependency exception boundaries
+        shell: pwsh
+        run: ./scripts/security/test-audit-policy.ps1
+  regression:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.workflow == 'Security checks')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
+        with:
+          php-version: '8.4'
+          tools: composer:2.8.10
+          coverage: none
+          extensions: pdo_sqlite
+      - name: Install backend test dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+      - name: Authentication, family isolation, image access and log secrecy regression
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+          php artisan test --filter='LoginSecurityTest|PasswordSecurityTest|GroupIsolationTest|ActivityImageTest|OperationLoggingTest'
