@@ -16,7 +16,7 @@ try {
     [IO.File]::WriteAllText($key, $env:DEPLOY_SSH_KEY + "`n")
     [IO.File]::WriteAllText($knownHosts, $env:DEPLOY_KNOWN_HOSTS + "`n")
     if ($IsWindows) {
-        & icacls $key /inheritance:r /grant:r "${env:USERNAME}:(R)" > $null
+        & icacls $key /inheritance:r /grant:r "${env:USERNAME}:(F)" > $null
         if ($LASTEXITCODE -ne 0) { throw 'Cannot protect temporary SSH key.' }
     } else { throw 'The staging runner must be Windows.' }
     $manifest = & ssh -i $key -o BatchMode=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 -o "UserKnownHostsFile=$knownHosts" "$($env:DEPLOY_USER)@$($env:DEPLOY_HOST)" 'cat "$HOME/famie-stg-release-backups/current-manifest.json"' 2> (Join-Path $temporary 'ssh.log')
