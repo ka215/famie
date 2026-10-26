@@ -18,7 +18,7 @@ Nodeの行数はV8の範囲に基づくため、宣言・空行を含み、未�
 
 `coverage-results/`はGit対象外。frontendのLCOV、PHPのCloverはローカル／job内にのみ残し、CIへ公開するのは相対ソース名・未実行行・集計値だけの`summary.json`とjob summary。トークン、個人情報、ソース本文、内部絶対パス、環境値を含めない。artifact保持14日。commit/tree、dirtyフラグ、計測日時、ツール版、対象、分子／分母を保存する。対象ファイルの欠落・重複・対象外ファイル・分母異常は失敗にする。
 
-## 初回値と不足
+## ローカル初回値と不足（CI実測前の記録）
 
 2026-10-26、Windows、Node24.22.1、HEAD `a0a7f647b55cf36c61be6e4d2cd74ef7bde5fc9a`＋未コミットのR04・R05変更で取得。確定コミットのCI値はローカル合格後に別途記録する。
 
@@ -89,4 +89,34 @@ PostgreSQL重点検証は110成功・7失敗。全7件がPostgresConcurrencyTest
 
 修正後のローカル関連テストは20成功／31skip、87 assertions。Pint・差分検査は成功。ローカルDB接続ユーザーには一時DB作成権限がなく、専用famie_testも未用意のため、競合31ケースの実行は明示フラグ付きCIで再確認する。ローカルの既存アプリDBへmigrate等は実施していない。修正内容のローカル再確認・合格後に追加コミットする。
 
-SQLiteで未実行だったCLI3件（画像audit・設定・削除retry）、DailyBackupのPostgreSQL専用経路、SafeExceptionHandlerや画像Policy等の未実行行を不足一覧へ追加する。CLI入力異常と直接実行、例外handlerの残るfallback、画像Policyの拒否分岐を追試候補とする。DailyBackupの専用DB経路はPostgreSQL初回計測成功後に確認し、SQLite低値だけで不足と断定しない。
+SQLiteで未実行だったCLI3件（画像audit・設定・削除retry）、DailyBackupのPostgreSQL専用経路等は、次節の確定値と合わせて判断する。SafeExceptionHandlerの未実行2行は非production console表示の経路、ActivityLogPolicyの未実行2行は許可経路であり、fallbackや拒否分岐の欠落とは断定しない。
+
+## 確定候補のCI実測・フェーズ3受入
+
+2026-10-26、PR #170をdevへ取り込み、固定候補`8185a0115113c11e5cdeff9c9a89a0f40fc381f7`、tree `dcd9f51b64a9d56391f2d818e1778a7681e331b0`、Release CI40297632142で取得した。全summaryは当該SHA・dirty=false。PHP8.4.27／PHPUnit12.5.35／PCOV1.0.12、Node24.22.1。配置40298956761の自動検査とユーザーの主要操作・既存PWA確認が合格し、release sessionへstaging_verifiedを記録した。
+
+| 対象 | 母集団・実行 | 行 | 分岐／関数 |
+| --- | --- | --- | --- |
+| backend-sqlite | app61ファイル、既存全体327成功/39環境skip | 1487/1732（85.85%） | PCOVの行計測のみ |
+| backend-postgres | 同じapp61ファイル、重点117成功/2166 assertions | 748/1732（43.19%） | 親プロセスの行計測のみ |
+| frontend-unit | shared/utils8ファイル、20成功 | 268/284（94.37%） | 分岐98/104（94.23%）、関数47/52（90.38%） |
+
+DailyBackupはPostgreSQLで65/87行。新たに競合31ケースと隔離backup復元1ケースを実行できた。SQLiteでlogoutが未実行でも、R03の実API検査がlogout後401を確認する。認証のロック取得後の再検証は子プロセス実行を含むため、親PCOVの未実行表示だけで機能未検証としない。
+
+不足と追試候補は、CLI3コマンドの入力・直接実行、画像変換／保存の異常分岐、TraceRequestの最終fallback、frontend画像エラー分類・日付／ロケール境界。初回は基準値と既存の重要分岐の根拠を記録し、画面全体や全異常系の保証とはしない。以後の低下は差分・重要領域・ツール版・母集団の変更をレビューし、一律の閾値はまだ適用しない。
+
+### 変更後3回のCI時間（秒）
+
+| run | event | checks cache | wall | runner合計 | checks | SQLite | PostgreSQL | Chromium | iPhone | verify |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 40296441844 | PR | hit | 561 | 1033 | 56 | 41 | 81 | 260 | 414 | 141 |
+| 40297163435 | 手動・検証のみ | miss | 574 | 1097 | 57 | 44 | 118 | 271 | 441 | 124 |
+| 40297632142 | 手動・成果物生成 | miss | 543 | 991 | 55 | 37 | 74 | 254 | 413 | 122 |
+
+後者2回はbuild_artifact=false/trueの違いがある。3回ともtree dcd9f51b64a9d56391f2d818e1778a7681e331b0、checksのUbuntu24.04／image20261012.334.1は変更前と一致。backend appのtree `460fbe630492703675813e41e871a0c08d10bd65`は前後同一、frontend/app・sharedにも差分なし。計測コマンド・テストfixture・専用フラグは変わっている。
+
+参考中央値はwall567.5→561秒、runner922→1033秒。ただし前4回・後3回、冷／温cacheとevent・検証量が異なるため、高速化率とは表示しない。checksは短縮したが、PG32ケース追加・coverage・専用jobの準備によりrunner秒は増えた。iPhone E2Eが支配的でbackend jobはcritical pathになっておらず、現時点で全体遅延の悪化は確認できない。準備の重複削減やE2Eの改善は今後の計測課題とし、検証を削らない。
+
+初回失敗run40293795463では、必須PostgreSQL失敗によりverifyのRequire all verification jobsが失敗し、ビルド・候補作成・uploadがskipされた。成功値だけを参照して失敗を隠さない。初回失敗runを成功時間の比較に含めない。
+
+実行記録・step時間の参照先は[Issue #165](https://github.com/ka215/famie/issues/165)、各runとartifact。公開バッジは上記A12の保留方針を維持する。フェーズ合格は商用承認ではない。
