@@ -4,9 +4,9 @@ namespace App\Services;
 
 use App\Models\ActivityLog;
 use App\Models\Group;
+use App\Support\OperationLog;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -106,7 +106,7 @@ class ActivityImageService
                     DB::table('activity_image_deletions')->where('id', $id)->delete();
                 }
             } catch (Throwable $e) {
-                Log::warning('Activity image deletion deferred', ['deletion_id' => $id, 'error' => $e->getMessage()]);
+                OperationLog::write('image.deletion_failed', 'failure', ['deletion_id' => $id, 'exception_type' => $e::class], 'warning');
             }
         });
     }

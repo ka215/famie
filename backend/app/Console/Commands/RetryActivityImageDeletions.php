@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\OperationLog;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -26,7 +27,8 @@ class RetryActivityImageDeletions extends Command
                     }
                 } catch (Throwable $e) {
                     $failed++;
-                    $this->error("画像 {$row->id}: {$e->getMessage()}");
+                    OperationLog::write('image.deletion_failed', 'failure', ['deletion_id' => (int) $row->id, 'exception_type' => $e::class], 'warning');
+                    $this->error("画像削除失敗: {$row->id}");
                 }
             }
         });

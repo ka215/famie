@@ -251,7 +251,9 @@ class AccountEmailTest extends TestCase
         $user = $this->member(['email_verified_at' => now()]);
         $token = Password::createToken($user);
         Mail::shouldReceive('to')->once()->with($user->email)->andThrow(new \RuntimeException('secret-token-and-smtp-password'));
-        Log::shouldReceive('warning')->once()->with('Account mail delivery failed.', ['exception_type' => \RuntimeException::class]);
+        Log::shouldReceive('channel')->with('operations')->andReturnSelf();
+        Log::shouldReceive('log')->once()->with('warning', 'mail.delivery_failed', ['outcome' => 'failure', 'exception_type' => \RuntimeException::class]);
+        Log::shouldReceive('log')->once()->with('info', 'auth.password_reset', ['outcome' => 'success', 'status' => 200]);
 
         $this->postJson('/v1/auth/password/reset', ['id' => $user->id, 'token' => $token, 'password' => 'River-otter-password-2026!', 'password_confirmation' => 'River-otter-password-2026!'])->assertOk();
 
