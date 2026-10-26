@@ -103,8 +103,19 @@ function Wait-PullRequestChecks {
     for ($attempt = 1; $attempt -le 24; $attempt++) {
         $output = & gh pr checks $PullRequest --watch --fail-fast 2>&1
         if ($LASTEXITCODE -eq 0) {
-            $output | Write-Host
-            return
+            # Optional path-filtered workflows can finish before Release CI registers.
+            $required = & gh pr checks $PullRequest --json name,state --jq '[.[] | select(.name == "verify")] | if length == 1 then .[0].state else "MISSING" end' 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Cannot inspect mandatory verify check for #$PullRequest." }
+            if (($required -join "`n").Trim() -eq 'SUCCESS') {
+                $output | Write-Host
+                return
+            }
+            if (($required -join "`n").Trim() -in @('FAILURE', 'CANCELLED', 'TIMED_OUT', 'SKIPPED', 'NEUTRAL', 'ACTION_REQUIRED', 'STALE')) {
+                throw "Mandatory verify check did not succeed for #$PullRequest."
+            }
+            Write-Host "Waiting for mandatory verify check ($attempt/24)..."
+            Start-Sleep -Seconds 5
+            continue
         }
         $message = $output -join "`n"
         if ($message -match 'no checks reported') {

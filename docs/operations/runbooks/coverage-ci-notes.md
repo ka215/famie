@@ -1,0 +1,82 @@
+# カバレッジとCIの計測
+
+v0.19.0のR04・R05。計測失敗はジョブ失敗にし、0%・過去の値で置き換えない。SQLite、PostgreSQL、frontendは対象が異なるため平均しない。
+
+## 実行方法と対象
+
+| 対象 | 実行 | 母集団・除外 |
+| --- | --- | --- |
+| frontend-unit | `pnpm --dir frontend test:coverage` | `frontend/shared/utils/*.ts`全件。Vue、composable、E2E、型定義は対象外 |
+| backend-sqlite | Release CIの専用job | `backend/app/**/*.php`全件。vendor、tests、生成コードは対象外。既存全テストをSQLiteで実行 |
+| backend-postgres | Release CIの専用job | 同じapp全件を分母とし、認証・復旧・メール・リワード・競合・隔離バックアップ復元に絞って実行 |
+
+PHPは専用jobだけPCOVを有効化し、既存の通常テストをカバレッジ付き実行へ置き換える。ローカル・E2E・静的検査・商用では有効化しない。PostgreSQLは専用`famie_test`を使い、`FAMIE_REWARD_PG_TEST`・`FAMIE_CONCURRENCY_TEST`・`FAMIE_BACKUP_PG_TEST`を有効化する。バックアップ試験はさらにランダムな隔離schemaを作成・削除する。pg_dump／pg_restoreはサーバーと同じ14系を公式PGDGリポジトリから導入する。
+
+frontendはNode 24.22.1の標準test coverage・TypeScript transform・source mapを使用。全対象を事前importして、未実行ファイルも分母へ入れる。preloadでは関数・constructorを呼ばない。`node scripts/coverage/test-mapping.mjs`が、TypeScriptのparameter property変換後も未実行constructorの元の行と未実行分岐が残ることを実検証する。
+
+Nodeの行数はV8の範囲に基づくため、宣言・空行を含み、未実行の文が行単位では実行済みに見える場合もある。行カバレッジだけで分岐を保証せず、分岐・関数の数字と実際のテストを併記する。PCOVは行計測でありPHP分岐カバレッジとは表示しない。別プロセスで動く競合処理も親PHPプロセスの計測には含まれない。
+
+`coverage-results/`はGit対象外。frontendのLCOV、PHPのCloverはローカル／job内にのみ残し、CIへ公開するのは相対ソース名・未実行行・集計値だけの`summary.json`とjob summary。トークン、個人情報、ソース本文、内部絶対パス、環境値を含めない。artifact保持14日。commit/tree、dirtyフラグ、計測日時、ツール版、対象、分子／分母を保存する。対象ファイルの欠落・重複・対象外ファイル・分母異常は失敗にする。
+
+## 初回値と不足
+
+2026-10-26、Windows、Node24.22.1、HEAD `a0a7f647b55cf36c61be6e4d2cd74ef7bde5fc9a`＋未コミットのR04・R05変更で取得。確定コミットのCI値はローカル合格後に別途記録する。
+
+| 対象 | 行 | 分岐 | 関数 | 状態 |
+| --- | --- | --- | --- | --- |
+| frontend-unit・8ファイル／20テスト | 268/284（94.37%） | 98/104（94.23%） | 47/52（90.38%） | ローカル実測 |
+| backend-sqlite | 未計測 | 対象外 | 対象外 | ローカルにdriverを追加せず、初回CIで取得 |
+| backend-postgres | 未計測 | 対象外 | 対象外 | 同上。SQLiteの値で代用しない |
+
+frontendの不足は`activityImageError.ts`のconstructor／コード判定、`calendar.ts`の一部日付処理、`locale.ts`の一部ロケール処理。詳細は各summaryの`uncovered_lines`・関数計測で確認する。画像エラー分類の単体確認、日付の無効値・ロケール境界を追試候補とする。初回値取得を目的に、数字だけを上げるテストを追加しない。
+
+| 重要領域 | 根拠となる既存試験 | 残る限界・次の確認 |
+| --- | --- | --- |
+| 認証・復旧・失効 | LoginSecurityTest、PasswordSecurityTest、MemberPasswordRecoveryTest（他家族・非親・無効メンバー・旧リンク無効化を含む） | PostgreSQLでも同じ重点試験を再実行。全操作の競合網羅はv0.21.0 |
+| 家族間分離 | GroupIsolationTestの一覧・詳細・書込、R03の親・子・別家族の実API検査 | 全ロール×全操作の表はv0.21.0 |
+| 画像取得・更新・削除 | ActivityImageTestのアクセス境界、upload／replace／quota／disable lifecycle | 全形式・破損画像のfuzzingはv0.21.0 |
+| ログ秘匿・追跡 | OperationLoggingTestの正常／拒否／例外／rollback／fallback／CLI | 任意の未知ライブラリまでの秘匿保証とはしない |
+| 内部監視・通知 | InternalMonitorTest、MonitorNotifierTestの欠落結果・容量・破損状態・連続異常／復旧・SMTP失敗 | 実環境SMTP受信はフェーズ1合格済み |
+| バックアップ・復元 | DailyBackupTestとDailyBackupPostgresTest | 既存CIでは後者が無効だったため専用jobで有効化。提供元の画像保管・保存期間・RTOは別途未確認 |
+
+一律の閾値はまだ設定しない。PHP初回実測と不足行を取得後、重要領域の欠落・変更理由をレビューして低下許容量を提案する。CI値・不足一覧の確認前はR04完了としない。
+
+## CIの変更前データと比較
+
+取得は`gh run view RUN --json headSha,event,createdAt,updatedAt,jobs`。保存したJSONを`node scripts/coverage/ci-timings.mjs FILE...`へ渡すとwall time、job／step時間、開始までの待ち、runner使用秒を再集計できる。待ちは依存job待ち＋起動待ちを含み、純粋なrunnerキュー時間とは表示しない。runner秒は課金額ではない。
+
+同日の成功run4件を再利用した。frontend subtreeはすべて`6639da579a352c6b61e4ba4489690016d1ddc87f`、backend subtreeはすべて`983ec82850be1f1e5236f1ab521d149d802ee6c4`。checksのrunner imageはUbuntu24.04／20261012.334.1、Node24.22.1・Composer2.10.3で一致した。
+
+| run | event | checksのpnpm cache | wall秒 | checks秒 | Chromium秒 | iPhone秒 | verify秒 | runner合計秒 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 40280494815 | PR | hit | 549 | 74 | 263 | 369 | 149 | 889 |
+| 40281588113 | 手動成果物 | miss | 586 | 98 | 266 | 458 | 121 | 984 |
+| 40283543436 | PR | hit | 507 | 85 | 259 | 370 | 131 | 876 |
+| 40284467635 | 手動成果物 | hit | 586 | 80 | 262 | 477 | 102 | 955 |
+
+キャッシュ分類はchecksの実ログによる。他jobのcache hitを推測しない。PRと手動では成果物作成・uploadの有無が異なり、同一条件の4回とは扱わない。温cache3件のchecks中央値80秒、wall中央値549秒は参考値。変更後のCIは未実行で、高速化率は未確定。
+
+採用候補は、PHP計測の専用job化、通常テストの計測付き実行への置換、ubuntu-24.04指定、Node版を含むworkflowとlockをpnpm cache keyへ反映、必須verify待機の修正。API契約検査のPHP依存導入は維持する。重要なPostgreSQL試験を実際に有効化するため、検証量とrunner秒は増える可能性がある。
+
+主要待機要因はiPhone E2Eである。Chromium／iPhoneの2対象、workers=1、隔離DB、静的ビルド・成果物の最終検証は維持する。アプリE2E用と配布用のビルドは設定が異なるため共有しない。ブラウザーcacheやshardを未計測のまま追加しない。backendの分割が遅延を増やした場合は、テストを保持して専用jobの統合を検討する。
+
+変更後は同じコード・runner・cache条件を可能な限りそろえ、PR・候補生成等の必要なrunを利用して各3件を基本に比較する。cache key変更直後のcoldは別枠。3件に満たない時は件数不足を明示し、不要なCIを起動して見かけの比較を作らない。
+
+## 公開バッジの保留と再開
+
+A12に従い、日英READMEのカバレッジバッジは保留。job artifactには固定公開URLがなく、未確定値を固定バッジにしない。外部サービス、新しい公開ブランチ、公開先への書込権限は未承認のため追加しない。
+
+再開条件は、3対象の確定SHAでの初回計測、公開先と書込権限の承認、成功した信頼済みmainの集計だけを公開する仕組み、対象名／SHA／日時と失敗時の更新停止・古い値の識別方法の決定。稼働率バッジ・外形監視は本版対象外。
+
+## 技術確認先
+
+- [Node24 test coverage](https://nodejs.org/docs/latest-v24.x/api/test.html#collecting-code-coverage)
+- [PHPUnit12.5 coverage](https://docs.phpunit.de/en/12.5/code-coverage.html)
+- [setup-php PCOV](https://github.com/shivammathur/setup-php#pcov)
+- [PostgreSQL公式Ubuntuパッケージ](https://www.postgresql.org/download/linux/ubuntu/)
+
+## フェーズ3のローカル検証記録
+
+2026-10-26、frontend Lint151ファイル・型検査・OpenAPI49操作の照合が成功。frontend coverage20テスト、TypeScript coverage境界試験、PR必須チェック待機5ケースが成功。backend全体は327成功／39skip、2,273 assertions。skipは専用DB・競合・バックアップ等の環境条件であり、PostgreSQL専用jobでの実行を代替しない。workflowはactionlint1.7.12、追加PHPはPint・構文検査、追加MJSは構文検査、差分はgit diff --checkが成功した。
+
+PHP coverage driver・PostgreSQL14クライアントのCI導入と初回集計は未実行。アプリ本体のソース・依存lock・画面は変更していないため、新たな主要操作の再試行は求めず、変更内容と自動検証結果のユーザー確認後にコミット・PRへ進む。
