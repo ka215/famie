@@ -5,11 +5,11 @@ namespace App\Services;
 use App\Mail\AccountMail;
 use App\Models\Group;
 use App\Models\User;
+use App\Support\OperationLog;
 use App\Support\UiLocale;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Throwable;
@@ -77,14 +77,14 @@ class AccountEmailService
     {
         $allowed = config('famie.mail_allowed_recipients');
         if ((config('famie.mail_restrict_recipients', true) || $allowed !== []) && ! in_array(strtolower($email), $allowed, true)) {
-            Log::warning('Account mail recipient blocked by allowlist.');
+            OperationLog::write('mail.recipient_blocked', 'failure', [], 'warning');
 
             return false;
         }
         // logドライバは秘密リンクを記録するため、この用途では使用しない。
         $transport = config('mail.mailers.'.config('mail.default').'.transport');
         if (in_array($transport, ['log', 'failover', 'roundrobin'], true)) {
-            Log::warning('Account mail requires a non-logging mailer.');
+            OperationLog::write('mail.logging_mailer_blocked', 'failure', [], 'warning');
 
             return false;
         }
@@ -93,7 +93,7 @@ class AccountEmailService
 
             return true;
         } catch (Throwable $exception) {
-            Log::warning('Account mail delivery failed.', ['exception_type' => $exception::class]);
+            OperationLog::write('mail.delivery_failed', 'failure', ['exception_type' => $exception::class], 'warning');
 
             return false;
         }

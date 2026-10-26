@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Support\SafeExceptionHandler;
+use App\Support\SafeLogManager;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -14,7 +17,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton('log', fn ($app) => new SafeLogManager($app));
+        $this->app->singleton(ExceptionHandler::class, SafeExceptionHandler::class);
     }
 
     /**

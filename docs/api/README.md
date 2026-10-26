@@ -1,6 +1,6 @@
 # Famie API契約
 
-[openapi.yaml](openapi.yaml)が現行HTTP APIの具体的なIFを記載する正本。OpenAPI 3.1.1、アプリ対象版v0.16.0、APIプレフィックスはv1。商用は `https://famie.co/api/v1`、ステージングは `https://stg-famie.ka2.org/api/v1`。要件の正本は版別仕様・正式要件を参照する。旧`reference/backend/`のサンプルは契約ではない。v0.16.1では契約の挙動変更は予定しない。
+[openapi.yaml](openapi.yaml)が現行HTTP APIの具体的なIFを記載する正本。OpenAPI 3.1.1、アプリ対象版v0.18.1、APIプレフィックスはv1。商用は `https://famie.co/api/v1`、ステージングは `https://stg-famie.ka2.org/api/v1`。要件の正本は版別仕様・正式要件を参照する。旧`reference/backend/`のサンプルは契約ではない。[v0.18.1](../issues/v0.18.1.md)では新規usernameの禁止名検証と、獲得一覧の全期間累計`meta.trophy_totals`を追加した。
 
 ## 検証
 

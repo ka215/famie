@@ -56,6 +56,8 @@ PWAとしてホーム画面に追加し、ライト／ダークテーマや表�
 
 フロントエンドはNuxt 4・Vue・TypeScript・Tailwind CSS、バックエンドはLaravel・Sanctum・PostgreSQLで構成しています。
 
+カバレッジはバックエンドのSQLite全体・PostgreSQL重点検証・フロントのユーティリティを分けて計測します。公開バッジは安全な公開経路の承認まで保留しています。[計測範囲と再開条件](docs/operations/runbooks/coverage-ci-notes.md)を参照してください。
+
 ---
 
 <h6 align="center">Copyright © 2026 MAGIC METHODS.</h6>

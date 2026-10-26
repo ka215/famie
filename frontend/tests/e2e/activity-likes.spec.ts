@@ -40,6 +40,7 @@ test('楽観的更新は通信中に一度だけ送信し、正規化・解除�
   sample.onLike = null
   await button.click()
   await expect(button).toHaveAccessibleName('いいねする：2件')
+  await expect(button).toBeEnabled()
   expect(sample.methods).toEqual(['PUT', 'DELETE'])
   firstLog.likes_count = 4
   await page.locator('select').first().selectOption('')

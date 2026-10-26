@@ -1,6 +1,8 @@
+.zvec-grep/
 .tools/
 .temp/
 .release/
+/coverage-results/
 frontend/.output/
 frontend/playwright-release-report/
 frontend/test-results/

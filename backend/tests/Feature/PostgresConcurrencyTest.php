@@ -160,7 +160,7 @@ class PostgresConcurrencyTest extends TestCase
         $results = $this->race($group, $loginFirst ? [$login, $reset] : [$reset, $login]);
         $this->assertSame($loginFirst ? [200, 200] : [200, 422], array_column($results, 'status'), json_encode($results));
         $this->assertSame(0, $member->user->tokens()->count());
-        $this->assertTrue(Hash::check('new-password', $member->user->fresh()->password));
+        $this->assertTrue(Hash::check('river otter orchard', $member->user->fresh()->password));
     }
 
     #[TestWith(['PUT', 'PUT', 1])]
@@ -211,7 +211,7 @@ class PostgresConcurrencyTest extends TestCase
         }
         $user->forceFill(['email_verified_at' => now()])->save();
 
-        return $this->operation($member, 'POST', '/v1/auth/password/reset', ['id' => $user->id, 'token' => Password::createToken($user), 'password' => 'new-password', 'password_confirmation' => 'new-password']);
+        return $this->operation($member, 'POST', '/v1/auth/password/reset', ['id' => $user->id, 'token' => Password::createToken($user), 'password' => 'river otter orchard', 'password_confirmation' => 'river otter orchard']);
     }
 
     /** @return array{Group, GroupMember, GroupMember, Category} */

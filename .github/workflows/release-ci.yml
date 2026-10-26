@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
@@ -34,19 +34,21 @@ jobs:
         with:
           node-version: 24.22.1
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: |-
+            frontend/pnpm-lock.yaml
+            .github/workflows/release-ci.yml
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
-          tools: composer:2.8.10
+          php-version: "8.4"
+          tools: composer:2.10.3
           coverage: none
           extensions: pdo_pgsql, pdo_sqlite
+      - name: Install backend dependencies for API contract
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Install backend dependencies
-        working-directory: backend
-        run: composer install --no-interaction --prefer-dist
       - name: Check translations and static localization
         working-directory: frontend
         run: pnpm i18n:check
@@ -56,9 +58,11 @@ jobs:
       - name: Typecheck frontend
         working-directory: frontend
         run: pnpm typecheck
-      - name: Unit tests
+      - name: Frontend unit tests with coverage
         working-directory: frontend
-        run: pnpm test:unit
+        run: |-
+          node ../scripts/coverage/test-mapping.mjs
+          pnpm test:coverage
       - name: Install pinned yq
         shell: bash
         run: |-
@@ -68,55 +72,19 @@ jobs:
       - name: Verify OpenAPI contract
         working-directory: frontend
         run: pnpm test:api
-      - name: Backend tests
-        working-directory: backend
-        run: |
-          cp .env.example .env
-          php artisan key:generate --force
-          composer test
-      - name: Reward PostgreSQL acceptance
-        working-directory: backend
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: "5432"
-          DB_DATABASE: famie_test
-          DB_USERNAME: famie_test
-          DB_PASSWORD: famie-ci-only
-          FAMIE_REWARD_PG_TEST: "1"
-        run: php artisan test --filter=RewardPostgresTest
-      - name: Authentication PostgreSQL acceptance
-        working-directory: backend
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: "5432"
-          DB_DATABASE: famie_test
-          DB_USERNAME: famie_test
-          DB_PASSWORD: famie-ci-only
-        run: php artisan test --filter="MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest"
-      - name: Email ownership PostgreSQL acceptance
-        working-directory: backend
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: "5432"
-          DB_DATABASE: famie_test
-          DB_USERNAME: famie_test
-          DB_PASSWORD: famie-ci-only
-        run: php artisan test --filter="AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest::test_two_families_cannot_confirm_the_same_email"
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: famie_test
-          POSTGRES_PASSWORD: famie-ci-only
-          POSTGRES_DB: famie_test
-        ports:
-          - 5432:5432
-        options: --health-cmd "pg_isready -U famie_test -d famie_test" --health-interval 5s --health-timeout 5s --health-retries 10
+      - name: Publish frontend coverage summary
+        run: node scripts/coverage/report.mjs coverage-results/frontend-unit/summary.json
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: coverage-frontend-unit-${{ github.run_id }}
+          path: coverage-results/frontend-unit/summary.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Verify mandatory PR check waiting
+        shell: pwsh
+        run: ./scripts/release/test-pr-checks.ps1
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
@@ -130,11 +98,13 @@ jobs:
         with:
           node-version: 24.22.1
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: |-
+            frontend/pnpm-lock.yaml
+            .github/workflows/release-ci.yml
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          tools: composer:2.8.10
+          tools: composer:2.10.3
           coverage: none
           extensions: pdo_sqlite
       - name: Install frontend dependencies
@@ -175,14 +145,17 @@ jobs:
           - project: iphone-webkit
             browser: webkit
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Require all verification jobs
         env:
           CHECKS_RESULT: ${{ needs.checks.result }}
           E2E_RESULT: ${{ needs.e2e.result }}
-        run: '[[ "$CHECKS_RESULT" == success && "$E2E_RESULT" == success ]]'
+          SECURITY_RESULT: ${{ needs.security.result }}
+          SQLITE_RESULT: ${{ needs.backend-sqlite.result }}
+          POSTGRES_RESULT: ${{ needs.backend-postgres.result }}
+        run: '[[ "$CHECKS_RESULT" == success && "$E2E_RESULT" == success && "$SECURITY_RESULT" == success && "$SQLITE_RESULT" == success && "$POSTGRES_RESULT" == success ]]'
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
@@ -194,7 +167,9 @@ jobs:
         with:
           node-version: 24.22.1
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: |-
+            frontend/pnpm-lock.yaml
+            .github/workflows/release-ci.yml
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
@@ -257,10 +232,115 @@ jobs:
           path: release-dist/
           if-no-files-found: error
           retention-days: 30
+      - name: Verify approved development dependency stays outside the static runtime
+        run: node scripts/security/check-forge-scope.mjs --built
     needs:
       - checks
       - e2e
+      - security
+      - backend-sqlite
+      - backend-postgres
     if: ${{ always() }}
+  security:
+    uses: ./.github/workflows/security-checks.yml
+    with:
+      base_commit: ${{ github.event.pull_request.base.sha || '' }}
+  backend-sqlite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:2.10.3
+          coverage: pcov
+          extensions: pdo_sqlite
+          ini-values: pcov.directory=app
+      - name: Install backend dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+      - name: SQLite full test suite with coverage
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+          mkdir -p ../coverage-results/backend-sqlite
+          php artisan test --coverage-clover ../coverage-results/backend-sqlite/clover.xml
+          php ../scripts/coverage/backend-summary.php ../coverage-results/backend-sqlite/clover.xml backend-sqlite ../coverage-results/backend-sqlite/summary.json
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Publish coverage summary
+        run: node scripts/coverage/report.mjs coverage-results/backend-sqlite/summary.json
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: coverage-backend-sqlite-${{ github.run_id }}
+          path: coverage-results/backend-sqlite/summary.json
+          if-no-files-found: error
+          retention-days: 14
+  backend-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: famie_test
+          POSTGRES_PASSWORD: famie-ci-only
+          POSTGRES_DB: famie_test
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U famie_test -d famie_test" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_DATABASE: famie_test
+      DB_USERNAME: famie_test
+      DB_PASSWORD: famie-ci-only
+      FAMIE_REWARD_PG_TEST: '1'
+      FAMIE_CONCURRENCY_TEST: '1'
+      FAMIE_BACKUP_PG_TEST: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:2.10.3
+          coverage: pcov
+          extensions: pdo_pgsql, pdo_sqlite
+          ini-values: pcov.directory=app
+      - name: Install PostgreSQL 14 client
+        run: |-
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/famie-pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-14
+          echo /usr/lib/postgresql/14/bin >> "$GITHUB_PATH"
+        shell: bash
+      - name: Install backend dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+      - name: PostgreSQL focused tests with coverage
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+          mkdir -p ../coverage-results/backend-postgres
+          php artisan test --filter="RewardPostgresTest|MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest|AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest|DailyBackupPostgresTest" --coverage-clover ../coverage-results/backend-postgres/clover.xml
+          php ../scripts/coverage/backend-summary.php ../coverage-results/backend-postgres/clover.xml backend-postgres ../coverage-results/backend-postgres/summary.json
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Publish coverage summary
+        run: node scripts/coverage/report.mjs coverage-results/backend-postgres/summary.json
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: coverage-backend-postgres-${{ github.run_id }}
+          path: coverage-results/backend-postgres/summary.json
+          if-no-files-found: error
+          retention-days: 14
 env:
   CI: 'true'
   DEBUG: ''

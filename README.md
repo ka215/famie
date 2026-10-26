@@ -56,6 +56,8 @@ An administrator creates a family and adds its members. Activities, photos, cate
 
 Nuxt 4, Vue, TypeScript, and Tailwind CSS on the frontend; Laravel, Sanctum, and PostgreSQL on the backend.
 
+Coverage reports distinguish backend SQLite, focused PostgreSQL tests, and frontend utilities. The public coverage badge is pending approval of a safe publishing route; see [measurement scope and reopening conditions](docs/operations/runbooks/coverage-ci-notes.md).
+
 ---
 
 <h6 align="center">Copyright © 2026 MAGIC METHODS.</h6>

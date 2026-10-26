@@ -6,6 +6,7 @@ use App\Models\Group;
 use App\Models\GroupMember;
 use App\Services\RewardService;
 use Closure;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,6 +29,9 @@ class EnsureActiveGroupMembership
                 $lockedGroup = Group::query()->whereKey($group->id)->lockForUpdate()->firstOrFail();
 
                 $response = $this->handleForGroup($request, $next, $lockedGroup);
+                if (! $response->isSuccessful()) {
+                    throw new HttpResponseException($response);
+                }
                 if ($response->isSuccessful() && $request->is('v1/groups/*/logs*')) {
                     $this->rewards->evaluate($lockedGroup);
                 }
