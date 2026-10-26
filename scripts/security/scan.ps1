@@ -34,7 +34,7 @@ try {
     foreach ($file in $files) {
         $source = Join-Path $root $file
         if (!(Test-Path -LiteralPath $source -PathType Leaf)) { continue }
-        if ((Get-Item -LiteralPath $source).LinkType) { throw 'Source snapshot must not follow symlinks.' }
+        if ((Get-Item -LiteralPath $source -Force).LinkType) { throw 'Source snapshot must not follow symlinks.' }
         $target = [IO.Path]::GetFullPath((Join-Path $tree $file))
         if (!$target.StartsWith($tree + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid source path.' }
         New-Item -ItemType Directory -Force -Path ([IO.Path]::GetDirectoryName($target)) | Out-Null
