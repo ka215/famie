@@ -9,7 +9,7 @@
 | Gitleaks | 8.30.1 | MIT | 現在ツリー・全履歴・PR差分の秘密情報検査 |
 | actionlint | 1.7.12 | MIT | Actionsの構文・型・権限・入力の静的検査 |
 | Opengrep | 1.32.0 | LGPL-2.1 | リポジトリ管理のPHP／JS／TS／Vue／workflow規則 |
-| pnpm / Composer | CIで11.20.0 / 2.8.10 | 各ツールのライセンスに従う | lockfileの脆弱性検査。開発依存を含む |
+| pnpm / Composer | CIで11.20.0 / 2.10.3 | 各ツールのライセンスに従う | lockfileの脆弱性検査。開発依存を含む |
 
 公式配布物：[Gitleaks](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1)、[actionlint](https://github.com/rhysd/actionlint/releases/tag/v1.7.12)、[Opengrep](https://github.com/opengrep/opengrep/releases/tag/v1.32.0)。Windows／Linux x64の配布物SHA256は`install-tools.ps1`へ固定し、実行前に検証する。自動的にlatestへ追随しない。WindowsでDocker・WSL・Pythonは使用しない。Linux版のCI実行結果はPR工程で確認する。
 
