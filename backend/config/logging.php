@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\ConfigureSafeLogging;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -52,6 +53,16 @@ return [
 
     'channels' => [
 
+        'operations' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/operations.log'),
+            'level' => 'info',
+            'max_files' => 14,
+            'permission' => 0600,
+            'locking' => true,
+            'tap' => [ConfigureSafeLogging::class],
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
@@ -59,13 +70,20 @@ return [
         ],
 
         'single' => [
-            'driver' => 'single',
+            'tap' => [ConfigureSafeLogging::class],
+            'driver' => 'daily',
+            'max_files' => 14,
+            'permission' => 0600,
+            'locking' => true,
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
         ],
 
         'daily' => [
+            'tap' => [ConfigureSafeLogging::class],
+            'permission' => 0600,
+            'locking' => true,
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
@@ -74,14 +92,18 @@ return [
         ],
 
         'monthly' => [
-            'driver' => 'monthly',
+            'tap' => [ConfigureSafeLogging::class],
+            'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
-            'max_files' => 3,
+            'max_files' => 14,
+            'permission' => 0600,
+            'locking' => true,
             'replace_placeholders' => true,
         ],
 
         'slack' => [
+            'tap' => [ConfigureSafeLogging::class],
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
             'username' => env('LOG_SLACK_USERNAME', env('APP_NAME', 'Laravel')),
@@ -91,6 +113,7 @@ return [
         ],
 
         'papertrail' => [
+            'tap' => [ConfigureSafeLogging::class],
             'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
             'handler' => env('LOG_PAPERTRAIL_HANDLER', SyslogUdpHandler::class),
@@ -103,6 +126,7 @@ return [
         ],
 
         'stderr' => [
+            'tap' => [ConfigureSafeLogging::class],
             'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
             'handler' => StreamHandler::class,
@@ -114,6 +138,7 @@ return [
         ],
 
         'syslog' => [
+            'tap' => [ConfigureSafeLogging::class],
             'driver' => 'syslog',
             'level' => env('LOG_LEVEL', 'debug'),
             'facility' => env('LOG_SYSLOG_FACILITY', LOG_USER),
@@ -121,6 +146,7 @@ return [
         ],
 
         'errorlog' => [
+            'tap' => [ConfigureSafeLogging::class],
             'driver' => 'errorlog',
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,

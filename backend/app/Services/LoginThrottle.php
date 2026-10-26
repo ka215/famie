@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Support\OperationLog;
 use Closure;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,7 @@ class LoginThrottle
                     if ($attempts >= config('famie.login_max_attempts')) {
                         RateLimiter::hit($key.':blocked', config('famie.login_cooldown_seconds'));
                         RateLimiter::clear($key);
+                        OperationLog::write('security.login_locked', 'failure', [], 'warning');
                         if ($user) {
                             app(LoginSecurityService::class)->recordLockout($user);
                         }

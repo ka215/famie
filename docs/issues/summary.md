@@ -37,7 +37,8 @@
 | v0.17.3 | 2026-10-24商用公開。ステージング再確認・商用の自動検証とユーザー実機確認に合格 | [詳細要件・検証結果](v0.17.3.md)・[公開記録](../operations/change-log/2026-10-24-v0173-release-notes.md) |
 | v0.18.0 | 2026-10-25商用公開。全フェーズ・最終候補のステージング／商用の自動検証とユーザー実機確認に合格 | [詳細仕様・検証記録](v0.18.0.md)・[公開記録](../operations/change-log/2026-10-25-v0180-release-notes.md)・[管理Issue #151](https://github.com/ka215/famie/issues/151) |
 | v0.18.1 | 2026-10-25商用公開。登録禁止名・トロフィー累計の全対象を受入済み。2026-10-26商用実機確認合格 | [詳細仕様・検証記録](v0.18.1.md)・[公開記録](../operations/change-log/2026-10-26-v0181-release-notes.md)・[Issue #159](https://github.com/ka215/famie/issues/159) |
-| v0.19.0〜v1.0.0 | ロードマップ承認済み・版別詳細要件は着手時に確定 | [正式ロードマップ](../development/v1.0.0-roadmap-plan.md) |
+| v0.19.0 | 2026-10-26仕様承認・R01/R02ローカル実装／検証中。死活・外形監視は後続タスク | [詳細仕様](v0.19.0.md)・[Issue #165](https://github.com/ka215/famie/issues/165) |
+| v0.20.0〜v1.0.0 | ロードマップ承認済み・版別詳細要件は着手時に確定 | [正式ロードマップ](../development/v1.0.0-roadmap-plan.md) |
 | v1.0.0以降・その他後続版 | 拡張順序の目安あり・未計画／延期課題あり | [正式ロードマップ](../development/v1.0.0-roadmap-plan.md)・[課題原案・延期事項](backlog.md) |
 
 ## 課題

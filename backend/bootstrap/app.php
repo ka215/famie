@@ -3,12 +3,15 @@
 use App\Http\Middleware\EnsureActiveGroupMembership;
 use App\Http\Middleware\RestrictIpAddress;
 use App\Http\Middleware\SetUiLocale;
+use App\Http\Middleware\TraceRequest;
+use App\Support\OperationLog;
 use App\Support\UiLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -23,12 +26,21 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trimStrings(except: ['new_password', 'new_password_confirmation']);
-        $middleware->prepend([SetUiLocale::class, RestrictIpAddress::class]);
+        $middleware->prepend([TraceRequest::class, SetUiLocale::class, RestrictIpAddress::class]);
         $middleware->alias(['group.member' => EnsureActiveGroupMembership::class]);
         // API専用アプリのためゲストのリダイレクト先'login'ルートは存在しない
         $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontReportDuplicates();
+        $exceptions->report(function (Throwable $exception): bool {
+            if (app()->bound('request')) {
+                request()->attributes->set('operation_exception_reported', true);
+            }
+            OperationLog::write('application.exception', 'failure', ['exception_type' => $exception::class], 'error');
+
+            return false;
+        });
         $exceptions->render(function (HttpException $exception): ?JsonResponse {
             if ($exception->getStatusCode() === 503 && app()->isDownForMaintenance()) {
                 return response()->json([
@@ -46,6 +58,12 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('v1/*', 'api/*') || $request->expectsJson(),
         );
         $exceptions->respond(function (Response $response, Throwable $exception, Request $request) {
+            $id = $request->attributes->get('operation_request_id');
+            if (! is_string($id) || ! Str::isUuid($id)) {
+                $id = (string) Str::uuid();
+                $request->attributes->set('operation_request_id', $id);
+            }
+            $response->headers->set('X-Request-ID', $id);
             if (! $response instanceof JsonResponse) {
                 return $response;
             }
