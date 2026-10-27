@@ -143,3 +143,17 @@ snapshot `20261026-094853-9f1a9b56-e1f7-456e-a607-1b959fab1377`、manifest SHA25
 `scheduler-YYYY-MM-DD.jsonl`は公開root外・0600で30日超を整理する。各分のstarted/finishedと実行ID・終了コード・maintenance・所要秒を対応付ける。外部強制終了ではfinishedが欠落し得る。起動自体がなければ両記録がないため、毎分の予定枠と照合する。monitorは5分の予定枠・最終状態・履歴、backup／画像削除は日次の開始・終了・outcomeを別途確認する。420秒超の監視間隔だけで判定を済ませない。
 
 観測は日次03:00 backup・04:00画像削除を含む連続24時間以上。配置・maintenance等の除外は理由と時刻を記録する。説明不能な欠測・失敗・開始のみ・診断記録不能があれば調査を継続し、直近正常だけでIssue #171を閉じない。復帰時は旧エントリーへ戻し、他設定不変を確認する。ラッパーを撤去する場合もcronを先に復帰し、保持対象の履歴は残す。
+
+## 11. 起動負荷低減の比較条件（承認済み・ローカル実装）
+
+第10節の毎分観測ではscheduler非0終了とmonitor欠測が再現した。2026-10-27、ユーザーがステージングのschedulerを5分間隔・PHP起動前25秒待機へ変え、新たに24時間観測する条件を承認。現在のサーバー設定は、ローカル合格・PR・CI・新候補配置まで維持する。
+
+新条件の適用予定エントリー（旧ステージングの1行を置換、追記しない）:
+
+```cron
+*/5 * * * * PATH="/virtual/ka2/bin:/usr/local/bin:/usr/bin:/bin" FAMIE_SCHEDULER_DELAY_SECONDS=25 /usr/bin/bash "/virtual/ka2/famie-stg/backend/storage/app/operations/run-scheduler.sh" staging >/dev/null 2>&1 # famie-stg-operations-v0191
+```
+
+ラッパーの待機は未設定0、0〜59の整数のみ許可。商用の非0指定は拒否する。記録には`delay_seconds`を含め、elapsedには待機時間を含む。待機後に別の分へ移っていればPHPを起動せず失敗とする。監視は元の5分間隔、日次処理も元の分で実行される予定で、現在の登録予定を適用前のschedule:listで照合する。1分単位の新規予定が追加された場合は、このcron条件を再検討する。
+
+旧候補・cron・ラッパーSHA256と終了時刻をbaselineとして記録し、旧ラッパーと設定を非公開退避する。新ラッパーはSHA256を照合し、安全に置換してからcronを切り替える。他エントリー・商用cronの不変を照合する。最初の新条件による起動を新観測の起点とし、5分の288枠/日とstarted／finished・monitor・日次処理を照合する。旧記録や旧観測時間を新条件へ混ぜない。残る欠測を正常扱いせず、負荷低減の効果と限界を記録する。
