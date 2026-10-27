@@ -234,7 +234,7 @@ jobs:
           path: release-dist/
           if-no-files-found: error
           retention-days: 30
-      - name: Verify approved development dependency stays outside the static runtime
+      - name: Verify development HTTPS tooling stays outside the static runtime
         run: node scripts/security/check-forge-scope.mjs --built
     needs:
       - checks

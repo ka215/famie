@@ -6,7 +6,7 @@ import { join } from 'node:path'
 const root = fileURLToPath(new URL('../../', import.meta.url))
 async function walk(directory, inspect) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    assert(!entry.isSymbolicLink(), 'Unexpected symlink in exception scope')
+    assert(!entry.isSymbolicLink(), 'Unexpected symlink in static runtime scope')
     const path = join(directory, entry.name)
     if (entry.isDirectory()) await walk(path, inspect)
     else await inspect(path)
@@ -17,7 +17,7 @@ assert.match(config, /\bssr:\s*false\s*,/, 'Static SPA configuration changed')
 for (const directory of ['frontend/app', 'frontend/shared', 'backend/app']) {
   await walk(join(root, directory), async (path) => {
     const source = await readFile(path, 'utf8')
-    assert(!/node-forge|\blisthen\b|\bforge\s*\./i.test(source), 'Application now references the excepted dependency')
+    assert(!/node-forge|\blisthen\b|\bforge\s*\./i.test(source), 'Application now references development HTTPS tooling')
   })
 }
 const packaging = await readFile(join(root, 'scripts/release/create-artifact.sh'), 'utf8')
@@ -32,4 +32,4 @@ if (process.argv.includes('--built')) {
     }
   })
 }
-console.log('Approved node-forge scope checks passed (static SPA / PHP API; no application reference).')
+console.log('Static runtime boundary checks passed (static SPA / PHP API; no development HTTPS tooling).')
