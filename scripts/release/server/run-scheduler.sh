@@ -10,7 +10,10 @@ case $environment in
   production) app_name=famie ;;
   *) fail 'Unknown environment.' ;;
 esac
-for tool in realpath date chmod mkdir stat find touch jq; do
+delay_seconds=${FAMIE_SCHEDULER_DELAY_SECONDS:-0}
+[[ $delay_seconds =~ ^(0|[1-9]|[1-5][0-9])$ ]] || fail 'Scheduler delay must be an integer from 0 to 59.'
+[[ $environment == staging || $delay_seconds == 0 ]] || fail 'Scheduler delay is only supported for staging.'
+for tool in realpath date chmod mkdir stat find touch jq sleep; do
   command -v "$tool" >/dev/null || fail 'Required system tool unavailable.'
 done
 home=$(realpath -- "$HOME")
@@ -36,7 +39,8 @@ record() {
   jq -cn --arg at "$(date -u +%FT%TZ)" --arg environment "$environment" \
     --arg run_id "$run_id" --arg phase "$1" --argjson maintenance "$maintenance" \
     --argjson exit_code "$2" --argjson elapsed_seconds "$3" \
-    '{at:$at,environment:$environment,run_id:$run_id,phase:$phase,maintenance:$maintenance,exit_code:$exit_code,elapsed_seconds:$elapsed_seconds}' >> "$log" \
+    --argjson delay_seconds "$delay_seconds" \
+    '{at:$at,environment:$environment,run_id:$run_id,phase:$phase,maintenance:$maintenance,exit_code:$exit_code,elapsed_seconds:$elapsed_seconds,delay_seconds:$delay_seconds}' >> "$log" \
     || fail 'Cannot write diagnostic record.'
 }
 record started null 0
@@ -52,6 +56,11 @@ timeout_seconds=${FAMIE_SCHEDULER_TIMEOUT_SECONDS:-900}
 [[ $timeout_seconds =~ ^[1-9][0-9]{0,2}$ && $timeout_seconds -le 900 ]] || fail 'Invalid scheduler timeout.'
 [[ -x $php_cli && -x /usr/bin/timeout ]] || fail 'PHP CLI or timeout unavailable.'
 cd -- "$backend"
+if ((delay_seconds > 0)); then
+  sleep "$delay_seconds"
+  # A delayed cron start must not silently dispatch into a different schedule minute.
+  [[ $(( $(date +%s) / 60 )) == "$((started / 60))" ]] || fail 'Scheduler delay crossed the scheduled minute.'
+fi
 status=0
 /usr/bin/timeout --kill-after=10 "$timeout_seconds" "$php_cli" artisan schedule:run --no-interaction >/dev/null 2>&1 || status=$?
 # Keep only this wrapper's regular history files; never follow symlinks or prune application logs.

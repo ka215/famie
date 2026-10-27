@@ -10,11 +10,11 @@ const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' 
 const script = fileURLToPath(new URL('./server/run-scheduler.sh', import.meta.url))
 const shellPath = (path) => resolve(path).replaceAll('\\', '/').replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`)
 
-async function fixture(t, body) {
+async function fixture(t, body, environment = 'staging') {
   const root = await mkdtemp(join(tmpdir(), 'famie-scheduler-test-'))
   assert.equal(dirname(root), resolve(tmpdir()))
   t.after(() => rm(root, { recursive: true, force: true }))
-  const backend = join(root, 'famie-stg/backend')
+  const backend = join(root, environment === 'production' ? 'famie/backend' : 'famie-stg/backend')
   await mkdir(join(backend, 'storage/app/operations'), { recursive: true })
   await writeFile(join(backend, 'artisan'), '')
   const php = join(root, 'php-fixture.sh')
@@ -26,7 +26,10 @@ async function fixture(t, body) {
 async function run(fixture, environment = 'staging', extra = {}) {
   return await new Promise((resolve, reject) => {
     const child = spawn(bash, ['--noprofile', '--norc', shellPath(script), environment], {
-      env: { ...process.env, HOME: shellPath(fixture.root), PHPCLI: shellPath(fixture.php), ...extra },
+      env: {
+        ...process.env, HOME: shellPath(fixture.root), PHPCLI: shellPath(fixture.php),
+        FAMIE_SCHEDULER_DELAY_SECONDS: '0', FAMIE_SCHEDULER_TIMEOUT_SECONDS: '900', BASH_ENV: '', ...extra,
+      },
       windowsHide: true,
     })
     let output = ''
@@ -47,6 +50,12 @@ async function history(fixture) {
   return rows
 }
 
+async function clockEnvironment(fixture, first, later) {
+  const clock = join(fixture.root, 'clock-env.sh')
+  await writeFile(clock, `date() {\n  if [[ "$*" == '+%s' ]]; then\n    if [[ -f "$HOME/clock-read" ]]; then echo ${later}; else touch "$HOME/clock-read"; echo ${first}; fi\n  else /usr/bin/date "$@"; fi\n}\n`)
+  return shellPath(clock)
+}
+
 test('records successful invocation without command output or secrets', async (t) => {
   const f = await fixture(t, 'echo PRIVATE_OUTPUT; echo PRIVATE_ERROR >&2; exit 0')
   const result = await run(f)
@@ -59,6 +68,7 @@ test('records successful invocation without command output or secrets', async (t
   assert.equal(rows[0].run_id, rows[1].run_id)
   assert.equal(rows[0].environment, 'staging')
   assert.equal(rows[0].maintenance, false)
+  assert.equal(rows[0].delay_seconds, 0)
   assert.doesNotMatch(JSON.stringify(rows) + result.output, /PRIVATE_OUTPUT|PRIVATE_ERROR|php-fixture/)
 })
 
@@ -141,4 +151,68 @@ test('refuses an invalid diagnostic file instead of silently running without his
 
   assert.equal(result.code, 1)
   assert.match(result.output, /Invalid diagnostic file/)
+})
+
+test('defaults to zero delay for production', async (t) => {
+  const f = await fixture(t, 'exit 0', 'production')
+
+  const result = await run(f, 'production', { FAMIE_SCHEDULER_DELAY_SECONDS: undefined })
+
+  assert.equal(result.code, 0)
+  assert.equal((await history(f))[0].delay_seconds, 0)
+})
+
+test('rejects a production delay before invoking PHP', async (t) => {
+  const f = await fixture(t, 'echo invoked > invoked', 'production')
+
+  const result = await run(f, 'production', { FAMIE_SCHEDULER_DELAY_SECONDS: '25' })
+
+  assert.equal(result.code, 1)
+  assert.deepEqual(await history(f), [])
+  assert.equal((await readdir(f.backend)).includes('invoked'), false)
+})
+
+for (const delay of ['-1', '60', '01', '1.5', 'invalid-delay']) {
+  test(`rejects invalid delay ${delay} before invoking PHP`, async (t) => {
+    const f = await fixture(t, 'echo invoked > invoked')
+
+    const result = await run(f, 'staging', { FAMIE_SCHEDULER_DELAY_SECONDS: delay })
+
+    assert.equal(result.code, 1)
+    assert.deepEqual(await history(f), [])
+    assert.equal((await readdir(f.backend)).includes('invoked'), false)
+    assert.doesNotMatch(result.output, new RegExp(delay.replace('.', '\\.')))
+  })
+}
+
+test('waits before PHP and includes the wait in elapsed time', async (t) => {
+  const f = await fixture(t, 'date +%s%3N > invoked-at; exit 0')
+  const clock = await clockEnvironment(f, 1793061000, 1793061001)
+  const before = performance.now()
+
+  const result = await run(f, 'staging', { FAMIE_SCHEDULER_DELAY_SECONDS: '1', BASH_ENV: clock })
+
+  assert.equal(result.code, 0)
+  assert.ok(performance.now() - before >= 1000)
+  const rows = await history(f)
+  assert.equal(rows[0].delay_seconds, 1)
+  assert.equal(rows[1].delay_seconds, 1)
+  assert.ok(rows[1].elapsed_seconds >= 1)
+  const invoked = Number(await readFile(join(f.backend, 'invoked-at'), 'utf8'))
+  assert.ok(invoked - Date.parse(rows[0].at) >= 1000)
+})
+
+test('rejects a delay crossing into another schedule minute', async (t) => {
+  const f = await fixture(t, 'echo invoked > invoked')
+  const clock = await clockEnvironment(f, 1793060999, 1793061000)
+
+  const result = await run(f, 'staging', {
+    FAMIE_SCHEDULER_DELAY_SECONDS: '1',
+    BASH_ENV: clock,
+  })
+
+  assert.equal(result.code, 1)
+  assert.equal((await readdir(f.backend)).includes('invoked'), false)
+  assert.equal((await history(f))[1].exit_code, 1)
+  assert.match(result.output, /crossed the scheduled minute/)
 })
