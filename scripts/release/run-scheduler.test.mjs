@@ -40,14 +40,14 @@ async function run(fixture, environment = 'staging', extra = {}) {
   })
 }
 
-async function history(fixture) {
+async function history(fixture, checkpoints = false) {
   const directory = join(fixture.backend, 'storage/app/operations')
   const files = (await readdir(directory)).filter((file) => /^scheduler-.*\.jsonl$/.test(file))
   const rows = []
   for (const file of files) {
     rows.push(...(await readFile(join(directory, file), 'utf8')).trim().split('\n').filter(Boolean).map(JSON.parse))
   }
-  return rows
+  return checkpoints ? rows : rows.filter(({ phase }) => phase !== 'checkpoint')
 }
 
 async function clockEnvironment(fixture, first, later) {
@@ -88,6 +88,7 @@ test('records timeout instead of claiming completion success', async (t) => {
 
   assert.equal(result.code, 124)
   assert.equal((await history(f))[1].exit_code, 124)
+  assert.equal((await history(f, true)).find(({ stage }) => stage === 'php_finished').exit_code, 124)
 })
 
 test('rejects unrecognized environment before invoking scheduler', async (t) => {
@@ -216,3 +217,74 @@ test('rejects a delay crossing into another schedule minute', async (t) => {
   assert.equal((await history(f))[1].exit_code, 1)
   assert.match(result.output, /crossed the scheduled minute/)
 })
+
+test('records PHP boundaries and its status without exposing command output', async (t) => {
+  const f = await fixture(t, 'echo PRIVATE_OUTPUT; exit 27')
+  const result = await run(f)
+  const rows = await history(f, true)
+
+  assert.equal(result.code, 27)
+  assert.deepEqual(rows.map(({ phase, stage, exit_code, signal }) => ({ phase, stage, exit_code, signal })), [
+    { phase: 'started', stage: 'preflight', exit_code: null, signal: null },
+    { phase: 'checkpoint', stage: 'php_running', exit_code: null, signal: null },
+    { phase: 'checkpoint', stage: 'php_finished', exit_code: 27, signal: null },
+    { phase: 'finished', stage: 'housekeeping', exit_code: 27, signal: null },
+  ])
+  assert.equal(new Set(rows.map(({ run_id }) => run_id)).size, 1)
+  assert.doesNotMatch(JSON.stringify(rows) + result.output, /PRIVATE_OUTPUT|php-fixture/)
+})
+
+test('records delay boundaries before PHP starts', async (t) => {
+  const f = await fixture(t, 'exit 0')
+  const clock = await clockEnvironment(f, 1793061000, 1793061001)
+  const result = await run(f, 'staging', { FAMIE_SCHEDULER_DELAY_SECONDS: '1', BASH_ENV: clock })
+
+  assert.equal(result.code, 0)
+  assert.deepEqual((await history(f, true)).map(({ stage }) => stage), [
+    'preflight', 'waiting', 'delay_finished', 'php_running', 'php_finished', 'housekeeping',
+  ])
+})
+
+test('does not infer a wrapper signal from scheduler exit 143', async (t) => {
+  const f = await fixture(t, 'exit 143')
+  const result = await run(f)
+
+  assert.equal(result.code, 143)
+  const rows = await history(f, true)
+  assert.equal(rows.find(({ stage }) => stage === 'php_finished').exit_code, 143)
+  assert.ok(rows.every(({ signal }) => signal === null))
+})
+
+test('records TERM during the delay without invoking PHP', async (t) => {
+  const f = await fixture(t, 'echo invoked > invoked')
+  const environment = join(f.root, 'signal-env.sh')
+  await writeFile(environment, 'sleep() { kill -TERM "$$"; }\n')
+
+  const result = await run(f, 'staging', { FAMIE_SCHEDULER_DELAY_SECONDS: '25', BASH_ENV: shellPath(environment) })
+  const rows = await history(f, true)
+
+  assert.equal(result.code, 143)
+  assert.equal((await readdir(f.backend)).includes('invoked'), false)
+  assert.deepEqual(rows.map(({ stage }) => stage), ['preflight', 'waiting', 'waiting'])
+  assert.equal(rows.at(-1).phase, 'finished')
+  assert.equal(rows.at(-1).signal, 'TERM')
+  assert.equal(rows.at(-1).exit_code, 143)
+})
+
+for (const [signal, code] of [['TERM', 143], ['INT', 130], ['HUP', 129]]) {
+  test(`records ${signal} received by wrapper during PHP execution`, async (t) => {
+    const f = await fixture(t, `kill -${signal} "$(cat "$HOME/wrapper-pid")"; exit 0`)
+    const environment = join(f.root, 'signal-env.sh')
+    await writeFile(environment, '[[ "$0" != */run-scheduler.sh ]] || printf "%s" "$$" > "$HOME/wrapper-pid"\n')
+
+    const result = await run(f, 'staging', { BASH_ENV: shellPath(environment) })
+    const rows = await history(f, true)
+
+    assert.equal(result.code, code)
+    assert.equal(rows.at(-1).phase, 'finished')
+    assert.equal(rows.at(-1).stage, 'php_running')
+    assert.equal(rows.at(-1).signal, signal)
+    assert.equal(rows.at(-1).exit_code, code)
+    assert.equal(rows.filter(({ phase }) => phase === 'finished').length, 1)
+  })
+}
