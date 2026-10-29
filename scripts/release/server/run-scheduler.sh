@@ -35,21 +35,36 @@ started=$(date +%s)
 run_id="$started-$$"
 maintenance=false
 [[ ! -f $backend/storage/framework/down ]] || maintenance=true
+stage=preflight
+observed_signal=''
 record() {
   jq -cn --arg at "$(date -u +%FT%TZ)" --arg environment "$environment" \
     --arg run_id "$run_id" --arg phase "$1" --argjson maintenance "$maintenance" \
     --argjson exit_code "$2" --argjson elapsed_seconds "$3" \
     --argjson delay_seconds "$delay_seconds" \
-    '{at:$at,environment:$environment,run_id:$run_id,phase:$phase,maintenance:$maintenance,exit_code:$exit_code,elapsed_seconds:$elapsed_seconds,delay_seconds:$delay_seconds}' >> "$log" \
+    --arg stage "$stage" --arg signal "$observed_signal" \
+    '{at:$at,environment:$environment,run_id:$run_id,phase:$phase,maintenance:$maintenance,exit_code:$exit_code,elapsed_seconds:$elapsed_seconds,delay_seconds:$delay_seconds,stage:$stage,signal:($signal|if .=="" then null else . end)}' >> "$log" \
     || fail 'Cannot write diagnostic record.'
 }
-record started null 0
 finish() {
   result=$?
   trap - EXIT
   record finished "$result" "$(( $(date +%s) - started ))"
 }
+interrupted() {
+  observed_signal=$1
+  trap '' TERM INT HUP
+  exit "$2"
+}
 trap finish EXIT
+trap 'interrupted TERM 143' TERM
+trap 'interrupted INT 130' INT
+trap 'interrupted HUP 129' HUP
+record started null 0
+checkpoint() {
+  stage=$1
+  record checkpoint "${2:-null}" "$(( $(date +%s) - started ))"
+}
 
 php_cli=${PHPCLI:-/usr/local/bin/php84cli}
 timeout_seconds=${FAMIE_SCHEDULER_TIMEOUT_SECONDS:-900}
@@ -57,12 +72,17 @@ timeout_seconds=${FAMIE_SCHEDULER_TIMEOUT_SECONDS:-900}
 [[ -x $php_cli && -x /usr/bin/timeout ]] || fail 'PHP CLI or timeout unavailable.'
 cd -- "$backend"
 if ((delay_seconds > 0)); then
+  checkpoint waiting
   sleep "$delay_seconds"
+  checkpoint delay_finished
   # A delayed cron start must not silently dispatch into a different schedule minute.
   [[ $(( $(date +%s) / 60 )) == "$((started / 60))" ]] || fail 'Scheduler delay crossed the scheduled minute.'
 fi
 status=0
+checkpoint php_running
 /usr/bin/timeout --kill-after=10 "$timeout_seconds" "$php_cli" artisan schedule:run --no-interaction >/dev/null 2>&1 || status=$?
+checkpoint php_finished "$status"
+stage=housekeeping
 # Keep only this wrapper's regular history files; never follow symlinks or prune application logs.
 find "$directory" -maxdepth 1 -type f -name 'scheduler-????-??-??.jsonl' -mtime +30 -delete \
   || fail 'Cannot prune diagnostic history.'
