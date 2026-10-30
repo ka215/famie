@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Services\InternalMonitor;
 use App\Services\OperationState;
+use Carbon\CarbonImmutable;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -37,8 +39,8 @@ class InternalMonitorTest extends TestCase
         $this->freezeTime();
         $path = $this->isolateOperationsStorage();
         $log = $path.'/logs/operations-'.now()->utc()->format('Y-m-d').'.log';
-        $old = json_encode(['datetime' => now()->subMinutes(6)->toIso8601String(), 'message' => 'security.rate_limited'])."\n";
-        $recent = json_encode(['datetime' => now()->toIso8601String(), 'message' => 'application.exception'])."\n";
+        $old = json_encode(['datetime' => now()->subMinutes(61)->toIso8601String(), 'message' => 'security.rate_limited'])."\n";
+        $recent = json_encode(['datetime' => now()->subMinutes(6)->toIso8601String(), 'message' => 'application.exception'])."\n";
         file_put_contents($log, str_repeat($old, 25).str_repeat($recent, 5));
         $results = app(InternalMonitor::class)->check();
         $this->assertSame('warning', $results['server_errors']);
@@ -122,5 +124,56 @@ class InternalMonitorTest extends TestCase
         $this->assertFileExists($path.'/logs/laravel.log');
         $history = file_get_contents($state->directory().'/monitor-'.now()->format('Y-m-d').'.jsonl');
         $this->assertStringNotContainsString('private-', $history);
+    }
+
+    public function test_capacity_uses_one_bounded_scan_and_rejects_partial_results(): void
+    {
+        $path = $this->isolateOperationsStorage();
+        mkdir($path.'/root-a');
+        mkdir($path.'/root-b');
+        config(['operations.quota_bytes' => 100 * 1024, 'operations.quota_roots' => [$path.'/root-a', $path.'/root-b']]);
+        Process::preventStrayProcesses();
+        Process::fake(['*' => Process::result(output: "87\troot-a\n5\troot-b\n")]);
+
+        $this->assertSame('critical', app(InternalMonitor::class)->check()['capacity']);
+        Process::assertRan(fn ($process): bool => $process->command === ['du', '-sk', '--', realpath($path.'/root-a'), realpath($path.'/root-b')] && $process->timeout === 30);
+
+        Process::fake(['*' => Process::result(output: "1\troot-a\n")]);
+        $this->assertSame('warning', app(InternalMonitor::class)->check()['capacity']);
+    }
+
+    public function test_hourly_log_window_includes_the_previous_utc_day(): void
+    {
+        $path = $this->isolateOperationsStorage();
+        $this->travelTo(CarbonImmutable::parse('2026-10-30T00:30:00Z'));
+        $line = json_encode(['datetime' => '2026-10-29T23:50:00Z', 'message' => 'application.exception'])."\n";
+        file_put_contents($path.'/logs/operations-2026-10-29.log', str_repeat($line, 5));
+
+        $this->assertSame('warning', app(InternalMonitor::class)->check()['server_errors']);
+    }
+
+    public function test_hourly_schedule_preserves_daily_jobs_and_does_not_run_at_five_minute_slots(): void
+    {
+        config(['operations.enabled' => true, 'operations.backup_time' => '03:00']);
+        require base_path('routes/console.php');
+        $schedule = app(Schedule::class);
+
+        foreach ([
+            '2026-10-30T12:00:00Z' => ['famie:monitor-internal'],
+            '2026-10-30T12:05:00Z' => [],
+            '2026-10-30T18:00:00Z' => ['famie:monitor-internal', 'famie:run-operation backup'],
+            '2026-10-30T19:00:00Z' => ['famie:monitor-internal', 'famie:run-operation image-deletions'],
+        ] as $at => $expected) {
+            $this->travelTo(CarbonImmutable::parse($at));
+            $actual = [];
+            foreach ($schedule->events() as $event) {
+                foreach (['famie:monitor-internal', 'famie:run-operation backup', 'famie:run-operation image-deletions'] as $command) {
+                    if (str_contains($event->command ?? '', $command) && $event->isDue(app())) {
+                        $actual[] = $command;
+                    }
+                }
+            }
+            $this->assertSame($expected, $actual);
+        }
     }
 }

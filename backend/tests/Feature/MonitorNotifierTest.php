@@ -16,14 +16,14 @@ class MonitorNotifierTest extends TestCase
         config(['operations.recipient' => 'operator@example.test', 'operations.mailer' => 'smtp']);
     }
 
-    public function test_two_failures_notify_once_then_remind_after_an_hour_and_recover_after_two_successes(): void
+    public function test_first_failure_notifies_once_then_reminds_after_an_hour_and_recovers_after_two_successes(): void
     {
         $this->freezeTime();
         Mail::fake();
         $notifier = app(MonitorNotifier::class);
         $id = (string) Str::uuid();
         $state = $notifier->update('database', 'critical', [], $id);
-        Mail::assertNothingSent();
+        Mail::assertSentCount(1);
         $state = $notifier->update('database', 'critical', $state, $id);
         $state = $notifier->update('database', 'critical', $state, $id);
         Mail::assertSentCount(1);

@@ -28,8 +28,7 @@ class MonitorNotifier
 
             return $state;
         }
-        $threshold = in_array($check, ['database', 'storage'], true) ? 2 : 1;
-        $alert = $failed && $state['failures'] >= $threshold && (
+        $alert = $failed && (
             ! $state['open'] || $now - $state['notified_at'] >= 3600 || ($severity === 'critical' && $state['notified_severity'] !== 'critical')
         );
         $recovered = ! $failed && $state['open'] && $state['successes'] >= 2;
