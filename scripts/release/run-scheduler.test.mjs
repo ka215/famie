@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { chmod, mkdtemp, mkdir, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -23,12 +23,15 @@ async function fixture(t, body, environment = 'staging') {
   return { root, backend, php }
 }
 
-async function run(fixture, environment = 'staging', extra = {}) {
+async function run(fixture, environment = 'staging', extra = {}, entry = script) {
   return await new Promise((resolve, reject) => {
-    const child = spawn(bash, ['--noprofile', '--norc', shellPath(script), environment], {
+    const args = entry === script
+      ? ['--noprofile', '--norc', shellPath(entry), environment]
+      : ['--noprofile', '--norc', '-c', 'exec /usr/bin/sh "$1" "$2"', 'panel-entry', shellPath(entry), environment]
+    const child = spawn(bash, args, {
       env: {
         ...process.env, HOME: shellPath(fixture.root), PHPCLI: shellPath(fixture.php),
-        FAMIE_SCHEDULER_DELAY_SECONDS: '0', FAMIE_SCHEDULER_TIMEOUT_SECONDS: '900', BASH_ENV: '', ...extra,
+        FAMIE_SCHEDULER_DELAY_SECONDS: '0', FAMIE_SCHEDULER_TIMEOUT_SECONDS: '150', BASH_ENV: '', ...extra,
       },
       windowsHide: true,
     })
@@ -86,9 +89,9 @@ test('records timeout instead of claiming completion success', async (t) => {
 
   const result = await run(f, 'staging', { FAMIE_SCHEDULER_TIMEOUT_SECONDS: '1' })
 
-  assert.equal(result.code, 124)
-  assert.equal((await history(f))[1].exit_code, 124)
-  assert.equal((await history(f, true)).find(({ stage }) => stage === 'php_finished').exit_code, 124)
+  assert.ok([124, 143].includes(result.code))
+  assert.equal((await history(f)).at(-1).exit_code, 143)
+  assert.equal((await history(f)).at(-1).signal, 'TERM')
 })
 
 test('rejects unrecognized environment before invoking scheduler', async (t) => {
@@ -288,3 +291,70 @@ for (const [signal, code] of [['TERM', 143], ['INT', 130], ['HUP', 129]]) {
     assert.equal(rows.filter(({ phase }) => phase === 'finished').length, 1)
   })
 }
+
+test('bounds the delay as part of the whole invocation', async (t) => {
+  const f = await fixture(t, 'echo invoked > invoked')
+  const before = performance.now()
+  const result = await run(f, 'staging', {
+    FAMIE_SCHEDULER_TIMEOUT_SECONDS: '2', FAMIE_SCHEDULER_DELAY_SECONDS: '25',
+  })
+
+  assert.equal(result.code, 124)
+  assert.ok(performance.now() - before < 8000)
+  assert.equal((await readdir(f.backend)).includes('invoked'), false)
+  const last = (await history(f)).at(-1)
+  assert.equal(last.stage, 'waiting')
+  assert.equal(last.signal, 'TERM')
+})
+
+for (const limit of ['0', '151', '900', 'invalid']) {
+  test(`rejects a whole-job timeout of ${limit}`, async (t) => {
+    const f = await fixture(t, 'echo invoked > invoked')
+    const result = await run(f, 'staging', { FAMIE_SCHEDULER_TIMEOUT_SECONDS: limit })
+
+    assert.equal(result.code, 1)
+    assert.deepEqual(await history(f), [])
+    assert.equal((await readdir(f.backend)).includes('invoked'), false)
+  })
+}
+
+test('kills a TERM-resistant child and descendant at the hard deadline', async (t) => {
+  const f = await fixture(t, `trap '' TERM
+(trap '' TERM; while :; do echo tick >> "$HOME/ticks"; sleep 0.1; done) &
+wait`)
+  const before = performance.now()
+  const result = await run(f, 'staging', { FAMIE_SCHEDULER_TIMEOUT_SECONDS: '2' })
+
+  assert.notEqual(result.code, 0)
+  assert.ok(performance.now() - before < 12000)
+  const ticks = await readFile(join(f.root, 'ticks'), 'utf8')
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  assert.equal(await readFile(join(f.root, 'ticks'), 'utf8'), ticks)
+})
+
+test('panel entry selects the environment and clears the old staging delay', async (t) => {
+  const f = await fixture(t, 'exit 0')
+  const jq = spawnSync(bash, ['-c', 'command -v jq'], { encoding: 'utf8', windowsHide: true })
+  assert.equal(jq.status, 0)
+  await mkdir(join(f.root, 'bin'))
+  await writeFile(join(f.root, 'bin/jq'), `#!/bin/sh\nexec '${jq.stdout.trim().replaceAll("'", "'\\''")}' "$@"\n`)
+  await chmod(join(f.root, 'bin/jq'), 0o700)
+  const worker = join(f.backend, 'storage/app/operations/run-scheduler.sh')
+  await writeFile(worker, await readFile(script))
+  const panel = fileURLToPath(new URL('./server/run-scheduler-panel.sh', import.meta.url))
+
+  const result = await run(f, 'staging', { FAMIE_SCHEDULER_DELAY_SECONDS: '25' }, panel)
+
+  assert.equal(result.code, 0)
+  assert.equal((await history(f))[0].environment, 'staging')
+  assert.equal((await history(f))[0].delay_seconds, 0)
+})
+
+test('panel entry rejects an unknown environment before PHP', async (t) => {
+  const f = await fixture(t, 'echo invoked > invoked')
+  const panel = fileURLToPath(new URL('./server/run-scheduler-panel.sh', import.meta.url))
+  const result = await run(f, 'other', {}, panel)
+
+  assert.equal(result.code, 1)
+  assert.equal((await readdir(f.backend)).includes('invoked'), false)
+})

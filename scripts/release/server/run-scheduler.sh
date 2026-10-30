@@ -3,6 +3,15 @@ set -Eeuo pipefail
 umask 077
 
 fail() { printf 'Famie scheduler diagnostic failed: %s\n' "$1" >&2; exit 1; }
+timeout_seconds=${FAMIE_SCHEDULER_TIMEOUT_SECONDS:-150}
+[[ $timeout_seconds =~ ^[1-9][0-9]{0,2}$ && $timeout_seconds -le 150 ]] || fail 'Invalid scheduler timeout.'
+# Supervise the entire worker, including setup, optional manual delay and cleanup.
+if [[ ${1:-} != --bounded-worker ]]; then
+  [[ $# == 1 ]] || fail 'Specify staging or production.'
+  [[ -x /usr/bin/timeout ]] || fail 'Timeout unavailable.'
+  exec /usr/bin/timeout --kill-after=5 "$timeout_seconds" /usr/bin/bash "$0" --bounded-worker "$@"
+fi
+shift
 [[ $# == 1 ]] || fail 'Specify staging or production.'
 environment=$1
 case $environment in
@@ -67,8 +76,6 @@ checkpoint() {
 }
 
 php_cli=${PHPCLI:-/usr/local/bin/php84cli}
-timeout_seconds=${FAMIE_SCHEDULER_TIMEOUT_SECONDS:-900}
-[[ $timeout_seconds =~ ^[1-9][0-9]{0,2}$ && $timeout_seconds -le 900 ]] || fail 'Invalid scheduler timeout.'
 [[ -x $php_cli && -x /usr/bin/timeout ]] || fail 'PHP CLI or timeout unavailable.'
 cd -- "$backend"
 if ((delay_seconds > 0)); then
@@ -80,7 +87,7 @@ if ((delay_seconds > 0)); then
 fi
 status=0
 checkpoint php_running
-/usr/bin/timeout --kill-after=10 "$timeout_seconds" "$php_cli" artisan schedule:run --no-interaction >/dev/null 2>&1 || status=$?
+"$php_cli" artisan schedule:run --no-interaction >/dev/null 2>&1 || status=$?
 checkpoint php_finished "$status"
 stage=housekeeping
 # Keep only this wrapper's regular history files; never follow symlinks or prune application logs.

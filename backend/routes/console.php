@@ -9,7 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 if (config('operations.enabled')) {
-    Schedule::command('famie:monitor-internal')->everyFiveMinutes()->withoutOverlapping(5);
+    Schedule::command('famie:monitor-internal')->hourly()->withoutOverlapping(5);
     Schedule::command('famie:run-operation backup')->dailyAt(config('operations.backup_time'))->timezone('Asia/Tokyo')->withoutOverlapping(15);
     Schedule::command('famie:run-operation image-deletions')->dailyAt('04:00')->timezone('Asia/Tokyo')->withoutOverlapping(15);
 }
