@@ -1,6 +1,6 @@
 # v0.19.0 セキュリティ検査の運用
 
-v0.19.0のR03は2026-10-27（JST）商用公開済み。必須CIと固定ステージングの限定動的検査は成功し、商用配置・ユーザー受入も完了した（[Issue #165](https://github.com/ka215/famie/issues/165)）。以下の工程途中の表記は当時の記録。商用v0.19.0／cron観測中の候補55adfbc6には期限付きnode-forge high 1件が残る。[v0.19.1](../../issues/v0.19.1.md)の作業ツリーでは1.4.1へ更新し、脆弱性例外を撤去してローカル監査0件を確認中。環境へ配置済みとは扱わない。
+2026-11-01（JST）更新。v0.19.0は商用公開・受入済みで、商用には旧node-forge例外が残る。ステージング候補5d4ad17aはnode-forge1.4.1・例外撤去を反映済み。最新の作業ツリーではNuxt4.6.3・Symfony MIME8.1.10へ最小更新し、Composer0、フロントmoderate2・low1、high／critical0・監査例外0。残件は[Issue #182](https://github.com/ka215/famie/issues/182)で追跡し、後続対応としての受入は確認待ち。最新差分は未コミット・未配置であり、以下の過去工程の表記とは区別する。
 
 ## 検査ツールと実行
 
@@ -116,4 +116,25 @@ GitHubの**staging Environment secret** `FAMIE_SECURITY_FIXTURE`に次のJSON構
 
 `audit-policy.jq`の旧例外を撤去し、旧1.4.0もhighなら必ずblocking。9境界を新しい例外なし方針で確認し、pnpm／Composerのローカル監査は指摘0・accepted_exceptions空。静的SPA／PHP配布の境界確認はビルド・成果物生成時に継続する。
 
-観測中のステージング候補55adfbc6と商用v0.19.0は更新前のまま。作業ツリーの監査結果を配置済み環境の更新完了と表示しない。ユーザーローカル確認、PR・CI、新しい固定候補のステージング受入、商用承認を経て反映する。
+当時の観測候補55adfbc6と商用v0.19.0は更新前だった。その後、例外撤去を含む候補5d4ad17aまでステージング配置済み。商用はv0.19.0のままで、作業ツリーの監査結果を商用更新完了とは表示しない。最新の最終準備は次節を参照する。
+
+## 2026-11-01 最終準備での再監査・最小更新
+
+初回再監査はフロントmoderate9・low1、Composer medium1、high／critical0。ユーザーがフロント側も調査・最小更新する方針を承認した。
+
+- Nuxt4.6.2→4.6.3でNuxt／vite-builder／nitro-serverの修正を反映し、必要なseroval等の依存も追従。直接依存の他メジャーは上げず、`pnpm update nuxt@4.6.3 --depth 0`で不要な再解決を抑えた。公開後待機期間や脆弱性検査の例外は追加していない。
+- Symfony MIME8.1.7→8.1.10はComposerのpatch-only／minimal-changesで1パッケージのみ更新。[公式修正情報](https://symfony.com/cve-2026-45070)に基づく。初回のdist展開はローカルPHPのzip拡張とPATH上のunzip不在で失敗したが、既存Git同梱unzipを当該コマンドのPATHへ加え、同じComposerでinstallを完了した。php.ini・システムPATHは変更していない。
+
+更新後はComposer指摘0、フロントmoderate2・low1、high／critical0、accepted_exceptions空。残件を監査から隠さず、検査上は中低指摘として報告する。R02のnode-forge例外撤去とは別の残課題で、後続追跡としての受入はローカル確認時に提示する。
+
+| 残件 | 影響条件と現依存 | 最小更新で残る理由 |
+| --- | --- | --- |
+| [glob／moderate](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) | AbortSignalによるキャンセル後もファイル走査が続く問題。Nitroのarchiver-utils／nftとWorkbox buildから10／11／13系を使用 | 修正版14.0.2は依存元の指定メジャー外。例としてworkbox-build7.4.1のglobは^11.0.1 |
+| [minimatch／moderate](https://github.com/advisories/GHSA-g3hv-75wg-m249) | 攻撃者指定パターンによるCPU・メモリ増幅。型検査・ファイル列挙・ビルドの5／9／10系が該当 | 修正版11.0.1は指定メジャー外。vue-tsc2.2.12配下のlanguage-coreは^9.0.3。単純な一括overrideで互換性を保証できない |
+| [deepmerge／low](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) | マージ対象に攻撃者のキーが入る場合のprototype poisoning。Rollup node-resolve経由の4.3.1 | 監査は4.3.2を示すがnpmで未公開、公開最新版4.3.1・GitHub修正版欄None。未公開版への偽装はしない |
+
+これらの経路は開発・型検査・静的生成側であり、商用は静的SPAとPHP APIを配信しNodeサーバーを公開しない。ユーザー入力をビルド設定やglobパターンへ流し込まない前提を維持し、信頼できないリポジトリ設定・PRを秘密付きビルドで実行しない。これだけで全到達性の不存在を証明したとはせず、静的runtime境界・生成物・既存PWAの検証を継続する。
+
+残件は[Issue #182](https://github.com/ka215/famie/issues/182)で互換性のある上流更新・backport・修正版公開を追跡する。メジャー強制置換や独自修正はこのパッチ版へ無断で混在させない。最終固定候補のCI・ステージング確認・公開承認の時点で指摘を再評価し、商用公開記録にも残件を明示する。
+
+更新後のローカル検証はLint・型・単体20件、メール関連を含むPHP33成功／専用PostgreSQL1件skip、Composer validate、クリーン静的生成、12 HTML／154参照の資産検査と配布境界が合格。公開構成・依存経路を根拠とした残件の後続追跡案は、ローカル確認と最終候補の商用承認へ明示して含める。商用を更新済みとは扱わない。
