@@ -563,6 +563,11 @@
     "progressAria": "{current}/{required}（{percent}%）",
     "trophyTotals": "トロフィー累計",
     "trophyTotal": "{trophy} {count}個",
-    "trophyTotalUnknown": "{trophy}: —"
+    "trophyTotalUnknown": "{trophy}: —",
+    "postsTotalUnknown": "アクティビティ投稿総数: —",
+    "inventoryTotals": "トロフィー・活動累計",
+    "likesReceivedTotalUnknown": "いいね獲得総数: —",
+    "postsTotal": "アクティビティ投稿総数 {count}件",
+    "likesReceivedTotal": "いいね獲得総数 {count}件"
   }
 }

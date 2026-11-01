@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ApiRequestError, Category, FamilyMember } from '#shared/types/api'
 import type {
+  ActivityTotals,
   Reward,
   RewardAward,
   RewardAwardsPage,
@@ -10,6 +11,8 @@ import type {
   TrophyTotals,
 } from '#shared/types/rewards'
 import { parseLocalDate } from '#shared/utils/calendar'
+import postsIcon from '~/assets/icons/chat-processing-outline.svg'
+import receivedLikesIcon from '~/assets/icons/hand-heart-outline.svg'
 import inventoryIcon from '~/assets/icons/inventory.svg'
 import medalIcon from '~/assets/icons/medal-outline.svg'
 import managementIcon from '~/assets/icons/star-cog-outline.svg'
@@ -64,6 +67,23 @@ const rewards = ref<Reward[]>([])
 const awards = ref<RewardAward[]>([])
 const trophyColors: TrophyColor[] = ['gold', 'silver', 'bronze']
 const trophyTotals = ref<TrophyTotals | null>(null)
+const activityTotals = ref<ActivityTotals | null>(null)
+const activityMetrics = [
+  {
+    key: 'posts' as const,
+    icon: postsIcon,
+    color: 'text-blue-600 dark:text-blue-400',
+    label: 'reward.postsTotal',
+    unknown: 'reward.postsTotalUnknown',
+  },
+  {
+    key: 'likes_received' as const,
+    icon: receivedLikesIcon,
+    color: 'text-rose-500 dark:text-rose-400',
+    label: 'reward.likesReceivedTotal',
+    unknown: 'reward.likesReceivedTotalUnknown',
+  },
+]
 const notifications = ref<RewardAward[]>([])
 const members = ref<FamilyMember[]>([])
 const categories = ref<Category[]>([])
@@ -95,6 +115,7 @@ const fetchPage = async () => {
   busy.value = true
   error.value = ''
   trophyTotals.value = null
+  activityTotals.value = null
   if (mode.value === 'awards') awards.value = []
   try {
     const endpoint = mode.value === 'manage' ? '/manage' : mode.value === 'awards' ? '/awards' : ''
@@ -108,14 +129,20 @@ const fetchPage = async () => {
     if (!alive || own !== generation || requestedGroup !== groupId.value) return
     if (mode.value === 'awards') {
       const totals = 'meta' in result ? result.meta?.trophy_totals : undefined
+      const activities = 'meta' in result ? result.meta?.activity_totals : undefined
       if (
         !Array.isArray(result.data) ||
         !totals ||
-        trophyColors.some((color) => !Number.isSafeInteger(totals[color]) || totals[color] < 0)
+        trophyColors.some((color) => !Number.isSafeInteger(totals[color]) || totals[color] < 0) ||
+        !activities ||
+        activityMetrics.some(
+          ({ key }) => !Number.isSafeInteger(activities[key]) || activities[key] < 0
+        )
       )
         throw new Error('Invalid award totals')
       awards.value = result.data as RewardAward[]
       trophyTotals.value = { gold: totals.gold, silver: totals.silver, bronze: totals.bronze }
+      activityTotals.value = { posts: activities.posts, likes_received: activities.likes_received }
     } else rewards.value = result.data as Reward[]
     lastPage.value = result.last_page
     if (result.sync_status) syncStatus.value = result.sync_status
@@ -291,13 +318,21 @@ onBeforeUnmount(() => {
       </article>
     </template>
     <template v-else>
-      <div role="group" :aria-label="t('reward.trophyTotals')" class="relative flex max-w-full items-center gap-3 overflow-x-auto whitespace-nowrap py-1 text-sm tabular-nums" data-testid="trophy-totals">
+      <div role="group" tabindex="0" :aria-label="t('reward.inventoryTotals')" class="relative flex max-w-full items-center gap-3 overflow-x-auto whitespace-nowrap py-1 text-sm tabular-nums focus-visible:outline-2 focus-visible:outline-blue-500" data-testid="trophy-totals">
         <template v-for="(color, index) in trophyColors" :key="color">
           <span v-if="index" aria-hidden="true" class="text-slate-400">|</span>
           <span class="inline-flex shrink-0 items-center gap-1.5">
             <RewardTrophy :color="color" icon-only />
             <span aria-hidden="true">{{ trophyTotals ? number(trophyTotals[color]) : '—' }}</span>
             <span class="sr-only">{{ trophyTotals ? t('reward.trophyTotal', { trophy: t(`reward.trophy${color}`), count: number(trophyTotals[color]) }, trophyTotals[color]) : t('reward.trophyTotalUnknown', { trophy: t(`reward.trophy${color}`) }) }}</span>
+          </span>
+        </template>
+        <template v-for="metric in activityMetrics" :key="metric.key">
+          <span aria-hidden="true" class="text-slate-400">|</span>
+          <span class="inline-flex shrink-0 items-center gap-1.5" :data-testid="`total-${metric.key}`">
+            <span aria-hidden="true" class="h-5 w-5 shrink-0 bg-current [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center]" :class="metric.color" :style="tabIconStyle(metric.icon)" />
+            <span aria-hidden="true">{{ activityTotals ? number(activityTotals[metric.key]) : '—' }}</span>
+            <span class="sr-only">{{ activityTotals ? t(metric.label, { count: number(activityTotals[metric.key]) }, activityTotals[metric.key]) : t(metric.unknown) }}</span>
           </span>
         </template>
       </div>

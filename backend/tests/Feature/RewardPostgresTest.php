@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLike;
 use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Group;
@@ -58,7 +59,16 @@ class RewardPostgresTest extends TestCase
     public function test_inventory_totals_use_snapshot_colors_across_pages_on_postgresql(): void
     {
         config(['famie.allowed_ips' => ['127.0.0.1']]);
-        [$group, $member] = $this->family();
+        [$group, $member, $category] = $this->family();
+        $sender = GroupMember::factory()->create(['group_id' => $group->id]);
+        $inactive = GroupMember::factory()->create(['group_id' => $group->id, 'status' => 'inactive']);
+        foreach (['2020-01-01', '2026-11-01'] as $date) {
+            $post = ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $member->user_id,
+                'category_id' => $category->id, 'activity_date' => $date, 'content' => '全期間投稿']);
+            foreach ([$sender, $inactive] as $actor) {
+                ActivityLike::query()->create(['group_id' => $group->id, 'activity_log_id' => $post->id, 'user_id' => $actor->user_id]);
+            }
+        }
         foreach (['gold', 'gold', 'silver', ...array_fill(0, 10, 'bronze')] as $color) {
             $reward = $this->definition($group, $member, 'deleted');
             $period = RewardPeriod::query()->create(['group_id' => $group->id, 'reward_id' => $reward->id,
@@ -70,11 +80,13 @@ class RewardPostgresTest extends TestCase
         Sanctum::actingAs($member->user);
         foreach ([1 => 10, 2 => 3] as $page => $count) {
             $this->getJson("/v1/groups/{$group->id}/rewards/awards?page=$page")->assertOk()->assertJsonCount($count, 'data')
-                ->assertJsonPath('meta.trophy_totals', ['gold' => 2, 'silver' => 1, 'bronze' => 10]);
+                ->assertJsonPath('meta.trophy_totals', ['gold' => 2, 'silver' => 1, 'bronze' => 10])
+                ->assertJsonPath('meta.activity_totals', ['posts' => 2, 'likes_received' => 2]);
         }
         $other = GroupMember::factory()->create(['group_id' => $group->id]);
         $this->getJson("/v1/groups/{$group->id}/rewards/awards?member_id={$other->id}")->assertOk()
-            ->assertJsonPath('meta.trophy_totals', ['gold' => 0, 'silver' => 0, 'bronze' => 0]);
+            ->assertJsonPath('meta.trophy_totals', ['gold' => 0, 'silver' => 0, 'bronze' => 0])
+            ->assertJsonPath('meta.activity_totals', ['posts' => 0, 'likes_received' => 0]);
     }
 
     private function definition(Group $group, GroupMember $member, string $status = 'active'): Reward

@@ -6,6 +6,7 @@ async function setup(page: Page, locale = 'ja', role = 'admin') {
     .addCookies([{ name: 'auth_token', value: 'totals-test', url: 'http://127.0.0.1' }])
   const state = {
     totals: { gold: 2, silver: 1, bronze: 10 } as unknown,
+    activities: { posts: 12, likes_received: 7 } as unknown,
     status: 200,
     holds: new Map<string, Promise<void>>(),
   }
@@ -68,7 +69,10 @@ async function setup(page: Page, locale = 'ja', role = 'admin') {
         current_page: currentPage,
         last_page: Math.max(1, Math.ceil(count / 10)),
         total: count,
-        meta: { trophy_totals: totals },
+        meta: {
+          trophy_totals: totals,
+          activity_totals: member === '2' ? { posts: 3, likes_received: 2 } : state.activities,
+        },
       }
       const status = state.status
       await state.holds.get(member)
@@ -101,6 +105,12 @@ for (const locale of ['ja', 'en']) {
       .getByRole('button', { name: locale === 'ja' ? 'インベントリ' : 'Inventory', exact: true })
       .click()
     const totals = page.getByTestId('trophy-totals')
+    await expect(page.getByTestId('total-posts')).toContainText(
+      locale === 'ja' ? 'アクティビティ投稿総数 12件' : 'Total posts: 12 posts'
+    )
+    await expect(page.getByTestId('total-likes_received')).toContainText(
+      locale === 'ja' ? 'いいね獲得総数 7件' : 'Total likes received: 7 likes'
+    )
     await expect(totals).toContainText(
       locale === 'ja' ? '金トロフィー 2個' : 'Gold trophy: 2 trophies'
     )
@@ -150,6 +160,7 @@ test('メンバー切替は未確定表示にし、遅い前メンバー応答�
   await expect(totals).toContainText('—')
   releaseSecond()
   await expect(totals).toContainText('銀トロフィー 3個')
+  await expect(page.getByTestId('total-posts')).toContainText('アクティビティ投稿総数 3件')
   const oldResponse = page.waitForResponse(
     (response) =>
       response.url().includes('/awards?') &&
@@ -158,6 +169,7 @@ test('メンバー切替は未確定表示にし、遅い前メンバー応答�
   releaseFirst()
   await oldResponse
   await expect(totals).toContainText('銀トロフィー 3個')
+  await expect(page.getByTestId('total-likes_received')).toContainText('いいね獲得総数 2件')
   await expect(page.getByRole('article')).toHaveCount(3)
 })
 
@@ -175,14 +187,30 @@ test('失敗・不正メタデータはゼロや部分履歴を表示せず、�
   await expect(page.getByRole('article')).toHaveCount(0)
   await expect(totals).toContainText('—')
   state.totals = { gold: 0, silver: 0, bronze: 0 }
+  for (const invalid of [
+    undefined,
+    { posts: -1, likes_received: 7 },
+    { posts: 12 },
+    { posts: 12, likes_received: Number.MAX_SAFE_INTEGER + 1 },
+  ]) {
+    state.activities = invalid
+    await page.getByRole('button', { name: '再読み込み', exact: true }).click()
+    await expect(page.getByRole('alert')).toContainText('取得できませんでした。')
+    await expect(page.getByTestId('total-posts')).toContainText('—')
+    await expect(page.getByRole('article')).toHaveCount(0)
+  }
+  state.activities = { posts: 0, likes_received: 0 }
   await page.getByRole('button', { name: '再読み込み', exact: true }).click()
   await expect(totals).toContainText('金トロフィー 0個')
+  await expect(page.getByTestId('total-posts')).toContainText('アクティビティ投稿総数 0件')
+  await expect(page.getByTestId('total-likes_received')).toContainText('いいね獲得総数 0件')
   await expect(page.getByText('獲得履歴はまだありません。', { exact: true })).toBeVisible()
 })
 
 test('一般メンバーには選択欄を追加せず、大きな累計は行内でスクロールする', async ({ page }) => {
   const state = await setup(page, 'ja', 'member')
   state.totals = { gold: 1_234_567_890_123, silver: 1_234_567_890_123, bronze: 1_234_567_890_123 }
+  state.activities = { posts: 1_234_567_890_123, likes_received: 1_234_567_890_123 }
   // Keep the response bounded while testing counts above the visible page size.
   await page.setViewportSize({ width: 320, height: 740 })
   await page.getByRole('button', { name: 'インベントリ', exact: true }).click()
@@ -190,6 +218,10 @@ test('一般メンバーには選択欄を追加せず、大きな累計は行�
   const totals = page.getByTestId('trophy-totals')
   await expect(totals).toContainText('1,234,567,890,123')
   expect(await totals.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
+  await totals.focus()
+  await expect(totals).toBeFocused()
+  await totals.press('ArrowRight')
+  await expect.poll(() => totals.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0)
   expect(
     await page.evaluate(() => ({
       fits: document.documentElement.scrollWidth <= window.innerWidth,
