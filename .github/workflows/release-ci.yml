@@ -83,6 +83,8 @@ jobs:
       - name: Verify mandatory PR check waiting
         shell: pwsh
         run: ./scripts/release/test-pr-checks.ps1
+      - name: Test scheduler diagnostic wrapper
+        run: node --test scripts/release/run-scheduler.test.mjs
   e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -232,7 +234,7 @@ jobs:
           path: release-dist/
           if-no-files-found: error
           retention-days: 30
-      - name: Verify approved development dependency stays outside the static runtime
+      - name: Verify development HTTPS tooling stays outside the static runtime
         run: node scripts/security/check-forge-scope.mjs --built
     needs:
       - checks

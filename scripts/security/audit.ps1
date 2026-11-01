@@ -7,8 +7,6 @@ $temporary = Join-Path ([IO.Path]::GetTempPath()) ('famie-audit-' + [Guid]::NewG
 New-Item -ItemType Directory -Path $temporary | Out-Null
 $failed = $false
 try {
-    & node (Join-Path $PSScriptRoot 'check-forge-scope.mjs')
-    if ($LASTEXITCODE -ne 0) { throw 'Approved node-forge exception scope has changed.' }
     Push-Location (Join-Path $root 'frontend')
     try {
         $report = Join-Path $temporary 'pnpm.json'
@@ -18,8 +16,8 @@ try {
         if ($LASTEXITCODE -ne 0 -or $status -notin @(0, 1)) { throw 'pnpm audit could not complete; no successful verdict.' }
         & jq '{tool:"pnpm", vulnerabilities:.metadata.vulnerabilities, findings:[.advisories[] | {module_name,severity,url}]}' $report
         $verdict = Join-Path $temporary 'verdict.json'
-        & jq --argjson now ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -f (Join-Path $PSScriptRoot 'audit-policy.jq') $report | Set-Content $verdict
-        if ($LASTEXITCODE -ne 0) { throw 'Dependency exception policy could not be evaluated.' }
+        & jq -f (Join-Path $PSScriptRoot 'audit-policy.jq') $report | Set-Content $verdict
+        if ($LASTEXITCODE -ne 0) { throw 'Dependency audit policy could not be evaluated.' }
         Get-Content -LiteralPath $verdict
         & jq -e '.blocking | length == 0' $verdict > $null
         if ($LASTEXITCODE -ne 0) { $failed = $true }

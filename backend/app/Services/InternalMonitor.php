@@ -75,8 +75,14 @@ class InternalMonitor
                     }
                 }
                 $resolved[] = $path;
-                $result = Process::timeout(20)->run(['du', '-sk', '--', $path]);
-                if (! $result->successful() || ! preg_match('/\A(\d+)\s/', $result->output(), $matches)) {
+            }
+            $result = Process::timeout(30)->run(['du', '-sk', '--', ...$resolved]);
+            $lines = preg_split('/\r?\n/', rtrim($result->output(), "\r\n"));
+            if (! $result->successful() || count($lines) !== count($resolved)) {
+                return 'warning';
+            }
+            foreach ($lines as $line) {
+                if (! preg_match('/\A(\d+)\s+.+\z/', $line, $matches)) {
                     return 'warning';
                 }
                 $used += (int) $matches[1] * 1024;
@@ -95,11 +101,11 @@ class InternalMonitor
         $counts = ['server_errors' => 0, 'authentication_failures' => 0, 'rate_limits' => 0, 'permission_denials' => 0];
         $results = ['log_integrity' => 'ok'];
         $emergency = storage_path('logs/emergency-'.now()->utc()->format('Y-m-d').'.log');
-        if (is_file($emergency) && filemtime($emergency) >= now()->subMinutes(5)->timestamp) {
+        if (is_file($emergency) && filemtime($emergency) >= now()->subHour()->timestamp) {
             $results['log_integrity'] = 'warning';
         }
-        $cutoff = now()->subMinutes(5)->timestamp;
-        foreach (array_unique([now()->utc()->format('Y-m-d'), now()->utc()->subMinutes(5)->format('Y-m-d')]) as $date) {
+        $cutoff = now()->subHour()->timestamp;
+        foreach (array_unique([now()->utc()->format('Y-m-d'), now()->utc()->subHour()->format('Y-m-d')]) as $date) {
             $path = storage_path('logs/operations-'.$date.'.log');
             if (! file_exists($path)) {
                 continue;

@@ -1,6 +1,6 @@
 # v0.19.0 セキュリティ検査の運用
 
-対象はR03。2026-10-26（JST）時点ではローカル検証段階。CIへの反映・限定動的検査の実サーバー実行は、フェーズ2のローカル確認合格後に行う。進捗と判断は[Issue #165](https://github.com/ka215/famie/issues/165)に記録する。
+2026-11-01（JST）更新。v0.19.0は商用公開・受入済みで、商用には旧node-forge例外が残る。ステージング候補5d4ad17aはnode-forge1.4.1・例外撤去を反映済み。最新の作業ツリーではNuxt4.6.3・Symfony MIME8.1.10へ最小更新し、Composer0、フロントmoderate2・low1、high／critical0・監査例外0。残件は[Issue #182](https://github.com/ka215/famie/issues/182)で追跡し、後続対応としての受入は確認待ち。最新差分は未コミット・未配置であり、以下の過去工程の表記とは区別する。
 
 ## 検査ツールと実行
 
@@ -29,7 +29,7 @@ pwsh scripts/security/scan.ps1 -History -BaseCommit <base-full-sha>
 
 新設workflowの単体手動起動・定期実行は、デフォルトブランチmainへの反映後に有効になる。商用承認前にmainへ先行反映しない。開発中の静的検査は既存Release CIから同じコミットの再利用workflowを呼び、限定動的検査は既存Deploy Release Artifactのstaging apply成功後から呼ぶ。[GitHubの起動条件](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)に従い、未実施を成功と誤記しない。
 
-ツール異常・レポート欠落・JSON不正・監査先取得失敗を成功扱いしない。high／critical、不明な深刻度を必須失敗にする（末尾の承認済みnode-forge例外だけを除く）。中以下はpackage・advisory・影響・担当・期限をIssueへ記録する。生レポートにはソースや秘密値が含まれ得るため、公開ログ・GitHub artifactに出さない。通常ログは終了コード・件数・規則ID・リポジトリ内パス・行番号等に限定し、一時レポートを削除する。詳細調査は運用者が非公開環境で個別ツールを実行する。
+ツール異常・レポート欠落・JSON不正・監査先取得失敗を成功扱いしない。high／critical、不明な深刻度を必須失敗にする。v0.19.1の1.4.1更新作業では脆弱性例外を撤去し、以前の許可対象も失敗させる。中以下はpackage・advisory・影響・担当・期限をIssueへ記録する。生レポートにはソースや秘密値が含まれ得るため、公開ログ・GitHub artifactに出さない。通常ログは終了コード・件数・規則ID・リポジトリ内パス・行番号等に限定し、一時レポートを削除する。詳細調査は運用者が非公開環境で個別ツールを実行する。
 
 `.gitleaks.toml`は公開済みlocalhost専用TLSテスト鍵`frontend/tests/support/tls/key.pem`の`private-key`規則のみを例外にする。他の鍵や同じファイルの別種の秘密は除外しない。v0.21.0までに再確認する。新規例外は規則・対象・理由・期限・承認を限定する。
 
@@ -109,3 +109,32 @@ GitHubの**staging Environment secret** `FAMIE_SECURITY_FIXTURE`に次のJSON構
 ## フェーズ2の実機受入
 
 2026-10-26、固定候補a0a7f647／配置run40285587453で限定動的検査20件を完了し、専用ユーザーの残存トークン0件を確認した。ユーザーによる主要操作・既存PWA更新後の動作確認も合格。一時鍵の回収問題は所有者限定ACLを修正した候補で解消し、旧フォルダーもユーザー削除と不在確認で解決済み。正式リリースまで週次schedule等が既定mainへ未反映である点は継続する。商用公開の承認を意味しない。
+
+## v0.19.1の脆弱性例外撤去（ローカル検証）
+
+2026-10-27、公式node-forge1.4.1のCHANGELOGでCVE-2026-85393の修正を確認し、lockfileを当該パッケージだけ更新した。公開直後の版を利用するため、pnpmの公開後待機期間の許可は`node-forge@1.4.1`だけを追加。脆弱性監査の除外には使用しない。
+
+`audit-policy.jq`の旧例外を撤去し、旧1.4.0もhighなら必ずblocking。9境界を新しい例外なし方針で確認し、pnpm／Composerのローカル監査は指摘0・accepted_exceptions空。静的SPA／PHP配布の境界確認はビルド・成果物生成時に継続する。
+
+当時の観測候補55adfbc6と商用v0.19.0は更新前だった。その後、例外撤去を含む候補5d4ad17aまでステージング配置済み。商用はv0.19.0のままで、作業ツリーの監査結果を商用更新完了とは表示しない。最新の最終準備は次節を参照する。
+
+## 2026-11-01 最終準備での再監査・最小更新
+
+初回再監査はフロントmoderate9・low1、Composer medium1、high／critical0。ユーザーがフロント側も調査・最小更新する方針を承認した。
+
+- Nuxt4.6.2→4.6.3でNuxt／vite-builder／nitro-serverの修正を反映し、必要なseroval等の依存も追従。直接依存の他メジャーは上げず、`pnpm update nuxt@4.6.3 --depth 0`で不要な再解決を抑えた。公開後待機期間や脆弱性検査の例外は追加していない。
+- Symfony MIME8.1.7→8.1.10はComposerのpatch-only／minimal-changesで1パッケージのみ更新。[公式修正情報](https://symfony.com/cve-2026-45070)に基づく。初回のdist展開はローカルPHPのzip拡張とPATH上のunzip不在で失敗したが、既存Git同梱unzipを当該コマンドのPATHへ加え、同じComposerでinstallを完了した。php.ini・システムPATHは変更していない。
+
+更新後はComposer指摘0、フロントmoderate2・low1、high／critical0、accepted_exceptions空。残件を監査から隠さず、検査上は中低指摘として報告する。R02のnode-forge例外撤去とは別の残課題で、後続追跡としての受入はローカル確認時に提示する。
+
+| 残件 | 影響条件と現依存 | 最小更新で残る理由 |
+| --- | --- | --- |
+| [glob／moderate](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) | AbortSignalによるキャンセル後もファイル走査が続く問題。Nitroのarchiver-utils／nftとWorkbox buildから10／11／13系を使用 | 修正版14.0.2は依存元の指定メジャー外。例としてworkbox-build7.4.1のglobは^11.0.1 |
+| [minimatch／moderate](https://github.com/advisories/GHSA-g3hv-75wg-m249) | 攻撃者指定パターンによるCPU・メモリ増幅。型検査・ファイル列挙・ビルドの5／9／10系が該当 | 修正版11.0.1は指定メジャー外。vue-tsc2.2.12配下のlanguage-coreは^9.0.3。単純な一括overrideで互換性を保証できない |
+| [deepmerge／low](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) | マージ対象に攻撃者のキーが入る場合のprototype poisoning。Rollup node-resolve経由の4.3.1 | 監査は4.3.2を示すがnpmで未公開、公開最新版4.3.1・GitHub修正版欄None。未公開版への偽装はしない |
+
+これらの経路は開発・型検査・静的生成側であり、商用は静的SPAとPHP APIを配信しNodeサーバーを公開しない。ユーザー入力をビルド設定やglobパターンへ流し込まない前提を維持し、信頼できないリポジトリ設定・PRを秘密付きビルドで実行しない。これだけで全到達性の不存在を証明したとはせず、静的runtime境界・生成物・既存PWAの検証を継続する。
+
+残件は[Issue #182](https://github.com/ka215/famie/issues/182)で互換性のある上流更新・backport・修正版公開を追跡する。メジャー強制置換や独自修正はこのパッチ版へ無断で混在させない。最終固定候補のCI・ステージング確認・公開承認の時点で指摘を再評価し、商用公開記録にも残件を明示する。
+
+更新後のローカル検証はLint・型・単体20件、メール関連を含むPHP33成功／専用PostgreSQL1件skip、Composer validate、クリーン静的生成、12 HTML／154参照の資産検査と配布境界が合格。公開構成・依存経路を根拠とした残件の後続追跡案は、ローカル確認と最終候補の商用承認へ明示して含める。商用を更新済みとは扱わない。
