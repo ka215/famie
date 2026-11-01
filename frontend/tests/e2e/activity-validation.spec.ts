@@ -47,8 +47,7 @@ for (const mode of ['create', 'edit'] as const) {
       await page.getByRole('button', { name: 'アクティビティを記録する' }).click()
     const form = page.locator('form')
     const content = form.locator('textarea').first()
-    const note =
-      mode === 'create' ? form.locator('input[type="text"]') : form.locator('textarea').nth(1)
+    const note = form.locator('textarea').nth(1)
     const date = form.locator('input[type="date"]')
     const time = form.locator('input[type="time"]')
     const save = page.getByRole('button', {

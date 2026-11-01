@@ -25,10 +25,33 @@ test('ログインして記録を登録し、再読み込み後も一覧で確�
   await time.fill('12:34')
   const content = `E2E-${Date.now()}`
   await page.getByPlaceholder('例: 算数のドリルを2ページ進めた').fill(content)
+  const note = page.locator('#create-note')
+  await expect(note).toHaveAttribute('rows', '1')
+  await expect(note).toHaveCSS('resize', 'vertical')
+  let submissions = 0
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && /\/groups\/\d+\/logs$/.test(new URL(request.url()).pathname))
+      submissions++
+  })
+  await note.fill('補足の1行目')
+  await note.press('Enter')
+  await note.pressSequentially('<b>補足の2行目</b>')
+  const memo = '補足の1行目\n<b>補足の2行目</b>'
+  await expect(note).toHaveValue(memo)
+  await expect(page.getByRole('dialog')).toBeVisible()
+  expect(submissions).toBe(0)
   await page.getByRole('button', { name: '記録を保存する' }).click()
   await expect(page.getByText(content, { exact: true })).toBeVisible()
+  expect(submissions).toBe(1)
   await page.reload()
   await expect(page.getByText(content, { exact: true })).toBeVisible()
+  const card = page.getByRole('article').filter({ hasText: content })
+  await expect(card.getByText(memo, { exact: true })).toBeVisible()
+  await expect(card.locator('b')).toHaveCount(0)
+  await card.getByRole('link', { name: /記録を編集/ }).click()
+  await expect(page.locator('#edit-note')).toHaveValue(memo)
+  await page.getByRole('button', { name: '編集を取り消す', exact: true }).click()
+  await expect(page.getByRole('article').getByText(memo, { exact: true })).toBeVisible()
   await page.getByRole('link', { name: '設定', exact: true }).click()
   await page.getByRole('button', { name: 'ログアウト' }).click()
   await expect(page.getByRole('button', { name: 'ログイン', exact: true })).toBeVisible()
