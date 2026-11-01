@@ -1631,9 +1631,24 @@ components:
               type: object
               required:
                 - trophy_totals
+                - activity_totals
               properties:
                 trophy_totals:
                   $ref: '#/components/schemas/TrophyTotals'
+                activity_totals:
+                  type: object
+                  required:
+                    - posts
+                    - likes_received
+                  properties:
+                    posts:
+                      type: integer
+                      minimum: 0
+                      description: 選択メンバー・同一家族の現在保持されている全期間投稿数
+                    likes_received:
+                      type: integer
+                      minimum: 0
+                      description: 対象投稿に現在付いた有効メンバーからのいいね総数。削除・取消・無効化で減少する
   responses:
     Unauthorized:
       description: Bearer未指定・失効
