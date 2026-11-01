@@ -212,11 +212,16 @@ test('親が定義を作成し、獲得通知・履歴保持と子の権限を�
   const dynamicSaved = page.waitForResponse(
     (response) => response.url().endsWith('/rewards') && response.request().method() === 'POST'
   )
+  const dynamicSettled = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/rewards/notifications') && response.request().method() === 'POST'
+  )
   await page
     .getByRole('dialog')
     .getByRole('button', { name: '下書きとして保存', exact: true })
     .click()
   const dynamic = await (await dynamicSaved).json()
+  await dynamicSettled
   expect(dynamic.data.version.count_mode).toBe('period_days')
   expect(dynamic.data.version.required_count).toBe(
     new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0).getDate()

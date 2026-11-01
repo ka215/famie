@@ -1,7 +1,11 @@
 export type TrophyColor = 'gold' | 'silver' | 'bronze'
 export type TrophyTotals = Record<TrophyColor, number>
+export interface ActivityTotals {
+  posts: number
+  likes_received: number
+}
 export interface RewardAwardsPage extends RewardPage<RewardAward> {
-  meta: { trophy_totals: TrophyTotals }
+  meta: { trophy_totals: TrophyTotals; activity_totals: ActivityTotals }
 }
 export interface RewardVersion {
   id: number

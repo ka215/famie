@@ -100,7 +100,12 @@ async function setup(page: Page, notificationCount = 1) {
       json: {
         data: path.endsWith('/awards') ? [award] : rewards,
         ...(path.endsWith('/awards')
-          ? { meta: { trophy_totals: { gold: 1, silver: 0, bronze: 0 } } }
+          ? {
+              meta: {
+                trophy_totals: { gold: 1, silver: 0, bronze: 0 },
+                activity_totals: { posts: 12, likes_received: 7 },
+              },
+            }
           : {}),
         current_page: 1,
         last_page: 1,

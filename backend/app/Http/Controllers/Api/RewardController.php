@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLike;
+use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
@@ -253,7 +255,14 @@ class RewardController extends Controller
         $deleted = Reward::query()->where('group_id', $group->id)->whereIn('id', $page->pluck('reward_id'))->where('status', 'deleted')->pluck('id')->all();
         $page->through(fn (RewardAward $award) => [...$award->toArray(), 'deleted' => in_array($award->reward_id, $deleted, true)]);
 
-        return response()->json([...$page->toArray(), 'meta' => ['trophy_totals' => $totals]]);
+        $posts = ActivityLog::query()->where('group_id', $group->id)->where('user_id', $member->user_id);
+        $activityTotals = [
+            'posts' => (clone $posts)->count(),
+            'likes_received' => ActivityLike::query()->where('group_id', $group->id)->fromActiveMembers()
+                ->whereIn('activity_log_id', (clone $posts)->select('id'))->count(),
+        ];
+
+        return response()->json([...$page->toArray(), 'meta' => ['trophy_totals' => $totals, 'activity_totals' => $activityTotals]]);
     }
 
     public function notifications(Request $request, Group $group): JsonResponse

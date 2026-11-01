@@ -563,6 +563,11 @@
     "progressAria": "{current}/{required} ({percent}%)",
     "trophyTotals": "Lifetime trophy totals",
     "trophyTotal": "{trophy}: {count} trophy | {trophy}: {count} trophies",
-    "trophyTotalUnknown": "{trophy}: —"
+    "trophyTotalUnknown": "{trophy}: —",
+    "postsTotalUnknown": "Total posts: —",
+    "inventoryTotals": "Trophy and activity totals",
+    "likesReceivedTotalUnknown": "Total likes received: —",
+    "postsTotal": "Total posts: {count} post | Total posts: {count} posts",
+    "likesReceivedTotal": "Total likes received: {count} like | Total likes received: {count} likes"
   }
 }
