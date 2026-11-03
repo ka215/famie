@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'representative_protected' => 'The family representative’s role, account status, and password are protected from member management actions.',
     'member_max' => 'A family can have at most :max members.',
     'category_limit' => 'A family can have at most :max categories.',
     'account_create_forbidden' => 'You do not have permission to create accounts.',

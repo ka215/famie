@@ -191,7 +191,8 @@
       "deactivateHelp": "このメンバーはログインできなくなり、活動記録が全員の画面から非表示になります。記録は保持され、復元すると再表示されます。未保存の編集内容は反映されません。",
       "restoreSubmit": "復元する",
       "deactivateSubmit": "無効化する",
-      "restoreConfirm": "{role}として復元します。再ログインできるようになり、これまでの活動記録が再表示されます。"
+      "restoreConfirm": "{role}として復元します。再ログインできるようになり、これまでの活動記録が再表示されます。",
+      "representativeHelp": "代表管理者の役割・無効化・パスワード再設定は変更できません。ご自身のパスワードは本人の設定から変更できます。"
     },
     "password": {
       "saved": "パスワードを変更しました。",
@@ -205,7 +206,8 @@
       "parentShort": "親",
       "childShort": "子",
       "guardian": "親・保護者（管理者）",
-      "member": "子（一般）"
+      "member": "子（一般）",
+      "representative": "代表管理者"
     },
     "storage": {
       "enabled": "画像添付: 有効",

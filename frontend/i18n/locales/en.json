@@ -191,7 +191,8 @@
       "deactivateHelp": "This member will no longer be able to log in. Their activity records will be hidden from everyone but kept for restoration. Unsaved changes will not be applied.",
       "restoreSubmit": "Restore",
       "deactivateSubmit": "Deactivate",
-      "restoreConfirm": "Restore as {role}. The member can log in again and their past activity records will be visible again."
+      "restoreConfirm": "Restore as {role}. The member can log in again and their past activity records will be visible again.",
+      "representativeHelp": "The family representative cannot be demoted, deactivated, or have their password reset here. They can change their own password in their account settings."
     },
     "password": {
       "saved": "Password changed.",
@@ -205,7 +206,8 @@
       "parentShort": "Parent",
       "childShort": "Child",
       "guardian": "Parent/Guardian (Admin)",
-      "member": "Child (member)"
+      "member": "Child (member)",
+      "representative": "Family representative"
     },
     "storage": {
       "enabled": "Image attachments: enabled",

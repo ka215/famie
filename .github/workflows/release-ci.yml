@@ -303,6 +303,7 @@ jobs:
       FAMIE_REWARD_PG_TEST: '1'
       FAMIE_CONCURRENCY_TEST: '1'
       FAMIE_BACKUP_PG_TEST: '1'
+      FAMIE_REPRESENTATIVE_PG_TEST: "1"
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: shivammathur/setup-php@v2
@@ -330,7 +331,7 @@ jobs:
           cp .env.example .env
           php artisan key:generate --force
           mkdir -p ../coverage-results/backend-postgres
-          php artisan test --filter="RewardPostgresTest|MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest|AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest|DailyBackupPostgresTest" --coverage-clover ../coverage-results/backend-postgres/clover.xml
+          php artisan test --filter="RewardPostgresTest|RepresentativePostgresTest|MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest|AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest|DailyBackupPostgresTest" --coverage-clover ../coverage-results/backend-postgres/clover.xml
           php ../scripts/coverage/backend-summary.php ../coverage-results/backend-postgres/clover.xml backend-postgres ../coverage-results/backend-postgres/summary.json
       - uses: actions/setup-node@v7.1.0
         with:

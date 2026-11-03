@@ -28,5 +28,12 @@ class DatabaseSeeder extends Seeder
         });
 
         $this->call(CategorySeeder::class);
+        if ($group->representative_user_id === null) {
+            $first = $group->memberships()->orderBy('user_id')->first();
+            if (! $first?->isAdmin()) {
+                throw new \RuntimeException('Development family requires an active first parent.');
+            }
+            $group->forceFill(['representative_user_id' => $first->user_id])->save();
+        }
     }
 }
