@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'representative_protected' => '代表管理者の役割・利用状態・パスワードを他のメンバー管理操作で変更することはできません。',
     'member_max' => '家族メンバーは最大:max人です。',
     'category_limit' => 'カテゴリは最大:max件です。',
     'account_create_forbidden' => 'アカウントの作成権限がありません。',

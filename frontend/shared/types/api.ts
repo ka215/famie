@@ -52,6 +52,7 @@ export interface Membership {
   id: number
   role: MembershipRole
   status: 'active'
+  is_representative: boolean
   group: Group
 }
 
@@ -60,6 +61,7 @@ export interface FamilyMember {
   username: string
   display_name: string
   membership_id: number
+  is_representative: boolean
   role: MembershipRole
 }
 

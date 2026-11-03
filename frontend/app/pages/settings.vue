@@ -430,7 +430,7 @@ watch(locale, () => {
             isParent ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300',
           ]"
         >
-          {{ isParent ? t('settings.role.parent') : t('settings.role.child') }}
+          {{ membership?.is_representative ? t('settings.role.representative') : isParent ? t('settings.role.parent') : t('settings.role.child') }}
         </span>
       </div>
       <form class="space-y-3 pt-3" novalidate @submit.prevent="handleProfileSave">
@@ -507,7 +507,7 @@ watch(locale, () => {
           </div>
           <div class="flex shrink-0 items-center gap-2">
           <span class="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded-md">
-            {{ member.role === 'admin' ? t('settings.role.parentShort') : t('settings.role.childShort') }}
+            {{ member.is_representative ? t('settings.role.representative') : member.role === 'admin' ? t('settings.role.parentShort') : t('settings.role.childShort') }}
           </span>
           <button v-if="isParent" type="button" :aria-label="t('settings.members.manageName', { value1: member.display_name })" class="min-h-11 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-600" @click="openMember(member)">{{ t('common.manage') }}</button>
           </div>

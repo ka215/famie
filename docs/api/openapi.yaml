@@ -1368,12 +1368,15 @@ components:
             max_input_bytes: {type: integer, const: 31457280}
     Membership:
       type: object
-      required: [id, role, status, group]
+      required: [id, role, status, group, is_representative]
       properties:
         id: {$ref: '#/components/schemas/Id'}
         role: {type: string, enum: [admin, member]}
         status: {type: string, enum: [active, inactive]}
         group: {$ref: '#/components/schemas/Group'}
+        is_representative:
+          type: boolean
+          description: 家族の固定された代表管理者であるか
     Identity:
       type: object
       required: [user, membership]
@@ -1393,11 +1396,14 @@ components:
       allOf:
         - $ref: '#/components/schemas/PublicUser'
         - type: object
-          required: [membership_id, role]
+          required: [membership_id, role, is_representative]
           properties:
             membership_id: {$ref: '#/components/schemas/Id'}
             role: {type: string, enum: [admin, member]}
             status: {type: string, enum: [active, inactive], description: active一覧・作成応答では省略}
+            is_representative:
+              type: boolean
+              description: 家族の固定された代表管理者であるか
     Category:
       type: object
       required: [id, group_id, name, color_code, sort_order]

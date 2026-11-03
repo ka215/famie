@@ -26,6 +26,7 @@ class UserController extends Controller
                 ...$membership->user->only(['id', 'username', 'display_name']),
                 'membership_id' => $membership->id,
                 'role' => $membership->role,
+                'is_representative' => $group->isRepresentative($membership->user_id),
             ]);
 
         return response()->json($members);
@@ -35,7 +36,7 @@ class UserController extends Controller
     {
         $membership = $request->attributes->get('group_membership');
         abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, __('messages.account_create_forbidden'));
-        if (array_intersect(array_keys($request->all()), ['group_id', 'status', 'user_id', 'email', 'ui_locale'])) {
+        if (array_intersect(array_keys($request->all()), ['group_id', 'status', 'user_id', 'email', 'ui_locale', 'representative_user_id', 'is_representative'])) {
             throw ValidationException::withMessages(['member' => [__('messages.member_fields')]]);
         }
         $validated = $request->validate([
@@ -66,7 +67,7 @@ class UserController extends Controller
 
         return response()->json([
             'message' => __('messages.user_created'),
-            'data' => [...$user->only(['id', 'username', 'display_name']), 'membership_id' => $newMembership->id, 'role' => $newMembership->role],
+            'data' => [...$user->only(['id', 'username', 'display_name']), 'membership_id' => $newMembership->id, 'role' => $newMembership->role, 'is_representative' => false],
         ], 201);
     }
 
@@ -76,7 +77,7 @@ class UserController extends Controller
         $members = $group->memberships()->where('status', GroupMember::STATUS_INACTIVE)
             ->with('user:id,username,display_name')->orderBy('id')->get();
 
-        return response()->json($members->map(fn (GroupMember $member): array => $this->memberPayload($member)));
+        return response()->json($members->map(fn (GroupMember $member): array => $this->memberPayload($member, $group)));
     }
 
     public function update(Request $request, Group $group, int $member, GroupMembershipService $service): JsonResponse
@@ -96,7 +97,7 @@ class UserController extends Controller
         ]);
         $updated = $service->updateMember($request->user(), $target, $validated['display_name'], $validated['role']);
 
-        return response()->json(['message' => __('messages.member_updated'), 'data' => $this->memberPayload($updated)]);
+        return response()->json(['message' => __('messages.member_updated'), 'data' => $this->memberPayload($updated, $group)]);
     }
 
     public function updateStatus(Request $request, Group $group, int $member, GroupMembershipService $service): JsonResponse
@@ -111,7 +112,7 @@ class UserController extends Controller
 
         return response()->json([
             'message' => $updated->status === GroupMember::STATUS_ACTIVE ? __('messages.member_restored') : __('messages.member_deactivated'),
-            'data' => $this->memberPayload($updated),
+            'data' => $this->memberPayload($updated, $group),
         ]);
     }
 
@@ -144,11 +145,12 @@ class UserController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function memberPayload(GroupMember $member): array
+    private function memberPayload(GroupMember $member, Group $group): array
     {
         return [
             ...$member->user->only(['id', 'username', 'display_name']),
             'membership_id' => $member->id, 'role' => $member->role, 'status' => $member->status,
+            'is_representative' => $group->isRepresentative($member->user_id),
         ];
     }
 }

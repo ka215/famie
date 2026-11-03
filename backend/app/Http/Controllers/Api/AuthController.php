@@ -66,7 +66,7 @@ class AuthController extends Controller
         if ($response = $this->consumeRegistrationAttempt($request)) {
             return $response;
         }
-        if (array_intersect(array_keys($request->all()), ['group_id', 'type', 'role', 'status', 'email', 'ui_locale'])) {
+        if (array_intersect(array_keys($request->all()), ['group_id', 'type', 'role', 'status', 'email', 'ui_locale', 'representative_user_id', 'is_representative'])) {
             throw ValidationException::withMessages(['registration' => [__('messages.registration_fields')]]);
         }
 
@@ -87,6 +87,7 @@ class AuthController extends Controller
             $membership = $group->memberships()->create([
                 'user_id' => $user->id, 'role' => GroupMember::ROLE_ADMIN, 'status' => GroupMember::STATUS_ACTIVE,
             ]);
+            $group->forceFill(['representative_user_id' => $user->id])->save();
             InitialCategories::createFor($group, (string) $request->attributes->get('ui_locale'));
 
             return [$user, $membership->setRelation('group', $group)];
@@ -221,6 +222,7 @@ class AuthController extends Controller
             ],
             'membership' => [
                 'id' => $membership->id, 'role' => $membership->role, 'status' => $membership->status,
+                'is_representative' => $membership->group->isRepresentative($membership->user_id),
                 'group' => $membership->group->only(['id', 'name', 'type']),
             ],
         ];

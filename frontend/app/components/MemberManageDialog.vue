@@ -18,6 +18,7 @@ const resetting = ref(false)
 const resetMessage = ref('')
 const passwords = ref({ current_password: '', new_password: '', new_password_confirmation: '' })
 const isSelf = computed(() => user.value?.id === props.member.id)
+const isRepresentative = computed(() => props.member.is_representative)
 const changed = computed(
   () => displayName.value !== props.member.display_name || role.value !== props.member.role
 )
@@ -117,7 +118,7 @@ watch(locale, () => {
       </div>
       <div>
         <label for="member-role" class="block text-sm mb-1">{{ t('settings.members.roleLabel') }}</label>
-        <select id="member-role" v-model="role" :disabled="busy || isSelf" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2">
+        <select id="member-role" v-model="role" :disabled="busy || isSelf || isRepresentative" class="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2">
           <option value="member">{{ t('settings.role.member') }}</option>
           <option value="admin">{{ t('settings.role.parent') }}</option>
         </select>
@@ -125,8 +126,9 @@ watch(locale, () => {
       </div>
       <button type="submit" :disabled="busy || !changed" class="w-full min-h-11 rounded-lg bg-blue-600 text-white disabled:opacity-50">{{ t('common.saveChanges') }}</button>
       <p v-if="isSelf" class="text-sm text-slate-600 dark:text-slate-300">{{ t('settings.members.selfHelp') }}</p>
-      <button v-if="!isSelf" type="button" :disabled="busy" class="w-full min-h-11 rounded-lg border border-blue-400 text-blue-700 dark:text-blue-300" @click="resetting = true; error = ''; resetMessage = ''">{{ t('settings.members.reset') }}</button>
-      <button v-if="!isSelf" type="button" :disabled="busy" class="w-full min-h-11 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-300" @click="confirming = true; error = ''">{{ t('settings.members.deactivate') }}</button>
+      <p v-if="isRepresentative" class="text-sm text-slate-600 dark:text-slate-300">{{ t('settings.members.representativeHelp') }}</p>
+      <button v-if="!isSelf && !isRepresentative" type="button" :disabled="busy" class="w-full min-h-11 rounded-lg border border-blue-400 text-blue-700 dark:text-blue-300" @click="resetting = true; error = ''; resetMessage = ''">{{ t('settings.members.reset') }}</button>
+      <button v-if="!isSelf && !isRepresentative" type="button" :disabled="busy" class="w-full min-h-11 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-300" @click="confirming = true; error = ''">{{ t('settings.members.deactivate') }}</button>
     </form>
     <div v-else class="space-y-4">
       <p v-if="inactive" class="text-sm">{{ t('settings.members.restoreConfirm', { role: t(member.role === 'admin' ? 'settings.role.parent' : 'settings.role.member') }) }}</p>
