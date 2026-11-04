@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AccountLifecycleController;
 use App\Http\Controllers\Api\ActivityImageController;
 use App\Http\Controllers\Api\ActivityLikeController;
 use App\Http\Controllers\Api\ActivityLogController;
@@ -23,6 +24,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login-ip');
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/register/username-availability', [AuthController::class, 'usernameAvailability'])->middleware('throttle:30,1');
+    Route::post('/lifecycle-operation-status', [AccountLifecycleController::class, 'status'])->middleware('throttle:lifecycle-status');
 
     Route::middleware(['auth:sanctum', SetUiLocale::class.':authenticated'])->group(function () {
         Route::post('/auth/me/email', [EmailController::class, 'store'])->middleware('throttle:account-mail-ip');
@@ -54,6 +56,9 @@ Route::prefix('v1')->group(function () {
             Route::patch('/members/{member}', [UserController::class, 'update'])->whereNumber('member');
             Route::put('/members/{member}/status', [UserController::class, 'updateStatus'])->whereNumber('member');
             Route::put('/members/{member}/password', [UserController::class, 'resetPassword'])->whereNumber('member')->middleware('throttle:member-password-reset');
+            Route::post('/lifecycle-operations', [AccountLifecycleController::class, 'store'])->middleware('throttle:lifecycle-prepare');
+            Route::post('/lifecycle-operations/{operation}/commit', [AccountLifecycleController::class, 'commit'])->whereUuid('operation')->middleware('throttle:lifecycle-commit');
+            Route::post('/lifecycle-operations/{operation}/cancel', [AccountLifecycleController::class, 'cancel'])->whereUuid('operation')->middleware('throttle:30,1');
             Route::get('/categories', [CategoryController::class, 'index']);
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::put('/categories/{category}', [CategoryController::class, 'update']);

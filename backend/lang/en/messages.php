@@ -1,6 +1,20 @@
 <?php
 
 return [
+    'lifecycle_crypto_unavailable' => 'This action cannot be committed because the encryption environment is unavailable.',
+    'lifecycle_vault_unavailable' => 'This action cannot be committed because the secure inquiry vault is unavailable.',
+    'lifecycle_ledger_unavailable' => 'This action cannot be committed because the deletion ledger is unavailable.',
+    'lifecycle_group_withdrawn' => 'This family has already withdrawn.',
+    'lifecycle_representative_only' => 'Only the family representative can perform this action.',
+    'lifecycle_already_prepared' => 'Another confirmation is in progress. Close that confirmation screen or try again :minutes minutes after it started.',
+    'lifecycle_cancel_committed' => 'A committed action cannot be cancelled. Check its status using your saved receipt information.',
+    'lifecycle_cancel_unavailable' => 'The previous confirmation requires review. Stop this action and contact support.',
+    'lifecycle_member_must_be_inactive' => 'Deactivate the member before deleting them.',
+    'lifecycle_kind_invalid' => 'The lifecycle operation type is invalid.',
+    'lifecycle_membership_required' => 'Member deletion requires exactly one member; family withdrawal must not specify one.',
+    'lifecycle_prepare_expired' => 'The confirmation period expired or this action can no longer be committed. Start again.',
+    'lifecycle_code_invalid' => 'The inquiry confirmation code is invalid.',
+    'lifecycle_subject_changed' => 'The subject changed and the action cannot be committed. Start again.',
     'representative_protected' => 'The family representative’s role, account status, and password are protected from member management actions.',
     'member_max' => 'A family can have at most :max members.',
     'category_limit' => 'A family can have at most :max categories.',

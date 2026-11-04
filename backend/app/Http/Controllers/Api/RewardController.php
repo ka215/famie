@@ -258,7 +258,7 @@ class RewardController extends Controller
         $posts = ActivityLog::query()->where('group_id', $group->id)->where('user_id', $member->user_id);
         $activityTotals = [
             'posts' => (clone $posts)->count(),
-            'likes_received' => ActivityLike::query()->where('group_id', $group->id)->fromActiveMembers()
+            'likes_received' => ActivityLike::query()->where('group_id', $group->id)->fromRetainedContributors()
                 ->whereIn('activity_log_id', (clone $posts)->select('id'))->count(),
         ];
 

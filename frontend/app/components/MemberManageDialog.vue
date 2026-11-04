@@ -6,7 +6,10 @@ import { passwordStrength } from '#shared/utils/password-strength'
 import { createProfileSchema } from '#shared/utils/profileSchema'
 
 const props = defineProps<{ member: FamilyMember; inactive?: boolean }>()
-const emit = defineEmits<{ close: []; saved: [member: FamilyMember] }>()
+const emit = defineEmits<{
+  close: []
+  saved: [member: FamilyMember]
+}>()
 const { user, groupId } = useAuth()
 const { fetchApi } = useApi()
 const displayName = ref(props.member.display_name)

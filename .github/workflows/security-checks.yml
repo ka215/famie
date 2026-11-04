@@ -32,6 +32,7 @@ jobs:
           php-version: '8.4'
           tools: composer:2.10.3
           coverage: none
+          extensions: sodium
       - name: Validate staging scan boundaries
         run: node --test scripts/security/staging-check.test.mjs
       - name: Install verified native security tools
@@ -68,7 +69,7 @@ jobs:
           php-version: '8.4'
           tools: composer:2.10.3
           coverage: none
-          extensions: pdo_sqlite
+          extensions: pdo_sqlite, sodium
       - name: Install backend test dependencies
         working-directory: backend
         run: composer install --no-interaction --prefer-dist

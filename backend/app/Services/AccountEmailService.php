@@ -28,7 +28,8 @@ class AccountEmailService
         return DB::transaction(function () use ($user, $callback, $public): mixed {
             $membership = $user->membership()->first();
             abort_unless($membership, $public ? 422 : 403, $public ? __(self::INVALID_LINK) : __('messages.account_unavailable'));
-            Group::query()->whereKey($membership->group_id)->lockForUpdate()->firstOrFail();
+            $group = Group::query()->whereKey($membership->group_id)->lockForUpdate()->firstOrFail();
+            abort_if($group->withdrawn_at !== null, $public ? 422 : 403, $public ? __(self::INVALID_LINK) : __('messages.account_unavailable'));
             abort_unless($user->activeMembership()->exists(), $public ? 422 : 403, $public ? __(self::INVALID_LINK) : __('messages.account_unavailable'));
 
             return $callback(User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail());

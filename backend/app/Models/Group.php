@@ -18,7 +18,7 @@ class Group extends Model
 
     protected function casts(): array
     {
-        return ['images_enabled' => 'boolean', 'image_quota_bytes' => 'integer', 'representative_user_id' => 'integer'];
+        return ['images_enabled' => 'boolean', 'image_quota_bytes' => 'integer', 'representative_user_id' => 'integer', 'withdrawn_at' => 'datetime'];
     }
 
     public function isRepresentative(int $userId): bool

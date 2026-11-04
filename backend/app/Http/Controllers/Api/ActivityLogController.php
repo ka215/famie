@@ -172,8 +172,10 @@ class ActivityLogController extends Controller
         $target = $this->visibleLog($group, $log);
         Gate::authorize('delete', $target);
         DB::transaction(function () use ($images, $target): void {
+            $hasImage = $target->image()->exists();
             $images->removeForLog($target);
-            $target->delete();
+            $target->likes()->delete();
+            $hasImage ? $target->delete() : $target->forceDelete();
         });
 
         return response()->json(['message' => __('messages.activity_deleted')]);

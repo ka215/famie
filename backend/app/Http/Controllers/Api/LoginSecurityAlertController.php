@@ -55,6 +55,7 @@ class LoginSecurityAlertController extends Controller
         abort_unless($membership instanceof GroupMember && $membership->isAdmin(), 403, __('messages.alerts_forbidden'));
 
         return $request->user()->notifications()->where('type', RepeatedLoginLockout::class)
-            ->where('data->group_id', $group->id);
+            ->where('data->group_id', $group->id)
+            ->whereIn('data->membership_id', $group->memberships()->pluck('id'));
     }
 }

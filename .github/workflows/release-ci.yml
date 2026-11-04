@@ -42,7 +42,7 @@ jobs:
           php-version: "8.4"
           tools: composer:2.10.3
           coverage: none
-          extensions: pdo_pgsql, pdo_sqlite
+          extensions: pdo_pgsql, pdo_sqlite, sodium
       - name: Install backend dependencies for API contract
         working-directory: backend
         run: composer install --no-interaction --prefer-dist
@@ -108,7 +108,7 @@ jobs:
           php-version: '8.4'
           tools: composer:2.10.3
           coverage: none
-          extensions: pdo_sqlite
+          extensions: pdo_sqlite, sodium
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
@@ -176,6 +176,7 @@ jobs:
         with:
           php-version: "8.4"
           coverage: none
+          extensions: sodium
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
@@ -257,7 +258,7 @@ jobs:
           php-version: '8.4'
           tools: composer:2.10.3
           coverage: pcov
-          extensions: pdo_sqlite
+          extensions: pdo_sqlite, sodium
           ini-values: pcov.directory=app
       - name: Install backend dependencies
         working-directory: backend
@@ -298,12 +299,14 @@ jobs:
       DB_HOST: 127.0.0.1
       DB_PORT: '5432'
       DB_DATABASE: famie_test
-      DB_USERNAME: famie_test
-      DB_PASSWORD: famie-ci-only
+      DB_USERNAME: famie_test_runner
+      DB_PASSWORD: famie-ci-test-only
       FAMIE_REWARD_PG_TEST: '1'
       FAMIE_CONCURRENCY_TEST: '1'
       FAMIE_BACKUP_PG_TEST: '1'
       FAMIE_REPRESENTATIVE_PG_TEST: "1"
+      FAMIE_LIFECYCLE_PG_TEST: '1'
+      FAMIE_TEST_PROFILE: postgres-ci
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: shivammathur/setup-php@v2
@@ -311,7 +314,7 @@ jobs:
           php-version: '8.4'
           tools: composer:2.10.3
           coverage: pcov
-          extensions: pdo_pgsql, pdo_sqlite
+          extensions: pdo_pgsql, pdo_sqlite, sodium
           ini-values: pcov.directory=app
       - name: Install PostgreSQL 14 client
         run: |-
@@ -328,10 +331,11 @@ jobs:
       - name: PostgreSQL focused tests with coverage
         working-directory: backend
         run: |
+          PGPASSWORD=famie-ci-only psql -h 127.0.0.1 -p 5432 -U famie_test -d famie_test -v ON_ERROR_STOP=1 -c "CREATE ROLE famie_test_runner LOGIN PASSWORD 'famie-ci-test-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; ALTER DATABASE famie_test OWNER TO famie_test_runner; REVOKE CONNECT ON DATABASE postgres, template1 FROM PUBLIC; REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT ALL ON SCHEMA public TO famie_test_runner;"
           cp .env.example .env
           php artisan key:generate --force
           mkdir -p ../coverage-results/backend-postgres
-          php artisan test --filter="RewardPostgresTest|RepresentativePostgresTest|MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest|AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest|DailyBackupPostgresTest" --coverage-clover ../coverage-results/backend-postgres/clover.xml
+          php artisan test --filter="RewardPostgresTest|RepresentativePostgresTest|AccountLifecyclePostgresTest|AccountLifecycleCleanupPostgresTest|MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest|AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest|DailyBackupPostgresTest" --coverage-clover ../coverage-results/backend-postgres/clover.xml
           php ../scripts/coverage/backend-summary.php ../coverage-results/backend-postgres/clover.xml backend-postgres ../coverage-results/backend-postgres/summary.json
       - uses: actions/setup-node@v7.1.0
         with:

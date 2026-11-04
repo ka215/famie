@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['group_id', 'user_id', 'role', 'status'])]
 class GroupMember extends Model
 {
     /** @use HasFactory<GroupMemberFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     public const ROLE_ADMIN = 'admin';
 

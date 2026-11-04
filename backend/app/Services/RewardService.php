@@ -53,7 +53,7 @@ class RewardService
             return $logs->distinct()->count('activity_date');
         }
 
-        return ActivityLike::query()->where('group_id', $group->id)->fromActiveMembers()->whereIn('activity_log_id', $logs->select('id'))->count();
+        return ActivityLike::query()->where('group_id', $group->id)->fromRetainedContributors()->whereIn('activity_log_id', $logs->select('id'))->count();
     }
 
     /** Called inside the existing group write transaction, including membership restoration. */

@@ -78,7 +78,7 @@ test('管理者がメンバーを編集・無効化・復元し、履歴が再�
     headers: { Authorization: `Bearer ${targetToken}` },
   })
   expect(denied.status()).toBe(401)
-  await page.getByRole('button', { name: '無効化済みメンバーを復元', exact: true }).click()
+  await page.getByRole('button', { name: '無効化済みメンバー', exact: true }).click()
   await page.getByRole('button', { name: '編集した名前を復元', exact: true }).click()
   await dialog.getByRole('button', { name: '復元する', exact: true }).click()
   await expect(page.getByRole('button', { name: '編集した名前を管理', exact: true })).toBeVisible()
@@ -199,7 +199,7 @@ test('一般メンバーには管理操作がなく、テーマは変更・保�
   await page.getByRole('heading', { name: '家族メンバー', exact: true }).click()
   await page.getByRole('heading', { name: 'カテゴリ', exact: true }).click()
   await expect(page.getByRole('button', { name: /を管理$/ })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '無効化済みメンバーを復元' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '無効化済みメンバー', exact: true })).toHaveCount(0)
   await page.getByRole('heading', { name: '表示設定', exact: true }).click()
   await page.getByRole('radio', { name: 'ダーク', exact: true }).check()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')

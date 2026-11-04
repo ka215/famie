@@ -6,7 +6,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (isMaintenance.value) return
 
-  const accountPaths = ['/verify-email', '/forgot-password', '/reset-password']
+  const accountPaths = ['/verify-email', '/forgot-password', '/reset-password', '/lifecycle-status']
   const publicPaths = ['/login', '/register', ...accountPaths]
   // Apache adds a trailing slash when serving prerendered page directories.
   const path = to.path.replace(/\/+$/, '') || '/'
