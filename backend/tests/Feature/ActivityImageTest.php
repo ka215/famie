@@ -8,7 +8,10 @@ use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
+use App\Services\ActivityImageDeletionService;
 use App\Services\ActivityImageService;
+use App\Services\GroupImageUsage;
+use App\Services\OperationState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -119,7 +122,7 @@ class ActivityImageTest extends TestCase
     {
         config(['famie.allowed_ips' => ['127.0.0.1']]);
         Storage::fake('local');
-        $this->app->instance(ActivityImageService::class, new class extends ActivityImageService
+        $this->app->instance(ActivityImageService::class, new class(app(GroupImageUsage::class), app(ActivityImageDeletionService::class)) extends ActivityImageService
         {
             public function prepare(UploadedFile $file): array
             {
@@ -130,7 +133,7 @@ class ActivityImageTest extends TestCase
             }
         });
         $group = Group::factory()->create();
-        $group->forceFill(['images_enabled' => true, 'image_quota_bytes' => 14])->save();
+        $group->forceFill(['images_enabled' => true, 'image_quota_bytes' => 28])->save();
         Sanctum::actingAs($this->member($group));
         $category = Category::query()->create(['group_id' => $group->id, 'name' => '家事', 'color_code' => '#10B981', 'sort_order' => 1]);
         $payload = ['category_id' => $category->id, 'activity_date' => '2026-10-10', 'content' => '写真'];
@@ -142,25 +145,29 @@ class ActivityImageTest extends TestCase
             ->assertOk()->assertJsonPath('data.id', $logId);
         $this->assertDatabaseCount('activity_logs', 1);
         $originalImageId = ActivityImage::query()->sole()->id;
-        $this->post("/v1/groups/{$group->id}/logs/{$logId}", [
+        app(OperationState::class)->locked('image-deletions', fn () => $this->post("/v1/groups/{$group->id}/logs/{$logId}", [
             '_method' => 'PUT',
             'revision' => '1',
             'image' => UploadedFile::fake()->create('replacement.jpg', 1, 'image/jpeg'),
-        ])->assertOk()->assertJsonPath('data.revision', 2);
-        $this->assertDatabaseCount('activity_images', 1);
-        $this->assertNotSame($originalImageId, ActivityImage::query()->sole()->id);
-        $replacementImageId = ActivityImage::query()->sole()->id;
+        ])->assertOk()->assertJsonPath('data.revision', 2));
+        $this->assertDatabaseCount('activity_images', 2);
+        $this->assertDatabaseHas('activity_images', ['id' => $originalImageId]);
+        $replacementImageId = ActivityImage::query()->whereNull('retired_at')->sole()->id;
         $this->post("/v1/groups/{$group->id}/logs/{$logId}", [
             '_method' => 'PUT',
             'revision' => '1',
             'image' => UploadedFile::fake()->create('stale.jpg', 1, 'image/jpeg'),
         ])->assertStatus(409);
-        $this->assertSame($replacementImageId, ActivityImage::query()->sole()->id);
+        $this->assertSame($replacementImageId, ActivityImage::query()->whereNull('retired_at')->sole()->id);
         $this->postJson("/v1/groups/{$group->id}/logs", [...$payload, 'image' => UploadedFile::fake()->create('photo2.jpg', 1, 'image/jpeg')])->assertStatus(422);
         $this->assertDatabaseCount('activity_logs', 1);
 
-        $this->putJson("/v1/groups/{$group->id}/logs/{$logId}", ['remove_image' => true])->assertOk();
+        app(OperationState::class)->locked('image-deletions', fn () => $this->putJson("/v1/groups/{$group->id}/logs/{$logId}", ['remove_image' => true])->assertOk());
+        $this->assertDatabaseCount('activity_images', 2);
+        $this->assertSame(28, app(GroupImageUsage::class)->bytes($group));
+        $this->assertSame(0, app(ActivityImageDeletionService::class)->process());
         $this->assertDatabaseCount('activity_images', 0);
+        $this->assertSame(0, app(GroupImageUsage::class)->bytes($group));
         $this->putJson("/v1/groups/{$group->id}/logs/{$logId}", ['revision' => 1, 'content' => '古い編集'])->assertStatus(409);
         $group->forceFill(['images_enabled' => false])->save();
         $this->putJson("/v1/groups/{$group->id}/logs/{$logId}", ['content' => '本文のみ'])->assertOk();

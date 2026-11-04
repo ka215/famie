@@ -13,7 +13,7 @@ class ActivityImageController extends Controller
 {
     public function show(Group $group, int $image): StreamedResponse
     {
-        $target = ActivityImage::query()->where('group_id', $group->id)->whereKey($image)
+        $target = ActivityImage::query()->where('group_id', $group->id)->whereKey($image)->whereNull('retired_at')
             ->whereHas('activityLog', fn ($query) => $query->whereIn('user_id', $group->memberships()->where('status', GroupMember::STATUS_ACTIVE)->select('user_id')))->firstOrFail();
         abort_unless(Storage::disk($target->disk)->exists($target->path), 404);
 

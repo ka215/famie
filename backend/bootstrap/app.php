@@ -25,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: '',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trimStrings(except: ['new_password', 'new_password_confirmation']);
+        $middleware->trimStrings(except: ['new_password', 'new_password_confirmation', 'confirmation_code']);
         $middleware->prepend([TraceRequest::class, SetUiLocale::class, RestrictIpAddress::class]);
         $middleware->alias(['group.member' => EnsureActiveGroupMembership::class]);
         // API専用アプリのためゲストのリダイレクト先'login'ルートは存在しない

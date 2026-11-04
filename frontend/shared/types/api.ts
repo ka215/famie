@@ -65,6 +65,25 @@ export interface FamilyMember {
   role: MembershipRole
 }
 
+export type LifecycleKind = 'member_delete' | 'group_withdraw'
+
+export interface LifecyclePrepared {
+  receipt_id: string
+  confirmation_code: string
+  kind: LifecycleKind
+  prepared_expires_at: string
+  impact: { family: boolean; members: number; posts: 'delete'; images: 'delete' }
+}
+
+export interface LifecycleStatus {
+  receipt_id: string
+  kind: LifecycleKind
+  state: 'prepared' | 'committed' | 'aborted'
+  cleanup_state: 'pending' | 'processing' | 'complete'
+  committed_at: string | null
+  retention_until: string | null
+}
+
 export interface Category {
   id: number
   group_id: number

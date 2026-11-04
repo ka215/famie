@@ -64,7 +64,7 @@ class ActivityLikeTest extends TestCase
         $this->assertDatabaseCount('activity_likes', 0);
     }
 
-    public function test_deactivation_hides_likes_without_deleting_and_restoration_counts_them_again(): void
+    public function test_deactivation_retains_sent_likes_and_restoration_does_not_change_the_count(): void
     {
         [$group, $owner, $actor, $log] = $this->family();
         $actorMembership = $actor->membership;
@@ -73,7 +73,7 @@ class ActivityLikeTest extends TestCase
         $actorMembership->update(['status' => 'inactive']);
         $this->deleteJson("/v1/groups/{$group->id}/logs/{$log->id}/like")->assertNotFound();
         Sanctum::actingAs($owner);
-        $this->getJson("/v1/groups/{$group->id}/logs")->assertJsonPath('data.0.likes_count', 0);
+        $this->getJson("/v1/groups/{$group->id}/logs")->assertJsonPath('data.0.likes_count', 1);
         $this->assertDatabaseCount('activity_likes', 1);
         $actorMembership->update(['status' => 'active']);
         $this->getJson("/v1/groups/{$group->id}/logs")->assertJsonPath('data.0.likes_count', 1);

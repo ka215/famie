@@ -31,7 +31,10 @@ class AuthController extends Controller
     public function login(Request $request, LoginThrottle $throttle): JsonResponse
     {
         $request->validate(['login' => ['required', 'string', 'max:255'], 'password' => ['required', 'string', 'max:4096']]);
-        $user = User::query()->where('username', $request->string('login'))->orWhereRaw('LOWER(email) = ?', [strtolower((string) $request->string('login'))])->first();
+        $user = User::query()->where(function ($query) use ($request): void {
+            $query->where('username', $request->string('login'))
+                ->orWhereRaw('LOWER(email) = ?', [strtolower((string) $request->string('login'))]);
+        })->whereNull('deleted_at')->first();
 
         $identity = $user ? 'user:'.$user->id : 'unknown:'.mb_strtolower((string) $request->string('login'));
 

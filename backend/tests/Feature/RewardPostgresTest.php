@@ -81,7 +81,7 @@ class RewardPostgresTest extends TestCase
         foreach ([1 => 10, 2 => 3] as $page => $count) {
             $this->getJson("/v1/groups/{$group->id}/rewards/awards?page=$page")->assertOk()->assertJsonCount($count, 'data')
                 ->assertJsonPath('meta.trophy_totals', ['gold' => 2, 'silver' => 1, 'bronze' => 10])
-                ->assertJsonPath('meta.activity_totals', ['posts' => 2, 'likes_received' => 2]);
+                ->assertJsonPath('meta.activity_totals', ['posts' => 2, 'likes_received' => 4]);
         }
         $other = GroupMember::factory()->create(['group_id' => $group->id]);
         $this->getJson("/v1/groups/{$group->id}/rewards/awards?member_id={$other->id}")->assertOk()

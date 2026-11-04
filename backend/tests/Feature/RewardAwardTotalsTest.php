@@ -106,13 +106,13 @@ class RewardAwardTotalsTest extends TestCase
 
         foreach ([1, 2, 3] as $page) {
             $this->getJson($path.'&page='.$page)->assertOk()
-                ->assertJsonPath('meta.activity_totals', ['posts' => 3, 'likes_received' => 4]);
+                ->assertJsonPath('meta.activity_totals', ['posts' => 3, 'likes_received' => 6]);
         }
         $this->getJson("/v1/groups/{$parent->group_id}/rewards/awards")->assertOk()
             ->assertJsonPath('meta.activity_totals', ['posts' => 1, 'likes_received' => 0]);
     }
 
-    public function test_activity_totals_follow_unlikes_member_status_and_post_deletion_without_revoking_awards(): void
+    public function test_activity_totals_follow_unlikes_but_retain_inactive_sender_likes_and_awards(): void
     {
         $owner = GroupMember::factory()->create(['role' => 'admin']);
         $sender = GroupMember::factory()->create(['group_id' => $owner->group_id]);
@@ -124,7 +124,7 @@ class RewardAwardTotalsTest extends TestCase
 
         $this->getJson($path)->assertOk()->assertJsonPath('meta.activity_totals', ['posts' => 1, 'likes_received' => 1]);
         $sender->update(['status' => 'inactive']);
-        $this->getJson($path)->assertOk()->assertJsonPath('meta.activity_totals.likes_received', 0);
+        $this->getJson($path)->assertOk()->assertJsonPath('meta.activity_totals.likes_received', 1);
         $sender->update(['status' => 'active']);
         $this->getJson($path)->assertOk()->assertJsonPath('meta.activity_totals.likes_received', 1);
         $like->delete();

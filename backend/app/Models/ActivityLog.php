@@ -9,11 +9,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['group_id', 'user_id', 'category_id', 'activity_date', 'activity_time', 'content', 'note', 'client_request_id', 'revision'])]
 class ActivityLog extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /** @return BelongsTo<Group, $this> */
     public function group(): BelongsTo
@@ -32,6 +33,8 @@ class ActivityLog extends Model
             'likes_count' => 'integer',
             'liked_by_me' => 'boolean',
             'can_like' => 'boolean',
+            'content_erased_at' => 'datetime',
+            'deleted_at' => 'datetime',
         ];
     }
 
@@ -60,14 +63,14 @@ class ActivityLog extends Model
     /** @return HasOne<ActivityImage, $this> */
     public function image(): HasOne
     {
-        return $this->hasOne(ActivityImage::class);
+        return $this->hasOne(ActivityImage::class)->whereNull('retired_at');
     }
 
     /** @param Builder<ActivityLog> $query */
     public function scopeWithLikeState(Builder $query, int $viewerId): void
     {
-        $query->withCount(['likes' => fn (Builder $likes) => $likes->fromActiveMembers()->whereColumn('activity_likes.group_id', 'activity_logs.group_id')])
-            ->withExists(['likes as liked_by_me' => fn (Builder $likes) => $likes->fromActiveMembers()->whereColumn('activity_likes.group_id', 'activity_logs.group_id')->where('user_id', $viewerId)])
+        $query->withCount(['likes' => fn (Builder $likes) => $likes->fromRetainedContributors()->whereColumn('activity_likes.group_id', 'activity_logs.group_id')])
+            ->withExists(['likes as liked_by_me' => fn (Builder $likes) => $likes->fromRetainedContributors()->whereColumn('activity_likes.group_id', 'activity_logs.group_id')->where('user_id', $viewerId)])
             ->selectRaw('case when activity_logs.user_id <> ? then 1 else 0 end as can_like', [$viewerId]);
     }
 

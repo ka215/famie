@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Services\GroupImageUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class GroupController extends Controller
 {
+    public function __construct(private GroupImageUsage $imageUsage) {}
+
     public function show(Group $group): JsonResponse
     {
         return response()->json(['data' => $this->payload($group)]);
@@ -36,7 +39,7 @@ class GroupController extends Controller
             'limits' => ['members' => config('famie.max_group_members'), 'categories' => config('famie.max_group_categories')],
             'images' => [
                 'enabled' => $group->images_enabled,
-                'used_bytes' => (int) $group->images()->sum('bytes'),
+                'used_bytes' => $this->imageUsage->bytes($group),
                 'quota_bytes' => $group->image_quota_bytes,
                 'max_files_per_activity' => config('famie.image_max_files'),
                 'max_input_bytes' => config('famie.image_max_input_kb') * 1024,

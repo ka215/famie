@@ -496,6 +496,81 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/lifecycle-operations':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
+    post:
+      operationId: prepareAccountLifecycleOperation
+      summary: メンバー削除・家族退会を準備
+      tags: [groups]
+      description: 代表管理者専用。元の識別情報や破壊的変更はこの段階では保存・実行しない。確認コードはこの応答で一度だけ返す。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind: {type: string, enum: [member_delete, group_withdraw]}
+                membership_id: {$ref: '#/components/schemas/Id'}
+              additionalProperties: false
+      responses:
+        '201': {description: 準備完了, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecyclePrepared'}}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  '/groups/{group}/lifecycle-operations/{operation}/commit':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+      - $ref: '#/components/parameters/UiLanguage'
+    post:
+      operationId: commitAccountLifecycleOperation
+      summary: メンバー削除・家族退会を確定
+      tags: [groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, confirmation_code, confirmed]
+              properties:
+                current_password: {type: string, maxLength: 4096}
+                confirmation_code: {type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$'}
+                confirmed: {type: boolean, const: true}
+              additionalProperties: false
+      responses:
+        '202': {description: 確定済み, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecycleStatus'}}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  '/lifecycle-operation-status':
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
+    post:
+      operationId: getAccountLifecycleOperationStatus
+      summary: 受付番号と確認コードで退会・削除状況を確認
+      tags: [groups]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [receipt_id, confirmation_code], properties: {receipt_id: {type: string, format: uuid}, confirmation_code: {type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$'}}, additionalProperties: false}
+      responses:
+        '200': {description: 成功, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecycleStatus'}}}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
   '/groups/{group}/categories':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -1268,6 +1343,23 @@ paths:
           $ref: '#/components/responses/Validation'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /groups/{group}/lifecycle-operations/{operation}/cancel:
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+      - $ref: '#/components/parameters/UiLanguage'
+    post:
+      operationId: cancelAccountLifecycleOperation
+      summary: 未確定の退会・メンバー削除の確認を取り消す
+      tags: [groups]
+      responses:
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        "200": {description: 確認取消済み（利用データの削除なし）, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecycleStatus'}}}}}}
 components:
   securitySchemes:
     bearerAuth:
@@ -1404,6 +1496,32 @@ components:
             is_representative:
               type: boolean
               description: 家族の固定された代表管理者であるか
+    LifecyclePrepared:
+      type: object
+      required: [receipt_id, confirmation_code, kind, prepared_expires_at, impact]
+      properties:
+        receipt_id: {type: string, format: uuid}
+        confirmation_code: {type: string, minLength: 43, maxLength: 43, writeOnly: true, pattern: '^[A-Za-z0-9_-]{43}$'}
+        kind: {type: string, enum: [member_delete, group_withdraw]}
+        prepared_expires_at: {type: string, format: date-time}
+        impact:
+          type: object
+          required: [family, members, posts, images]
+          properties:
+            family: {type: boolean}
+            members: {type: integer, minimum: 1}
+            posts: {type: string, const: delete}
+            images: {type: string, const: delete}
+    LifecycleStatus:
+      type: object
+      required: [receipt_id, kind, state, cleanup_state, committed_at, retention_until]
+      properties:
+        receipt_id: {type: string, format: uuid}
+        kind: {type: string, enum: [member_delete, group_withdraw]}
+        state: {type: string, enum: [prepared, committed, aborted]}
+        cleanup_state: {type: string, enum: [pending, processing, complete]}
+        committed_at: {type: [string, 'null'], format: date-time}
+        retention_until: {type: [string, 'null'], format: date-time}
     Category:
       type: object
       required: [id, group_id, name, color_code, sort_order]
@@ -1654,7 +1772,7 @@ components:
                     likes_received:
                       type: integer
                       minimum: 0
-                      description: 対象投稿に現在付いた有効メンバーからのいいね総数。削除・取消・無効化で減少する
+                      description: 対象投稿に付いた同一家族の保持対象いいね総数。送信者の無効化・削除では減らず、取消・対象投稿削除で減少する
   responses:
     Unauthorized:
       description: Bearer未指定・失効
