@@ -597,6 +597,111 @@ class AccountLifecycleTest extends TestCase
         ])->assertStatus(202);
     }
 
+    public function test_wrong_password_and_repeated_reopening_do_not_block_member_deletion_preparation(): void
+    {
+        $this->freezeTime();
+        $this->configureLifecycleStorage();
+        [$group, $representative, , $member] = $this->family();
+        $member->update(['status' => GroupMember::STATUS_INACTIVE]);
+        Sanctum::actingAs($representative->user);
+        $path = "/v1/groups/{$group->id}/lifecycle-operations";
+        $first = $this->postJson($path, ['kind' => 'group_withdraw'])->assertCreated();
+        $receipt = $first->json('data.receipt_id');
+        $this->postJson("{$path}/{$receipt}/commit", [
+            'current_password' => 'wrong-password', 'confirmation_code' => $first->json('data.confirmation_code'), 'confirmed' => true,
+        ])->assertUnprocessable();
+        $this->postJson("{$path}/{$receipt}/cancel")->assertOk();
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $prepared = $this->postJson($path, ['kind' => 'group_withdraw'])->assertCreated();
+            $this->postJson("{$path}/{$prepared->json('data.receipt_id')}/cancel")->assertOk();
+        }
+        $this->postJson($path, ['kind' => 'member_delete', 'membership_id' => $member->id])
+            ->assertCreated()->assertJsonPath('data.kind', 'member_delete');
+
+        $this->assertNotSoftDeleted('users', ['id' => $member->user_id]);
+        $this->assertNull($group->fresh()->withdrawn_at);
+    }
+
+    public function test_preparation_throttle_recovers_after_a_minute_without_weakening_password_attempt_limits(): void
+    {
+        $this->freezeTime();
+        $this->configureLifecycleStorage();
+        [$group, $representative] = $this->family();
+        Sanctum::actingAs($representative->user);
+        $path = "/v1/groups/{$group->id}/lifecycle-operations";
+        $prepared = $this->postJson($path, ['kind' => 'group_withdraw'])->assertCreated();
+        $receipt = $prepared->json('data.receipt_id');
+        $body = ['current_password' => 'wrong-password', 'confirmation_code' => $prepared->json('data.confirmation_code'), 'confirmed' => true];
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson("{$path}/{$receipt}/commit", $body)->assertUnprocessable();
+        }
+        $this->postJson("{$path}/{$receipt}/commit", $body)->assertStatus(429)->assertHeader('Retry-After', '900');
+        $this->postJson("{$path}/{$receipt}/cancel")->assertOk();
+        for ($attempt = 0; $attempt < 9; $attempt++) {
+            $this->postJson($path, ['kind' => 'group_withdraw'])->assertCreated();
+        }
+        $this->postJson($path, ['kind' => 'group_withdraw'])->assertStatus(429)->assertHeader('Retry-After', '60');
+
+        $this->travel(61)->seconds();
+        $next = $this->postJson($path, ['kind' => 'group_withdraw'])->assertCreated();
+        $this->postJson("{$path}/{$next->json('data.receipt_id')}/commit", [
+            ...$body, 'confirmation_code' => $next->json('data.confirmation_code'),
+        ])->assertStatus(429);
+        $this->assertNull($group->fresh()->withdrawn_at);
+    }
+
+    public function test_preparation_reports_shared_commit_lockout_without_consuming_password_attempts(): void
+    {
+        $this->freezeTime();
+        $this->configureLifecycleStorage();
+        [$group, $representative, , $member] = $this->family();
+        $member->update(['status' => GroupMember::STATUS_INACTIVE]);
+        Sanctum::actingAs($representative->user);
+        $path = "/v1/groups/{$group->id}/lifecycle-operations";
+        $prepared = $this->postJson($path, ['kind' => 'group_withdraw'])
+            ->assertCreated()->assertJsonPath('data.commit_retry_after', 0);
+        for ($attempt = 0; $attempt < 4; $attempt++) {
+            $this->postJson("{$path}/{$prepared->json('data.receipt_id')}/commit", [
+                'current_password' => 'wrong-password', 'confirmation_code' => $prepared->json('data.confirmation_code'), 'confirmed' => true,
+            ])->assertUnprocessable();
+        }
+        $prepared = $this->postJson($path, ['kind' => 'group_withdraw'])
+            ->assertCreated()->assertJsonPath('data.commit_retry_after', 0);
+        $this->postJson("{$path}/{$prepared->json('data.receipt_id')}/commit", [
+            'current_password' => 'wrong-password', 'confirmation_code' => $prepared->json('data.confirmation_code'), 'confirmed' => true,
+        ])->assertUnprocessable();
+
+        $memberBody = ['kind' => 'member_delete', 'membership_id' => $member->id];
+        $this->postJson($path, $memberBody)->assertCreated()->assertJsonPath('data.commit_retry_after', 900);
+        $this->postJson($path, ['kind' => 'group_withdraw'])->assertCreated()->assertJsonPath('data.commit_retry_after', 900);
+        $this->travel(60)->seconds();
+        $this->postJson($path, $memberBody)->assertCreated()->assertJsonPath('data.commit_retry_after', 840);
+        $this->travel(841)->seconds();
+        $this->postJson($path, ['kind' => 'group_withdraw'])->assertCreated()->assertJsonPath('data.commit_retry_after', 0);
+    }
+
+    public function test_preparation_reports_an_ip_lockout_even_for_an_actor_with_no_commit_attempts(): void
+    {
+        $this->freezeTime();
+        $this->configureLifecycleStorage();
+        for ($actor = 0; $actor < 4; $actor++) {
+            [$group, $representative] = $this->family();
+            Sanctum::actingAs($representative->user);
+            $path = "/v1/groups/{$group->id}/lifecycle-operations";
+            $prepared = $this->postJson($path, ['kind' => 'group_withdraw'])->assertCreated();
+            for ($attempt = 0; $attempt < 5; $attempt++) {
+                $this->postJson("{$path}/{$prepared->json('data.receipt_id')}/commit", [
+                    'current_password' => 'wrong-password', 'confirmation_code' => $prepared->json('data.confirmation_code'), 'confirmed' => true,
+                ])->assertUnprocessable();
+            }
+        }
+        [$group, $representative] = $this->family();
+        Sanctum::actingAs($representative->user);
+        $this->postJson("/v1/groups/{$group->id}/lifecycle-operations", ['kind' => 'group_withdraw'])
+            ->assertCreated()->assertJsonPath('data.commit_retry_after', 900);
+    }
+
     public function test_reopening_replaces_an_uncommitted_confirmation_left_by_a_closed_tab(): void
     {
         $this->configureLifecycleStorage();

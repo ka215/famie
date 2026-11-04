@@ -263,7 +263,9 @@
       "deleteName": "Delete {name}",
       "prepareDeadline": "Confirm before: {date}",
       "closeHelp": "Closing before you confirm cancels this confirmation and invalidates its receipt information. Reopen the screen if the deadline has passed.",
-      "cancelFailed": "The confirmation could not be cancelled. Check your connection and try closing again."
+      "cancelFailed": "The confirmation could not be cancelled. Check your connection and try closing again.",
+      "retryAfter": "Too many attempts. You can try again in {seconds} seconds.",
+      "retryReady": "You can now try again."
     },
     "about": {
       "title": "About",

@@ -522,7 +522,7 @@ watch(locale, () => {
           <span>{{ t('settings.storage.remaining') }} {{ formatStorageSize(storageRemainingBytes) }} / {{ formatStorageSize(storageQuotaBytes) }}</span>
         </div>
       </div>
-      <div v-if="membership?.is_representative" class="border-t border-red-200 pt-4 dark:border-red-900">
+      <div v-if="membership?.is_representative" class="border-t border-slate-200 pt-4 dark:border-slate-700">
         <p class="text-xs text-slate-600 dark:text-slate-300">{{ t('settings.lifecycle.withdrawHelp') }}</p>
         <button type="button" class="mt-3 min-h-11 rounded-lg border border-red-400 px-4 text-sm text-red-700 dark:text-red-300" @click="withdrawalOpen = true">{{ t('settings.lifecycle.withdrawFamily') }}</button>
       </div>

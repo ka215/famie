@@ -72,6 +72,7 @@ export interface LifecyclePrepared {
   confirmation_code: string
   kind: LifecycleKind
   prepared_expires_at: string
+  commit_retry_after: number
   impact: { family: boolean; members: number; posts: 'delete'; images: 'delete' }
 }
 
