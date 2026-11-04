@@ -1498,7 +1498,7 @@ components:
               description: 家族の固定された代表管理者であるか
     LifecyclePrepared:
       type: object
-      required: [receipt_id, confirmation_code, kind, prepared_expires_at, impact]
+      required: [receipt_id, confirmation_code, kind, prepared_expires_at, impact, commit_retry_after]
       properties:
         receipt_id: {type: string, format: uuid}
         confirmation_code: {type: string, minLength: 43, maxLength: 43, writeOnly: true, pattern: '^[A-Za-z0-9_-]{43}$'}
@@ -1512,6 +1512,10 @@ components:
             members: {type: integer, minimum: 1}
             posts: {type: string, const: delete}
             images: {type: string, const: delete}
+        commit_retry_after:
+          type: integer
+          minimum: 0
+          description: 確定操作の回数制限が解除されるまでの秒数。制限なしは0。状態確認では確定の試行回数を消費しない。
     LifecycleStatus:
       type: object
       required: [receipt_id, kind, state, cleanup_state, committed_at, retention_until]

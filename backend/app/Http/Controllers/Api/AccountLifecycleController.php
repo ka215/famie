@@ -8,6 +8,7 @@ use App\Models\Group;
 use App\Services\AccountLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -31,6 +32,7 @@ class AccountLifecycleController extends Controller
                 'confirmation_code' => $prepared['code'],
                 'kind' => $prepared['operation']->kind,
                 'prepared_expires_at' => $prepared['operation']->prepared_expires_at,
+                'commit_retry_after' => $this->commitRetryAfter($request),
                 'impact' => $prepared['operation']->kind === AccountLifecycleOperation::KIND_GROUP_WITHDRAW
                     ? ['family' => true, 'members' => $prepared['operation']->subjects()->count(), 'posts' => 'delete', 'images' => 'delete']
                     : ['family' => false, 'members' => 1, 'posts' => 'delete', 'images' => 'delete'],
@@ -73,6 +75,21 @@ class AccountLifecycleController extends Controller
         $cancelled = $service->cancel($request->user(), $group, $operation);
 
         return response()->json(['data' => $this->statusPayload($cancelled)], 200, ['Cache-Control' => 'no-store']);
+    }
+
+    private function commitRetryAfter(Request $request): int
+    {
+        $retryAfter = 0;
+        $limits = RateLimiter::limiter('lifecycle-commit')($request);
+        foreach ($limits as $limit) {
+            // Match Laravel ThrottleRequests' default key for a named limiter.
+            $key = md5('lifecycle-commit'.$limit->key);
+            if (RateLimiter::attempts($key) >= $limit->maxAttempts) {
+                $retryAfter = max($retryAfter, RateLimiter::availableIn($key));
+            }
+        }
+
+        return $retryAfter;
     }
 
     /** @return array<string, mixed> */

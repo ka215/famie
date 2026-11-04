@@ -70,7 +70,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('activity-likes', fn (Request $request) => Limit::perSecond(config('famie.like_rate_limit_per_second'))
             ->by('activity-likes:'.$request->user()->id)
             ->response(fn (Request $request, array $headers) => response()->json(['message' => __('messages.operation_limited')], 429, $headers)));
-        RateLimiter::for('lifecycle-prepare', fn (Request $request) => Limit::perHour(5)->by('lifecycle-prepare:'.$request->user()->id));
+        RateLimiter::for('lifecycle-prepare', fn (Request $request) => Limit::perMinute(10)->by('lifecycle-prepare:v2:'.$request->user()->id));
         RateLimiter::for('lifecycle-commit', fn (Request $request) => [
             Limit::perMinutes(15, 5)->by('lifecycle-commit:user:'.$request->user()->id),
             Limit::perMinutes(15, 20)->by('lifecycle-commit:ip:'.$request->ip()),

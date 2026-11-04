@@ -128,6 +128,11 @@ jobs:
       - name: Application E2E
         working-directory: frontend
         run: pnpm test:e2e --project=${{ matrix.project }}
+      - name: Lifecycle E2E with persistent rate limits
+        working-directory: frontend
+        env:
+          FAMIE_E2E_PERSIST_RATE_LIMITS: "1"
+        run: pnpm test:e2e account-lifecycle-api.spec.ts --project=${{ matrix.project }}
       - name: Upload Playwright reports on failure
         if: failure()
         uses: actions/upload-artifact@v7.0.2

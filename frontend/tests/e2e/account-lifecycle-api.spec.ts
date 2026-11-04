@@ -31,6 +31,18 @@ test('実APIで家族退会を確定し、トークン失効と公開状況確�
   await page.getByRole('button', { name: '家族の利用を終了（退会）' }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog.locator('dd')).toHaveCount(2)
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('textbox', { name: '現在のパスワード' }).fill('wrong-password')
+  await dialog.getByRole('button', { name: '家族全員の利用を終了' }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('現在のパスワードが正しくありません。')
+  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await page.getByRole('button', { name: '家族の利用を終了（退会）' }).click()
+    await expect(dialog.locator('dd')).toHaveCount(2)
+    await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  }
+  await page.getByRole('button', { name: '家族の利用を終了（退会）' }).click()
+  await expect(dialog.locator('dd')).toHaveCount(2)
   const receipt = (await dialog.locator('dd').nth(0).textContent())?.trim()
   const code = (await dialog.locator('dd').nth(1).textContent())?.trim()
   expect(receipt).toMatch(/^[a-f0-9-]{36}$/)
@@ -124,5 +136,60 @@ test('実APIで無効メンバーを削除し、代表者の継続利用とロ�
     data: memberBody,
   })
   expect(recreated.status()).toBe(201)
-  expect((await recreated.json()).data.id).not.toBe(member.id)
+  const replacement = (await recreated.json()).data
+  expect(replacement.id).not.toBe(member.id)
+
+  // The earlier failed commit and successful deletion used two of the five attempts.
+  const preparation = await page.request.post(`${family.path}/lifecycle-operations`, {
+    headers: family.headers,
+    data: { kind: 'group_withdraw' },
+  })
+  expect(preparation.status()).toBe(201)
+  const pending = (await preparation.json()).data
+  expect(pending.commit_retry_after).toBe(0)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const failed = await page.request.post(
+      `${family.path}/lifecycle-operations/${pending.receipt_id}/commit`,
+      {
+        headers: family.headers,
+        data: {
+          current_password: 'wrong-password',
+          confirmation_code: pending.confirmation_code,
+          confirmed: true,
+        },
+      }
+    )
+    expect(failed.status()).toBe(422)
+  }
+  expect(
+    (
+      await page.request.post(`${family.path}/lifecycle-operations/${pending.receipt_id}/cancel`, {
+        headers: family.headers,
+      })
+    ).status()
+  ).toBe(200)
+  await page.getByText('家族設定', { exact: true }).click()
+  await page.getByRole('button', { name: '家族の利用を終了（退会）' }).click()
+  await expect(dialog.getByRole('alert')).toContainText('秒後に再試行できます。')
+  await expect(dialog.getByRole('alert')).toBeInViewport()
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('textbox', { name: '現在のパスワード' }).fill(password)
+  await expect(dialog.getByRole('button', { name: '家族全員の利用を終了' })).toBeDisabled()
+  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  expect(
+    (
+      await page.request.put(`${family.path}/members/${replacement.id}/status`, {
+        headers: family.headers,
+        data: { status: 'inactive' },
+      })
+    ).status()
+  ).toBe(200)
+  await page.reload()
+  await page.getByRole('button', { name: '無効化済みメンバー', exact: true }).click()
+  await page.getByRole('button', { name: '削除検証メンバーを削除', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toContainText('秒後に再試行できます。')
+  await expect(dialog.getByRole('alert')).toBeInViewport()
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('textbox', { name: '現在のパスワード' }).fill(password)
+  await expect(dialog.getByRole('button', { name: 'メンバーを削除', exact: true })).toBeDisabled()
 })

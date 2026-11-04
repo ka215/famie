@@ -119,6 +119,56 @@ test('代表管理者が受付情報を保存して家族退会を確定し、�
 const fixtureReceipt = '018f2c3d-4567-7890-abcd-ef0123456789'
 const fixtureCode = 'A'.repeat(43)
 
+test('準備操作の回数制限は残り時間を表示し、期限後に再試行できる', async ({ page, context }) => {
+  await mockSettings(page, context)
+  let attempts = 0
+  await page.route('**/groups/1/lifecycle-operations', async (route) => {
+    attempts++
+    if (attempts === 1)
+      return route.fulfill({
+        status: 429,
+        headers: { 'Retry-After': '2' },
+        json: { message: 'Too Many Attempts.' },
+      })
+    return route.fallback()
+  })
+  await page.goto('/settings')
+  await page.getByText('家族設定', { exact: true }).click()
+  await page.getByRole('button', { name: '家族の利用を終了（退会）' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('alert')).toContainText('秒後に再試行できます。')
+  const retry = dialog.getByRole('button', { name: '再試行', exact: true })
+  await expect(retry).toBeDisabled()
+  await expect(dialog.getByRole('alert')).toHaveText('再試行できるようになりました。')
+  await retry.click()
+  await expect(dialog.getByText(fixtureCode)).toBeVisible()
+  expect(attempts).toBe(2)
+})
+
+test('確定操作の回数制限はパスワード欄の下で残り時間を表示する', async ({ page, context }) => {
+  await mockSettings(page, context)
+  await page.route('**/lifecycle-operations/*/commit', (route) =>
+    route.fulfill({
+      status: 429,
+      headers: { 'Retry-After': '2' },
+      json: { message: 'Too Many Attempts.' },
+    })
+  )
+  await page.goto('/settings')
+  await page.getByText('家族設定', { exact: true }).click()
+  await page.getByRole('button', { name: '家族の利用を終了（退会）' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('checkbox').check()
+  await dialog.getByRole('textbox', { name: '現在のパスワード' }).fill('wrong-password')
+  const submit = dialog.getByRole('button', { name: '家族全員の利用を終了', exact: true })
+  await submit.click()
+  await expect(dialog.getByRole('alert')).toContainText('秒後に再試行できます。')
+  await expect(dialog.getByRole('alert')).toBeInViewport()
+  await expect(submit).toBeDisabled()
+  await expect(dialog.getByRole('alert')).toHaveText('再試行できるようになりました。')
+  await expect(submit).toBeEnabled()
+})
+
 async function mockSettings(page: Page, context: BrowserContext, representative = true) {
   await context.addCookies([
     { name: 'auth_token', value: 'lifecycle-fixture', url: 'https://127.0.0.1' },
@@ -166,6 +216,72 @@ async function mockSettings(page: Page, context: BrowserContext, representative 
         },
       })
     return route.fulfill({ json: [] })
+  })
+}
+
+for (const kind of ['group_withdraw', 'member_delete'] as const) {
+  test(`${kind}: 制限中に開くと最初から警告し、期限まで確定できない`, async ({ page, context }) => {
+    await mockSettings(page, context)
+    await page.route('**/members/inactive', (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: 2,
+            membership_id: 2,
+            username: 'inactive',
+            display_name: '検証メンバー',
+            role: 'member',
+            is_representative: false,
+          },
+        ],
+      })
+    )
+    await page.route('**/groups/1/lifecycle-operations', (route) =>
+      route.fulfill({
+        status: 201,
+        json: {
+          data: {
+            receipt_id: fixtureReceipt,
+            confirmation_code: fixtureCode,
+            kind,
+            prepared_expires_at: '2030-11-03T13:00:00Z',
+            commit_retry_after: 4,
+            impact: {
+              family: kind === 'group_withdraw',
+              members: 1,
+              posts: 'delete',
+              images: 'delete',
+            },
+          },
+        },
+      })
+    )
+    let commits = 0
+    await page.route('**/lifecycle-operations/*/commit', (route) => {
+      commits++
+      return route.fulfill({ status: 500, json: {} })
+    })
+    await page.goto('/settings#family-members')
+    if (kind === 'group_withdraw') {
+      await page.getByText('家族設定', { exact: true }).click()
+      await page.getByRole('button', { name: '家族の利用を終了（退会）' }).click()
+    } else {
+      await page.getByRole('button', { name: '無効化済みメンバー', exact: true }).click()
+      await page.getByRole('button', { name: '検証メンバーを削除', exact: true }).click()
+    }
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('alert')).toContainText('秒後に再試行できます。')
+    await expect(dialog.getByRole('alert')).toBeInViewport()
+    await dialog.getByRole('checkbox').check()
+    await dialog.getByRole('textbox', { name: '現在のパスワード' }).fill('password')
+    const submit = dialog.getByRole('button', {
+      name: kind === 'group_withdraw' ? '家族全員の利用を終了' : 'メンバーを削除',
+      exact: true,
+    })
+    await expect(submit).toBeDisabled()
+    expect(commits).toBe(0)
+    await expect(dialog.getByRole('alert')).toHaveText('再試行できるようになりました。')
+    await expect(submit).toBeEnabled()
   })
 }
 
