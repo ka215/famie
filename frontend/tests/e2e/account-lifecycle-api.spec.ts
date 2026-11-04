@@ -139,6 +139,9 @@ test('実APIで無効メンバーを削除し、代表者の継続利用とロ�
   const replacement = (await recreated.json()).data
   expect(replacement.id).not.toBe(member.id)
 
+  // The general suite resets the array cache between requests; the dedicated CI step persists it.
+  if (process.env.FAMIE_E2E_PERSIST_RATE_LIMITS !== '1') return
+
   // The earlier failed commit and successful deletion used two of the five attempts.
   const preparation = await page.request.post(`${family.path}/lifecycle-operations`, {
     headers: family.headers,
