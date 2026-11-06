@@ -9,6 +9,18 @@ use Throwable;
 
 class MonitorNotifier
 {
+    public function lifecycleRun(string $severity, string $runId, OperationState $state): bool
+    {
+        return $state->locked('monitor', function () use ($severity, $runId, $state): bool {
+            $record = $state->read('monitor');
+            $record['incidents']['lifecycle-cleanup'] = $this->update('lifecycle-cleanup', $severity, $record['incidents']['lifecycle-cleanup'] ?? [], $runId);
+            $record['results']['lifecycle-cleanup'] = $severity;
+            $state->write('monitor', $record);
+
+            return ! ($record['incidents']['lifecycle-cleanup']['notification_failed'] ?? false);
+        });
+    }
+
     /** @param array<string, mixed> $previous @return array<string, mixed> */
     public function update(string $check, string $severity, array $previous, string $runId): array
     {
@@ -40,6 +52,8 @@ class MonitorNotifier
             $state['notified_at'] = $now;
             $state['notified_severity'] = $severity;
             OperationLog::write($recovered ? 'monitor.recovered' : 'monitor.failed', $recovered ? 'success' : 'failure', ['check' => $check], $recovered ? 'info' : 'warning');
+        } else {
+            $state['notification_failed'] = true;
         }
 
         return $state;

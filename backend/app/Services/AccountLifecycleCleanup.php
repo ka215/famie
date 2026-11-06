@@ -12,14 +12,17 @@ class AccountLifecycleCleanup
 {
     public function __construct(private ActivityImageDeletionService $imageDeletions, private LifecycleLedger $ledger) {}
 
-    public function process(AccountLifecycleOperation $operation): void
+    public function process(AccountLifecycleOperation $operation, ?LifecycleCleanupBudget $budget = null, bool $recordProgress = true): void
     {
-        $processed = DB::transaction(function () use ($operation): bool {
+        $processed = DB::transaction(function () use ($operation, $recordProgress): bool {
             $locked = AccountLifecycleOperation::query()->whereKey($operation->id)->lockForUpdate()->firstOrFail();
             if ($locked->state !== AccountLifecycleOperation::STATE_COMMITTED) {
                 return false;
             }
-            if (in_array($locked->last_error_code, ['ledger_commit_pending', 'ledger_commit_failed'], true)) {
+            if ($recordProgress && str_starts_with((string) $locked->last_error_code, 'restore_reapply_')) {
+                return false;
+            }
+            if ($recordProgress && in_array($locked->last_error_code, ['ledger_commit_pending', 'ledger_commit_failed'], true)) {
                 $this->ledger->append($locked, 'committed');
                 $locked->forceFill(['last_error_code' => null])->save();
             }
@@ -27,11 +30,27 @@ class AccountLifecycleCleanup
                 return false;
             }
             $this->processBatch($locked);
+            if ($recordProgress) {
+                $locked->forceFill(['last_error_code' => 'ledger_cleanup_pending'])->save();
+            }
 
             return true;
         });
         if ($processed) {
-            $this->imageDeletions->processSafely(config('famie.lifecycle_cleanup_batch'));
+            if ($budget === null || $budget->available()) {
+                $this->imageDeletions->processSafely(config('famie.lifecycle_cleanup_batch'), $budget, $recordProgress ? null : $operation->id);
+            }
+            if (! $recordProgress) {
+                return;
+            }
+            DB::transaction(function () use ($operation): void {
+                $locked = AccountLifecycleOperation::query()->whereKey($operation->id)->lockForUpdate()->firstOrFail();
+                if ($locked->hasActiveHold() || $locked->state !== AccountLifecycleOperation::STATE_COMMITTED) {
+                    return;
+                }
+                $this->ledger->append($locked, 'cleanup.progress', ['cleanup_state' => $locked->cleanup_state, 'content_cursor' => $locked->content_cursor]);
+                $locked->forceFill(['last_error_code' => null])->save();
+            });
         }
     }
 

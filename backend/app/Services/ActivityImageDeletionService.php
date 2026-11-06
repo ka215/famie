@@ -41,10 +41,10 @@ class ActivityImageDeletionService
         });
     }
 
-    public function processSafely(int $limit = 100): bool
+    public function processSafely(int $limit = 100, ?LifecycleCleanupBudget $budget = null, ?string $operationId = null): bool
     {
         try {
-            return $this->process($limit) === 0;
+            return $this->process($limit, $budget, $operationId) === 0;
         } catch (Throwable) {
             OperationLog::write('image.deletion_deferred', 'started', [], 'info');
 
@@ -52,19 +52,21 @@ class ActivityImageDeletionService
         }
     }
 
-    public function process(int $limit = 100): int
+    public function process(int $limit = 100, ?LifecycleCleanupBudget $budget = null, ?string $operationId = null): int
     {
-        return $this->state->locked('image-deletions', fn (): int => $this->processBatch($limit));
+        return $this->state->locked('image-deletions', fn (): int => $this->processBatch($limit, $budget, $operationId));
     }
 
-    private function processBatch(int $limit): int
+    private function processBatch(int $limit, ?LifecycleCleanupBudget $budget = null, ?string $operationId = null): int
     {
         $rows = DB::table('activity_image_deletions')
-            ->whereNotExists(function ($query): void {
+            ->when($operationId !== null, fn ($query) => $query->where('operation_id', $operationId))
+            ->whereNotExists(function ($query) use ($operationId): void {
                 $query->selectRaw('1')->from('account_lifecycle_operations')
                     ->whereColumn('account_lifecycle_operations.id', 'activity_image_deletions.operation_id')
                     ->where(fn ($query) => $query->where('state', '!=', AccountLifecycleOperation::STATE_COMMITTED)
-                        ->orWhereIn('last_error_code', ['ledger_commit_pending', 'ledger_commit_failed']));
+                        ->orWhereIn('last_error_code', ['ledger_commit_pending', 'ledger_commit_failed'])
+                        ->when($operationId === null, fn ($query) => $query->orWhereRaw('substr(last_error_code, 1, 16) = ?', ['restore_reapply_'])));
             })
             ->whereNotExists(function ($query): void {
                 $query->selectRaw('1')->from('account_lifecycle_holds')
@@ -74,11 +76,15 @@ class ActivityImageDeletionService
             ->orderBy('id')->limit($limit)->get();
         $failed = 0;
         foreach ($rows as $row) {
+            if ($budget !== null && ! $budget->available()) {
+                break;
+            }
             try {
-                DB::transaction(function () use ($row): void {
+                DB::transaction(function () use ($row, $operationId): void {
                     if ($row->operation_id !== null) {
                         $operation = AccountLifecycleOperation::query()->whereKey($row->operation_id)->lockForUpdate()->firstOrFail();
                         if ($operation->hasActiveHold() || $operation->state !== AccountLifecycleOperation::STATE_COMMITTED
+                            || ($operationId === null && str_starts_with((string) $operation->last_error_code, 'restore_reapply_'))
                             || in_array($operation->last_error_code, ['ledger_commit_pending', 'ledger_commit_failed'], true)) {
                             return;
                         }

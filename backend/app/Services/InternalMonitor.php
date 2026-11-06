@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\AccountLifecycleOperation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 use Throwable;
 
 class InternalMonitor
 {
-    public const CHECKS = ['database', 'storage', 'capacity', 'backup', 'image-deletions', 'server_errors', 'authentication_failures', 'rate_limits', 'permission_denials', 'log_integrity', 'housekeeping'];
+    public const CHECKS = ['database', 'storage', 'capacity', 'backup', 'image-deletions', 'lifecycle-cleanup', 'server_errors', 'authentication_failures', 'rate_limits', 'permission_denials', 'log_integrity', 'housekeeping'];
 
     public function __construct(private OperationState $state) {}
 
@@ -47,11 +48,51 @@ class InternalMonitor
             $results['image-deletions'] = 'critical';
         }
         $previous = $this->state->read('monitor');
+        if (config('famie.lifecycle_monitor_enabled')) {
+            $results['lifecycle-cleanup'] = $this->lifecycleCleanup();
+        }
         if (($previous['capacity_checked_at'] ?? 0) <= now()->subHour()->timestamp) {
             $results['capacity'] = $this->capacity();
         }
 
         return [...$results, ...$this->logCounts()];
+    }
+
+    public function lifecycleCleanup(): string
+    {
+        try {
+            $severity = 'ok';
+            foreach (['lifecycle-cleanup', 'lifecycle-cleanup-job'] as $name) {
+                $record = $this->state->read($name);
+                if (($record['outcome'] ?? null) === 'failure' || ($record['notification_outcome'] ?? null) === 'failure') {
+                    return 'critical';
+                }
+                $finished = $record['finished_at'] ?? null;
+                if (! is_int($finished) || $finished > now()->timestamp || ($record['outcome'] ?? null) !== 'success'
+                    || $finished <= now()->subMinutes(15)->timestamp) {
+                    $severity = 'warning';
+                }
+                if (($record['notification_outcome'] ?? null) === 'pending'
+                    && is_int($finished) && $finished <= now()->subMinute()->timestamp) {
+                    return 'critical';
+                }
+            }
+            $pending = AccountLifecycleOperation::query()->where('state', 'committed')
+                ->whereNotExists(fn ($query) => $query->selectRaw('1')->from('account_lifecycle_holds')
+                    ->whereColumn('account_lifecycle_holds.operation_id', 'account_lifecycle_operations.id')->whereNull('released_at'));
+            if ((clone $pending)->whereIn('last_error_code', ['ledger_commit_pending', 'ledger_commit_failed', 'ledger_cleanup_pending'])
+                ->where('updated_at', '<=', now()->subHour())->exists()) {
+                return 'critical';
+            }
+            if ((clone $pending)->where('cleanup_state', '!=', 'complete')->where('committed_at', '<=', now()->subMinutes(15))->exists()
+                || DB::table('account_lifecycle_holds')->whereNull('released_at')->where('review_at', '<=', now())->exists()) {
+                return 'warning';
+            }
+
+            return $severity;
+        } catch (Throwable) {
+            return 'critical';
+        }
     }
 
     private function capacity(): string

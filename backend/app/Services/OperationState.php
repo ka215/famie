@@ -80,7 +80,7 @@ class OperationState
 
     private function path(string $name): string
     {
-        if (! in_array($name, ['monitor', 'backup', 'image-deletions', 'image-deletions-job'], true)) {
+        if (! in_array($name, ['monitor', 'backup', 'image-deletions', 'image-deletions-job', 'lifecycle-cleanup', 'lifecycle-cleanup-job'], true)) {
             throw new RuntimeException('Unknown operation state.');
         }
 
