@@ -123,6 +123,18 @@ pwsh scripts/release/rollback.ps1 -Environment production -ToVersion X.Y.Z -Appl
 - GitHub Actionsのrun、Release資産、サーバーのrelease backup、`docs/operations/change-log/` を証跡とする。
 - サーバーには最低3世代のアプリ・DBバックアップを残す。世代削除は別の保守作業で行う。
 
+### 6.1 配置処理の独自診断ログ
+
+配置workflowは、成功・失敗の両方で `deployment-diagnostics-<environment>-<run ID>-<attempt>` をActionsの成果物へ30日間保存する。再実行時はattempt別に分離し、前回の証跡を上書きしない。
+
+- `client.log`: SSH呼出しの開始・終了コード、サーバーログ回収結果。
+- `ssh-summary.log`: 接続先の終了ステータス・シグナル通知の有無。`no_remote_exit_status` は終了ステータスを受け取れなかったことを示し、原因自体を確定する値ではない。
+- `server.log`: supervisor・deploy・backupの時刻、工程名、PID/親PID、終了コード、エラー行、捕捉したシグナル。バックアップ開始・完了・呼出元への復帰・参照ファイル保存を別々に記録する。
+
+サーバー側の原本は `~/famie-release-incoming/release-v<version>-<run ID>-<attempt>/diagnostics/` に保持する。ディレクトリは0700、ログは0600。コマンド全文・引数・環境変数の内容は記録しない。SSHの詳細原本はrunnerのprivate tempへ保存し、共有用成果物には終了情報のみを抽出する。
+
+配置プロセスが終了ログを残せない場合もsupervisorの終了記録と照合する。ただしSIGKILL等で監視側も停止した場合は最後の工程ログまでが証跡となる。ログ回収に失敗しても、サーバー上の原本は削除しない。残存ロックは自動解除せず、実行中プロセスと現在の配置状態を確認してから対応する。
+
 ## 7. 必要なGitHub Environment設定
 
 `staging` と `production` に次のsecretを設定する。

@@ -78,7 +78,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -Eeuo pipefail
-          remote="release-v${{ inputs.version }}-${GITHUB_RUN_ID}"
+          remote="release-v${{ inputs.version }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           ssh -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 700 \"\$HOME/famie-release-incoming/$remote\""
           scp -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$archive" "$checksum" scripts/release/server/*.sh scripts/release/check-deploy-environment.php \
             "$DEPLOY_USER@$DEPLOY_HOST:famie-release-incoming/$remote/"
@@ -88,12 +88,26 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          DEPLOY_APPLY: ${{ inputs.apply }}
         run: |
-          set -Eeuo pipefail
-          apply=()
-          if [[ '${{ inputs.apply }}' == true ]]; then apply=(--apply); fi
-          ssh -i "$ssh_key" -o UserKnownHostsFile="$known_hosts" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "export PATH=\"\$HOME/bin:\$PATH\"; chmod 700 \"\$HOME/famie-release-incoming/$remote\"/*.sh; \"\$HOME/famie-release-incoming/$remote/deploy-artifact.sh\" --env '${{ inputs.environment }}' --bundle \"\$HOME/famie-release-incoming/$remote/$(basename "$archive")\" --checksum \"\$HOME/famie-release-incoming/$remote/$(basename "$checksum")\" ${apply[*]}"
+          bash scripts/release/deploy-with-diagnostics.sh run
+      - name: Collect deployment diagnostics
+        if: always() && env.remote != ''
+        shell: bash
+        env:
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: bash scripts/release/deploy-with-diagnostics.sh collect
+      - name: Preserve deployment diagnostics
+        if: always() && env.remote != ''
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: deployment-diagnostics-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/famie-deployment-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 30
       - name: Install browser dependencies
         if: inputs.apply
         uses: pnpm/action-setup@v6.1.0
