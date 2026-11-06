@@ -21,6 +21,7 @@ class AccountLifecycleService
         private LifecycleVault $vault,
         private LifecycleLedger $ledger,
         private AccountLifecycleCleanup $cleanup,
+        private LifecycleImageEvidence $images,
     ) {}
 
     /** @return array{operation: AccountLifecycleOperation, code: string} */
@@ -131,9 +132,15 @@ class AccountLifecycleService
                         'email' => $users[$member->user_id]->email,
                     ])->values()->all(),
                 ];
+                $recoveryIdentity = LifecycleRecoveryIdentity::capture($operation);
+                if (! LifecycleRecoveryIdentity::valid($recoveryIdentity, $subjects->pluck('user_id')->all(), $operation->kind)) {
+                    throw new \RuntimeException('Source recovery identity is ambiguous.');
+                }
+                $imageEvidence = $this->images->capture($operation);
                 $vault = $this->vault->store($operation, $payload);
                 $vaultWritten = true;
-                $this->ledger->append($operation, 'intent', ['vault_sha256' => $vault['sha256'], 'subject_ids' => $subjects->pluck('user_id')->all()]);
+                $this->ledger->append($operation, 'intent', ['vault_sha256' => $vault['sha256'], 'subject_ids' => $subjects->pluck('user_id')->all(),
+                    'recovery_identity' => $recoveryIdentity, ...($imageEvidence === null ? [] : ['image_manifest_sha256' => $imageEvidence])]);
                 $intentWritten = true;
 
                 foreach ($subjects as $membership) {
