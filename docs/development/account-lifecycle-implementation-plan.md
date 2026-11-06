@@ -799,6 +799,40 @@ DB_SCHEMA=public、別DB名、SMTP指定、試験flag無効、別runtime、台�
 
 これで10.24の実子プロセス継承の未実施事項はローカルで確認できた。固定SHA／CI成果物に結び付けた配置確認、Linux上の実I/Oと総時間、実SMTPによるF03異常／復旧、共有ステージングでの実行範囲、商用準備は依然別工程。次はローカル受入の確認と固定候補化の準備を行い、既存DBへ触れる配置操作を自動実行しない。今回も未コミット・未配置である。
 
+### 10.26 F03：ドラフトPRとCI指摘の修正（2026-11-07）
+
+ローカル確認後の差分50ファイルをcommit `b53a606288f7b164931046b05673f66fbf7ebbb7`（tree `6f526f941482da59bb63d10069b9bf04ec96aff2`）へ固定し、[dev向けドラフトPR #197](https://github.com/ka215/famie/pull/197)を作成した。実DBファイル・実鍵・DPAPI・実backup・一時資材は含めていない。候補の機密情報スキャン0件、関連PHP102ファイルの静的検査は指摘0・エラー0だった。
+
+**初回CIの結果と専用試験の実行条件**
+
+[Release CI run 42257365551](https://github.com/ka215/famie/actions/runs/42257365551)ではchecks、backend-sqlite、Chromium／iPhone WebKit E2Eが合格し、依存監査とbackend-postgresで停止した。配置／rollbackはpull_requestでは実行されずスキップされた。
+
+CIのPGは5432番・postgres-ci profileだが、実子・復旧の試験は承認済み55432番・postgres-localに限定している。初回CIでは専用試験まで選ばれ、安全ガードが拒否して12件が失敗した。`AccountLifecycleCleanupPostgresTest`で、実子・復旧訓練に入る前にpostgres-ciでは専用環境が必要である旨を明示してskipする。専用の14ケースが対象で、その他のPG試験はCIで維持する。製品側のポート・接続先・環境ガードは緩めず、CI向けに復元許可を拡張しない。ローカルで14件／360 assertionsを再実行して、試験自体を無効化していないことを確認した。
+
+**承認されたSymfonyのパッチ更新**
+
+初回CIのComposer監査は4パッケージ・7勧告を報告し、監査出力のseverityがnullだったため既存方針で停止した。これらのlock版はF03前のdevと同じで、F03が導入した依存ではない。監査ルールを緩めず、[SymfonyのHTTP Foundation勧告](https://symfony.com/cve-2026-118514)・[Routing勧告](https://symfony.com/cve-2026-118516)等の公式情報と解決案を確認した。
+
+| パッケージ | 元のlock版 | 承認された更新先 |
+| --- | --- | --- |
+| symfony/http-foundation | v8.1.7 | v8.1.11 |
+| symfony/http-kernel | v8.1.7 | v8.1.11 |
+| symfony/routing | v8.1.6 | v8.1.11 |
+| symfony/yaml（開発依存） | v8.1.6 | v8.1.11 |
+
+まずdry-runと私有コピーのlock更新を行い、追加0・削除0・変更4件、提案lockの監査0件を確認した。運営者から「4件のパッチ更新を承認する」を受領した後に、同じlock案をbackendへ反映し、Composerのscripts／pluginsを無効にしてinstallした。Laravel本体・フロント依存・composer.jsonの制約は変更していない。CLIのZIP拡張が無効だったため、既存拡張を当該Composer実行だけ有効にした。php.iniは変更せず、artisan hookも実行していない。
+
+更新後の`composer audit --locked`はadvisory／abandonedとも0件、Composer validateも合格。lock差分は4パッケージのversion・参照・公開日時等のみで、他のpackage metadataは不変と確認した。
+
+**更新後の再検証**
+
+- F03全207件／887 assertionsが合格（35,594ms）。
+- 専用PGの実子・復旧14件／360 assertionsが合格（27,385ms）、残る24件／336 assertionsも合格（24,138ms）。合計38件／696 assertions。
+- 既存回帰40件／402 assertions、DB保護43件／61 assertionsが合格。総数は328件／2,046 assertionsで、過去結果だけを流用していない。
+- Pint・差分確認・Composer validateを確認し、変更したPHP試験とlockを追加commitしてPRのCIへ戻す。今回の修正はテスト条件と承認済みlock・記録に限定する。
+
+CIが再合格するまでドラフトを維持し、devへmergeしない。Release CIのpull_request検査だけでは配布成果物を生成したことにならず、固定成果物の生成・ステージング配置は未実施である。配置workflowのmigration／seederを含む事前の影響確認は継続する。今回も実DB・実鍵・USB・ステージング・実メールは操作していない。
+
 ## 11. UI・変更範囲・検証
 
 - `settings.vue`・`MemberManageDialog.vue`の既存導線を拡張し、代表者表示、代表者に対する禁止操作、無効メンバーの削除と確認を追加する。一般メンバー向けの退出ボタンは作らない。

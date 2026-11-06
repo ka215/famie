@@ -123,6 +123,7 @@ class AccountLifecycleCleanupPostgresTest extends AccountLifecycleTest
     /** @return array{string,AccountLifecycleOperation,AccountLifecycleOperation,string} */
     private function processFixture(): array
     {
+        $this->requireDedicatedRecoveryDatabase();
         $schema = DB::selectOne('select current_schema() as name')->name;
         config(['database.connections.pgsql.search_path' => $schema]);
         DB::purge('pgsql');
@@ -218,6 +219,7 @@ class AccountLifecycleCleanupPostgresTest extends AccountLifecycleTest
     #[TestWith([true, false, true])]
     public function test_synthetic_backup_restore_reapplies_erasure_without_reopening(bool $held, bool $higherSequence = false, bool $missingReceipt = false): void
     {
+        $this->requireDedicatedRecoveryDatabase();
         $connection = DB::connection()->getConfig();
         $this->assertSame('127.0.0.1', $connection['host']);
         $this->assertSame('55432', (string) $connection['port']);
@@ -398,6 +400,13 @@ class AccountLifecycleCleanupPostgresTest extends AccountLifecycleTest
             DB::select("select set_config('search_path', ?, false)", [$schema]);
         }
         $this->assertLessThan(150, (hrtime(true) - $started) / 1000000000, 'Synthetic drill exceeded 150 seconds.');
+    }
+
+    private function requireDedicatedRecoveryDatabase(): void
+    {
+        if (config('database-safety.profile') === 'postgres-ci') {
+            $this->markTestSkipped('Real recovery and child-process drills require the approved local PostgreSQL target on port 55432.');
+        }
     }
 
     /** Replace RefreshDatabase's reset with a new schema on the isolated test instance. */
