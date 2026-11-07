@@ -85,6 +85,8 @@ jobs:
         run: ./scripts/release/test-pr-checks.ps1
       - name: Test scheduler diagnostic wrapper
         run: node --test scripts/release/run-scheduler.test.mjs
+      - name: Test deployment diagnostic logging
+        run: node --test scripts/release/deployment-diagnostics.test.mjs
   e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
