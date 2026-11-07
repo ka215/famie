@@ -13,6 +13,11 @@ on:
         required: true
         default: true
         type: boolean
+      isolated_lifecycle:
+        description: Run explicitly approved disposable Linux PostgreSQL lifecycle drill (fixed candidate)
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -355,6 +360,52 @@ jobs:
           path: coverage-results/backend-postgres/summary.json
           if-no-files-found: error
           retention-days: 14
+  isolated-lifecycle:
+    if: github.event_name == 'workflow_dispatch' && inputs.isolated_lifecycle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: harness
+          persist-credentials: false
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: 61ed81421c3645fa58b339bc05500fdd117bc2fa
+          path: candidate
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:2.10.3
+          coverage: none
+          extensions: pdo_pgsql, pdo_sqlite, sodium
+      - name: Install PostgreSQL 14 client
+        shell: bash
+        run: |-
+          set -Eeuo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl -fsSL --retry 2 https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/famie-pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-14
+          echo /usr/lib/postgresql/14/bin >> "$GITHUB_PATH"
+      - name: Install fixed candidate dependencies without application hooks
+        working-directory: candidate/backend
+        run: composer install --no-interaction --prefer-dist --no-scripts --no-plugins
+      - name: Run approved Linux synthetic recovery and child-process drill
+        shell: bash
+        run: bash harness/scripts/release/run-linux-lifecycle-drill.sh "$GITHUB_WORKSPACE/candidate" 61ed81421c3645fa58b339bc05500fdd117bc2fa
+      - name: Preserve isolated drill results
+        if: always() && env.drill_report != ''
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: lifecycle-linux-drill-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.drill_report }}
+          if-no-files-found: warn
+          retention-days: 30
 env:
   CI: 'true'
   DEBUG: ''
