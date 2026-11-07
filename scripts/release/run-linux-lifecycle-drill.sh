@@ -80,6 +80,8 @@ export MAIL_MAILER=array MAIL_URL= MAIL_HOST=127.0.0.1 MAIL_PORT=1 MAIL_USERNAME
 export CACHE_STORE=array SESSION_DRIVER=array QUEUE_CONNECTION=sync LOG_CHANNEL=stderr
 export APP_CONFIG_CACHE="$private/unused-config.php" APP_ROUTES_CACHE="$private/unused-routes.php"
 cd "$candidate/backend"
+[[ ! -e .env ]]
+: > .env
 printf 'event=migration_start\n' >> "$log"
 php artisan migrate --force --no-interaction > "$private/migration.log" 2>&1
 baseline() {
@@ -92,10 +94,10 @@ expected=(1 13)
 for index in 0 1; do
   printf 'event=test_start batch=%s\n' "$index" >> "$log"
   result=0
-  timeout --kill-after=5 45 php vendor/bin/phpunit --configuration=phpunit.xml --do-not-cache-result --debug --filter "${filters[$index]}" tests/Feature/AccountLifecycleCleanupPostgresTest.php > "$private/test-$index.log" 2>&1 || result=$?
+  timeout --kill-after=5 45 php vendor/bin/phpunit --configuration=phpunit.xml --do-not-cache-result --debug --log-junit "$private/junit-$index.xml" --filter "${filters[$index]}" tests/Feature/AccountLifecycleCleanupPostgresTest.php > "$private/test-$index.log" 2>&1 || result=$?
   printf 'event=test_finished batch=%s exit=%s\n' "$index" "$result" >> "$log"
   [[ $result == 0 ]]
-  grep '^\{"tool":"phpunit"' "$private/test-$index.log" | tail -1 > "$private/report/summary-$index.json"
+  php -r '$xml=simplexml_load_file($argv[1]); if($xml===false){exit(1);} $cases=$xml->xpath("//testcase"); $failed=count($xml->xpath("//failure|//error|//skipped")); $assertions=0; $duration=0; foreach($cases as $case){$assertions+=(int)$case["assertions"]; $duration+=(float)$case["time"];} $valid=count($cases)===(int)$argv[2] && $failed===0; echo json_encode(["result"=>$valid?"passed":"failed","tests"=>count($cases),"passed"=>count($cases)-$failed,"assertions"=>$assertions,"duration_ms"=>(int)round($duration*1000)],JSON_THROW_ON_ERROR); exit($valid?0:1);' "$private/junit-$index.xml" "${expected[$index]}" > "$private/report/summary-$index.json"
   jq -e --argjson count "${expected[$index]}" '.result=="passed" and .tests==$count and .passed==$count' "$private/report/summary-$index.json" >/dev/null
   [[ $(baseline) == '19|0|0|0|0' ]]
 done
