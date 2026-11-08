@@ -22,6 +22,7 @@ class AccountLifecycleService
         private LifecycleLedger $ledger,
         private AccountLifecycleCleanup $cleanup,
         private LifecycleImageEvidence $images,
+        private LegalAcceptanceService $legalAcceptances,
     ) {}
 
     /** @return array{operation: AccountLifecycleOperation, code: string} */
@@ -147,6 +148,7 @@ class AccountLifecycleService
                     $user = $users[$membership->user_id];
                     $this->emails->clearChallenges($user);
                     $user->tokens()->delete();
+                    $this->legalAcceptances->forgetUser((int) $user->id);
                     $user->forceFill([
                         'username' => 'deleted:'.$user->id.':'.substr(str_replace('-', '', $operation->id), 0, 8),
                         'display_name' => 'Deleted member',

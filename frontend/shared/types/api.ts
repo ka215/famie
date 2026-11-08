@@ -157,6 +157,7 @@ export interface MessageResponse {
 }
 
 export interface LoginResponse extends MessageResponse {
+  legal?: LegalStatus
   access_token: string
   token_type: 'Bearer'
   user: User
@@ -164,8 +165,25 @@ export interface LoginResponse extends MessageResponse {
 }
 
 export interface CurrentUserResponse {
+  legal?: LegalStatus
   user: User
   membership: Membership
+}
+
+export interface LegalStatus {
+  enabled: boolean
+  required: boolean
+}
+
+export interface LegalDocument {
+  id: 'terms' | 'privacy' | 'cookies'
+  version: string
+  translations: Record<'ja' | 'en', { title: string; url: string; sha256: string }>
+}
+
+export interface LegalInput {
+  terms: { version: string; locale: string; accepted: boolean }
+  privacy: { version: string; locale: string; acknowledged: boolean }
 }
 
 export interface ApiErrorBody {

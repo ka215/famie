@@ -8,6 +8,18 @@ definePageMeta({ layout: false })
 
 const { register } = useAuth()
 const { fetchApi } = useApi()
+const {
+  documents,
+  enabled,
+  loaded,
+  error: legalError,
+  termsAccepted,
+  privacyAcknowledged,
+  language,
+  ready,
+  load: loadLegal,
+  payload,
+} = useLegalConsent()
 const form = ref<RegisterForm>({
   group_name: '',
   username: '',
@@ -63,6 +75,7 @@ onBeforeUnmount(() => {
 })
 
 const handleRegister = async () => {
+  if (!ready.value || isLoading.value) return
   errorMessage.value = ''
   if (form.value.password !== form.value.password_confirmation) {
     errorMessage.setKey('validation.passwordMismatch')
@@ -74,10 +87,15 @@ const handleRegister = async () => {
   }
   isLoading.value = true
   try {
-    await register(form.value)
+    await register({ ...form.value, ...(enabled.value ? { legal: payload() } : {}) })
     await navigateTo('/')
   } catch (error: unknown) {
     const apiError = error as ApiRequestError
+    if (apiError.data?.code === 'legal_version_changed') {
+      await loadLegal()
+      errorMessage.setKey('legal.versionChanged')
+      return
+    }
     const retryAfter = Number(apiError.response?.headers?.get('Retry-After'))
     errorMessage.value =
       apiError.response?.status === 429 && Number.isFinite(retryAfter)
@@ -134,7 +152,12 @@ useHead(() => ({ title: `${t('auth.register.title')} | Famie` }))
           <label for="register-password-confirmation" class="block text-sm text-slate-700 dark:text-slate-200">{{ t('auth.confirmPassword') }}</label>
           <PasswordInput id="register-password-confirmation" v-model="form.password_confirmation" :label="t('auth.confirmPassword')" autocomplete="new-password" required minlength="15" :placeholder="t('auth.repeatPassword')" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600" />
         </div>
-        <button type="submit" :disabled="isLoading" class="w-full rounded-lg bg-blue-600 py-3 font-medium text-white disabled:opacity-50">
+        <LegalConsentFields v-if="loaded && enabled" v-model:terms="termsAccepted" v-model:privacy="privacyAcknowledged" :documents="documents" :language="language" />
+        <div v-if="legalError" role="alert" class="text-sm text-red-600 dark:text-red-300">
+          <p>{{ legalError }}</p>
+          <button type="button" class="mt-2 text-blue-600 dark:text-blue-300" @click="loadLegal">{{ t('legal.retry') }}</button>
+        </div>
+        <button type="submit" :disabled="isLoading || !ready" class="w-full rounded-lg bg-blue-600 py-3 font-medium text-white disabled:opacity-50">
           {{ isLoading ? t('auth.register.busy') : t('auth.register.submit') }}
         </button>
       </form>

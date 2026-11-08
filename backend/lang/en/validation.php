@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'accepted' => 'Please select the :attribute checkbox.',
     'array' => 'The :attribute field must be an array.',
     'boolean' => 'The :attribute field must be true or false.',
     'confirmed' => 'The :attribute field confirmation does not match.',

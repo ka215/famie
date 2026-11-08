@@ -8,6 +8,7 @@ use App\Models\GroupMember;
 use App\Models\User;
 use App\Rules\StrongPassword;
 use App\Services\AccountEmailService;
+use App\Services\LegalAcceptanceService;
 use App\Services\LoginThrottle;
 use App\Support\InitialCategories;
 use App\Support\PasswordStrength;
@@ -64,7 +65,7 @@ class AuthController extends Controller
         }, $user);
     }
 
-    public function register(Request $request): JsonResponse
+    public function register(Request $request, LegalAcceptanceService $acceptances): JsonResponse
     {
         if ($response = $this->consumeRegistrationAttempt($request)) {
             return $response;
@@ -80,7 +81,8 @@ class AuthController extends Controller
             'password' => ['required', 'string', new StrongPassword, 'confirmed'],
         ], UsernameRules::messages());
 
-        [$user, $membership] = DB::transaction(function () use ($validated, $request): array {
+        $legalRecords = $acceptances->enabled() ? $acceptances->validate($request->input('legal')) : [];
+        [$user, $membership] = DB::transaction(function () use ($validated, $request, $acceptances, $legalRecords): array {
             $user = User::query()->create([
                 'username' => $validated['username'], 'display_name' => $validated['display_name'],
                 'email' => null, 'password' => Hash::make($validated['password']),
@@ -92,6 +94,9 @@ class AuthController extends Controller
             ]);
             $group->forceFill(['representative_user_id' => $user->id])->save();
             InitialCategories::createFor($group, (string) $request->attributes->get('ui_locale'));
+            if ($legalRecords !== []) {
+                $acceptances->record($user, $acceptances->validate($request->input('legal')));
+            }
 
             return [$user, $membership->setRelation('group', $group)];
         });
@@ -216,6 +221,7 @@ class AuthController extends Controller
     private function identityPayload(User $user, GroupMember $membership): array
     {
         return [
+            'legal' => app(LegalAcceptanceService::class)->status($user, $membership),
             'user' => [
                 ...$user->fresh()->only(['id', 'username', 'display_name', 'show_name_suffix', 'ui_locale', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
                 'password_security' => [

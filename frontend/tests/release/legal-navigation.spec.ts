@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 
 test('法務文書の日英6ページはJavaScript・APIなしで閲覧できる', async ({ browser, baseURL }) => {
@@ -40,6 +41,18 @@ test('ログイン・登録のガイダンス下から同じタブで文書を�
   await page.context().route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === '/api/v1/status') return route.fulfill({ json: { status: 'ok' } })
+    if (path === '/api/v1/legal/documents')
+      return route.fulfill({
+        json: {
+          data: JSON.parse(
+            readFileSync(
+              new URL('../../../backend/resources/legal-documents.json', import.meta.url),
+              'utf8'
+            )
+          ).documents,
+          meta: { acceptance_enabled: false },
+        },
+      })
     if (path === '/api/v1/auth/register/username-availability')
       return route.fulfill({ json: { available: true } })
     unexpected.push(path)

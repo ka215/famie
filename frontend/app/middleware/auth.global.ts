@@ -1,7 +1,7 @@
 export default defineNuxtRouteMiddleware(async (to) => {
   const t = useNuxtApp().$i18n.t
   const token = useCookie<string | null>('auth_token')
-  const { user, fetchUser } = useAuth()
+  const { user, fetchUser, legal } = useAuth()
   const { isMaintenance } = useMaintenance()
 
   if (isMaintenance.value) return
@@ -49,6 +49,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
         })
       )
     }
+  }
+
+  if (
+    token.value &&
+    legal.value?.required &&
+    !['/legal-confirmation', ...accountPaths].includes(path)
+  ) {
+    return navigateTo('/legal-confirmation')
   }
 
   if (token.value && ['/login', '/register'].includes(path)) {

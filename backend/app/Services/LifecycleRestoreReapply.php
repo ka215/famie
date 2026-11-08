@@ -21,7 +21,8 @@ class LifecycleRestoreReapply
 {
     public function __construct(private LifecycleOperatorFiles $files, private LifecycleLedgerInspector $ledger,
         private LifecycleAudit $audit, private AccountEmailService $emails, private AccountLifecycleCleanup $cleanup,
-        private LifecycleVault $vault, private LifecycleCleanupBudget $budget, private LifecycleRestoreHolds $holds, private LifecycleRestoreIdentity $identity) {}
+        private LifecycleVault $vault, private LifecycleCleanupBudget $budget, private LifecycleRestoreHolds $holds, private LifecycleRestoreIdentity $identity,
+        private LegalAcceptanceService $legalAcceptances) {}
 
     /** @return array<string,mixed> */
     public function reapply(string $restoreId, string $receipt, string $recordSha, string $ledgerSha, string $sourceUrl, string $sourceEnvironment, string $operator, bool $apply = false, bool $holdRecovery = false): array
@@ -142,6 +143,7 @@ class LifecycleRestoreReapply
                             $user = $users[$subject->user_id];
                             $this->emails->clearChallenges($user);
                             $user->tokens()->delete();
+                            $this->legalAcceptances->forgetUser((int) $user->id);
                             DB::table('sessions')->where('user_id', $user->id)->delete();
                             $user->forceFill(['username' => 'deleted:'.$user->id.':'.substr(str_replace('-', '', $receipt), 0, 8),
                                 'display_name' => 'Deleted member', 'email' => null, 'email_verified_at' => null,

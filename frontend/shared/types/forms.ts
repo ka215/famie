@@ -9,6 +9,7 @@ export interface CreateUserForm {
 }
 
 export interface RegisterForm {
+  legal?: import('./api').LegalInput
   group_name: string
   username: string
   display_name: string
