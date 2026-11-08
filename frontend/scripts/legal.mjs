@@ -4,14 +4,10 @@ import { dirname, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { marked } from 'marked'
 import sanitizeHtml from 'sanitize-html'
+import { renderLegalPage } from './legal-page.mjs'
 
 const ids = new Set(['terms', 'privacy', 'cookies'])
 const locales = ['ja', 'en']
-const escapeHtml = (text) =>
-  String(text).replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
-  )
 const fail = (message) => {
   throw new Error(`Legal documents: ${message}`)
 }
@@ -114,7 +110,6 @@ export function buildLegal({ sourceRoot, outputRoot }) {
       const body = renderMarkdown(source)
       const sha256 = createHash('sha256').update(source, 'utf8').digest('hex')
       const url = `/legal/${id}/${version}/${locale}/`
-      const other = locale === 'ja' ? 'en' : 'ja'
       const effective =
         effectiveAt ??
         (locale === 'ja'
@@ -123,17 +118,17 @@ export function buildLegal({ sourceRoot, outputRoot }) {
       const previewNotice = preview
         ? `<aside role="note"><strong>${locale === 'ja' ? '先行確認版・未施行' : 'Preview — not yet effective'}</strong><p>${locale === 'ja' ? 'v1.0.0公開日からの施行を予定する確認用文書です。施行後の取扱方針を含み、現在の実装完了を示すものではありません。' : 'This document is provided for review ahead of its planned effective date at the v1.0.0 release. It includes future policies and does not indicate that all measures are already implemented.'}</p></aside>`
         : ''
-      const html = `<!doctype html>\n<html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} | Famie</title><style>body{font:1rem/1.8 system-ui,sans-serif;max-width:52rem;margin:2rem auto;padding:0 1rem;overflow-wrap:anywhere;color:#1f2937;background:#fff}a{color:#175cd3}table{border-collapse:collapse;display:block;overflow:auto}th,td{border:1px solid #aaa;padding:.5rem}a:focus-visible{outline:3px solid currentColor}</style></head><body><nav><a href="/legal/${id}/${version}/${other}/" lang="${other}">${other === 'ja' ? '日本語' : 'English'}</a></nav><main><h1>${escapeHtml(title)}</h1><p>${locale === 'ja' ? '文書版' : 'Version'}: ${escapeHtml(version)} · ${locale === 'ja' ? '公開日' : 'Published'}: ${publishedOn}</p><p>${locale === 'ja' ? '施行' : 'Effective'}: ${escapeHtml(effective)}</p><p>${locale === 'ja' ? '日本語版が正文です。' : 'The Japanese version is authoritative.'}</p>${body}</main><footer><a href="/login/">${locale === 'ja' ? 'ログインへ戻る' : 'Back to sign in'}</a></footer></body></html>\n`
-      const page = html
-        .replace(
-          '</head>',
-          `${preview ? '<meta name="robots" content="noindex,nofollow">' : ''}</head>`
-        )
-        .replace('<main>', `<main>${previewNotice}`)
-        .replace(
-          `: ${publishedOn}</p>`,
-          `: ${publishedOn ?? (locale === 'ja' ? '未公開（確認用）' : 'Not published (for review)')}</p>`
-        )
+      const page = renderLegalPage({
+        id,
+        version,
+        locale,
+        title,
+        body,
+        publishedOn,
+        effective,
+        preview,
+        previewNotice,
+      })
       outputs.push([`${id}/${version}/${locale}/index.html`, page])
       if (document.current)
         outputs.push([locale === 'ja' ? `${id}/index.html` : `${id}/en/index.html`, page])

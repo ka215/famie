@@ -61,7 +61,12 @@ test('build embeds text without JavaScript, retains version URLs and hashes each
   const html = readFileSync(join(f.outputRoot, 'terms/1.0.0/ja/index.html'), 'utf8')
   assert.match(html, /Synthetic document/)
   assert.match(html, /未施行/)
-  assert.doesNotMatch(html, /<script|fetch\(/)
+  assert.doesNotMatch(html, /fetch\(/)
+  assert.deepEqual(
+    [...html.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g)].map((match) => match[1]),
+    ['/theme.js', '/legal-page.js']
+  )
+  assert.match(html, /id="legal-back" href="\/login\/"/)
   assert.match(result.documents[0].translations.en.sha256, /^[a-f0-9]{64}$/)
   assert.equal(readFileSync(join(f.outputRoot, 'terms/index.html'), 'utf8'), html)
 })
