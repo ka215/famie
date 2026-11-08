@@ -101,6 +101,7 @@ useHead(() => ({ title: `${t('auth.login.title')} | Famie` }))
         <NuxtLink to="/lifecycle-status" class="text-sm text-blue-600 dark:text-blue-300">{{ t('settings.lifecycle.statusTitle') }}</NuxtLink>
       </div>
     </div>
+    <LegalLinks class="w-full max-w-sm" />
     <HomeInstallGuide class="w-full max-w-sm" />
   </div>
 </template>

@@ -613,5 +613,12 @@
     "likesReceivedTotalUnknown": "Total likes received: —",
     "postsTotal": "Total posts: {count} post | Total posts: {count} posts",
     "likesReceivedTotal": "Total likes received: {count} like | Total likes received: {count} likes"
+  },
+  "legal": {
+    "linksLabel": "Legal and privacy information",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "cookies": "Cookie Policy",
+    "newTab": "(opens in a new tab)"
   }
 }

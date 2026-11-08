@@ -112,6 +112,8 @@ export default defineNuxtConfig({
       navigateFallback: '/',
       navigateFallbackDenylist: [
         /^\/api(?:\/|$)/,
+        // Legal pages are standalone HTML, including trailing-slash URLs.
+        /^\/legal(?:\/|$)/,
         /^\/maintenance\.(?:html|json)$/,
         /^\/(?:THIRD_PARTY_NOTICES|libheif-js-LICENSE)\.txt$/,
       ],

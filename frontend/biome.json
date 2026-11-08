@@ -19,7 +19,9 @@
       "playwright.config.ts",
       "tests/**",
       "i18n/**",
-      "scripts/i18n.mjs"
+      "scripts/i18n.mjs",
+      "scripts/legal.mjs",
+      "content/legal/manifest.json"
     ]
   },
   "formatter": {

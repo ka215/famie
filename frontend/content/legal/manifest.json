@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "id": "terms",
+      "version": "0.1.0",
+      "titles": {
+        "ja": "利用規約",
+        "en": "Terms of Service"
+      },
+      "publishedOn": null,
+      "effectiveAt": null,
+      "effectiveOnRelease": "1.0.0",
+      "authoritativeLocale": "ja",
+      "current": true,
+      "requiresAcceptance": true,
+      "preview": true
+    },
+    {
+      "id": "privacy",
+      "version": "0.1.0",
+      "titles": {
+        "ja": "プライバシーポリシー",
+        "en": "Privacy Policy"
+      },
+      "publishedOn": null,
+      "effectiveAt": null,
+      "effectiveOnRelease": "1.0.0",
+      "authoritativeLocale": "ja",
+      "current": true,
+      "requiresAcceptance": true,
+      "preview": true
+    },
+    {
+      "id": "cookies",
+      "version": "0.1.0",
+      "titles": {
+        "ja": "Cookieポリシー",
+        "en": "Cookie Policy"
+      },
+      "publishedOn": null,
+      "effectiveAt": null,
+      "effectiveOnRelease": "1.0.0",
+      "authoritativeLocale": "ja",
+      "current": true,
+      "requiresAcceptance": false,
+      "preview": true
+    }
+  ]
+}
