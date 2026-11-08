@@ -188,4 +188,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     outputRoot: resolve(frontend, 'public/legal'),
   })
   console.log(`Legal documents generated: ${generated.documents.length}`)
+  const backendManifest = resolve(frontend, '../backend/resources/legal-documents.json')
+  mkdirSync(dirname(backendManifest), { recursive: true })
+  writeFileSync(backendManifest, `${JSON.stringify(generated, null, 2)}\n`, 'utf8')
 }

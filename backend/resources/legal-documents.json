@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "id": "terms",
+      "version": "0.1.0",
+      "publishedOn": null,
+      "effectiveAt": null,
+      "effectiveOnRelease": "1.0.0",
+      "authoritativeLocale": "ja",
+      "current": true,
+      "requiresAcceptance": true,
+      "preview": true,
+      "translations": {
+        "ja": {
+          "title": "利用規約",
+          "url": "/legal/terms/0.1.0/ja/",
+          "sha256": "33bf90ef69e88b418160f12ba51d98d75922f1043353f126e8cedc79244ec5a2"
+        },
+        "en": {
+          "title": "Terms of Service",
+          "url": "/legal/terms/0.1.0/en/",
+          "sha256": "55f49448e628e6fc663dfe1f617430481bbc497ed32806eb2a0f0353fcacc75d"
+        }
+      }
+    },
+    {
+      "id": "privacy",
+      "version": "0.1.0",
+      "publishedOn": null,
+      "effectiveAt": null,
+      "effectiveOnRelease": "1.0.0",
+      "authoritativeLocale": "ja",
+      "current": true,
+      "requiresAcceptance": true,
+      "preview": true,
+      "translations": {
+        "ja": {
+          "title": "プライバシーポリシー",
+          "url": "/legal/privacy/0.1.0/ja/",
+          "sha256": "cc207403bfb969583c6b4d335784a27848a0a27939ce900d2c4803475bc71813"
+        },
+        "en": {
+          "title": "Privacy Policy",
+          "url": "/legal/privacy/0.1.0/en/",
+          "sha256": "52ea6af402baed5f8ec7afbd49384e3e2e6bfe86fff826cd546b0e4907756614"
+        }
+      }
+    },
+    {
+      "id": "cookies",
+      "version": "0.1.0",
+      "publishedOn": null,
+      "effectiveAt": null,
+      "effectiveOnRelease": "1.0.0",
+      "authoritativeLocale": "ja",
+      "current": true,
+      "requiresAcceptance": false,
+      "preview": true,
+      "translations": {
+        "ja": {
+          "title": "Cookieポリシー",
+          "url": "/legal/cookies/0.1.0/ja/",
+          "sha256": "f1f467d3bd538d09f0f154d1b0ebf7b6939d563072c78d4e02a50aa6fe89a868"
+        },
+        "en": {
+          "title": "Cookie Policy",
+          "url": "/legal/cookies/0.1.0/en/",
+          "sha256": "323c41a1d184b8a89e14a0231a07ce0af2797d7da8764573e2e9aad7032ab696"
+        }
+      }
+    }
+  ]
+}

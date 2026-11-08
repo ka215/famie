@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { buildLegal, renderMarkdown } from '../../scripts/legal.mjs'
 
 test('legal Markdown rejects active content, unsafe links and unresolved drafts', () => {
@@ -99,4 +100,19 @@ test('preview has no invented publication date and is marked before it becomes e
   assert.match(html, /未公開（確認用）/)
   assert.match(html, /<head>[\s\S]*<meta name="robots" content="noindex,nofollow">[\s\S]*<\/head>/)
   assert.doesNotMatch(html, /Published: null|公開日: null/)
+})
+
+test('the shipped backend catalog matches the Markdown used by the frontend build', () => {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'famie-legal-catalog-parity-'))
+  const generated = buildLegal({
+    sourceRoot: fileURLToPath(new URL('../../content/legal/', import.meta.url)),
+    outputRoot,
+  })
+  const shipped = JSON.parse(
+    readFileSync(
+      new URL('../../../backend/resources/legal-documents.json', import.meta.url),
+      'utf8'
+    )
+  )
+  assert.deepEqual(shipped, generated)
 })

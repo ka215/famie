@@ -1360,6 +1360,45 @@ paths:
         '422': {$ref: '#/components/responses/Validation'}
         '503': {$ref: '#/components/responses/Unavailable'}
         "200": {description: 確認取消済み（利用データの削除なし）, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecycleStatus'}}}}}}
+  /legal/documents:
+    "get":
+      "operationId": "getLegalDocuments"
+      "summary": "公開文書の版・言語・ハッシュを取得"
+      "description": "未認証で取得可能。生成マニフェストだけを参照しDBを使用しない。先行確認版も返す。現在は同意記録が無効でmeta.acceptance_enabledはfalse。"
+      "tags":
+        - "auth"
+      "security": []
+      "responses":
+        "200":
+          "description": "現行3文書の情報。Cache-Control: no-store。"
+          "content":
+            "application/json":
+              "schema":
+                "type": "object"
+                "required":
+                  - "data"
+                  - "meta"
+                "properties":
+                  "data":
+                    "type": "array"
+                    "minItems": 3
+                    "maxItems": 3
+                    "items":
+                      "$ref": "#/components/schemas/LegalDocumentMetadata"
+                  "meta":
+                    "type": "object"
+                    "required":
+                      - "acceptance_enabled"
+                    "properties":
+                      "acceptance_enabled":
+                        "type": "boolean"
+                        "const": false
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "503":
+          "$ref": "#/components/responses/Unavailable"
+    "parameters":
+      - "$ref": "#/components/parameters/UiLanguage"
 components:
   securitySchemes:
     bearerAuth:
@@ -1777,6 +1816,73 @@ components:
                       type: integer
                       minimum: 0
                       description: 対象投稿に付いた同一家族の保持対象いいね総数。送信者の無効化・削除では減らず、取消・対象投稿削除で減少する
+    LegalDocumentMetadata:
+      "type": "object"
+      "required":
+        - "id"
+        - "version"
+        - "publishedOn"
+        - "effectiveAt"
+        - "effectiveOnRelease"
+        - "authoritativeLocale"
+        - "current"
+        - "preview"
+        - "requiresAcceptance"
+        - "translations"
+      "properties":
+        "id":
+          "type": "string"
+          "enum":
+            - "terms"
+            - "privacy"
+            - "cookies"
+        "version":
+          "type": "string"
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        "publishedOn":
+          "type":
+            - "string"
+            - "null"
+          "format": "date"
+        "effectiveAt":
+          "type":
+            - "string"
+            - "null"
+          "format": "date"
+        "effectiveOnRelease":
+          "type":
+            - "string"
+            - "null"
+        "authoritativeLocale":
+          "type": "string"
+          "const": "ja"
+        "current":
+          "type": "boolean"
+          "const": true
+        "preview":
+          "type": "boolean"
+        "requiresAcceptance":
+          "type": "boolean"
+          "description": "termsは同意、privacyは確認。実際の記録可否はmeta.acceptance_enabledに従う。"
+        "translations":
+          "type": "object"
+          "required":
+            - "ja"
+            - "en"
+          "additionalProperties":
+            "type": "object"
+            "required":
+              - "title"
+              - "url"
+              - "sha256"
+            "properties":
+              "title":
+                "type": "string"
+              "url":
+                "type": "string"
+              "sha256":
+                "type": "string"
+                "pattern": "^[a-f0-9]{64}$"
   responses:
     Unauthorized:
       description: Bearer未指定・失効

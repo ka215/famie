@@ -113,7 +113,12 @@ test('設定画面の文書リンクは選択言語に対応する', async ({ pa
     return route.abort()
   })
   await page.goto('/settings/')
-  const link = page.locator('a[href="/legal/terms/en/"]')
+  const about = page
+    .locator('details')
+    .filter({ has: page.locator('a[href="/THIRD_PARTY_NOTICES.txt"]') })
+  await about.locator('summary').click()
+  await expect(about.locator('a[href^="/legal/"]')).toHaveCount(3)
+  const link = about.locator('a[href="/legal/terms/en/"]')
   await expect(link).toHaveText(/Terms of Service/)
   const popupPromise = page.waitForEvent('popup')
   await link.click()
