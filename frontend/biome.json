@@ -21,7 +21,9 @@
       "i18n/**",
       "scripts/i18n.mjs",
       "scripts/legal.mjs",
-      "content/legal/manifest.json"
+      "content/legal/manifest.json",
+      "scripts/legal-page.mjs",
+      "public/legal-page.js"
     ]
   },
   "formatter": {

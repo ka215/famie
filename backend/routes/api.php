@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\EmailController;
 use App\Http\Controllers\Api\GroupController;
+use App\Http\Controllers\Api\LegalDocumentController;
 use App\Http\Controllers\Api\LoginSecurityAlertController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\RewardController;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::get('/status', StatusController::class);
+    Route::get('/legal/documents', LegalDocumentController::class)->name('legal.documents');
     Route::post('/auth/email/verify', [EmailController::class, 'verify'])->middleware('throttle:20,1');
     Route::post('/auth/password/forgot', [PasswordResetController::class, 'store'])->middleware('throttle:account-mail-ip');
     Route::post('/auth/password/reset', [PasswordResetController::class, 'update'])->middleware('throttle:20,1');
