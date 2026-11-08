@@ -9,6 +9,7 @@ use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Models\LegalAcceptance;
 use App\Models\Reward;
 use App\Models\RewardAward;
 use App\Models\RewardPeriod;
@@ -63,6 +64,8 @@ class AccountLifecycleTest extends TestCase
         $member->update(['status' => GroupMember::STATUS_INACTIVE]);
         $oldUsername = $member->user->username;
         $oldEmail = $member->user->email;
+        $this->recordLegalHistory($member->user);
+        $this->recordLegalHistory($representative->user);
         $member->user->forceFill([
             'email_verified_at' => now(), 'pending_email' => 'pending@example.test',
             'email_verification_token' => str_repeat('a', 64), 'email_verification_expires_at' => now()->addHour(),
@@ -96,6 +99,8 @@ class AccountLifecycleTest extends TestCase
         ])->assertStatus(202)->assertJsonPath('data.state', 'committed'));
 
         $this->assertSoftDeleted('users', ['id' => $member->user_id]);
+        $this->assertDatabaseMissing('legal_acceptances', ['user_id' => $member->user_id]);
+        $this->assertDatabaseHas('legal_acceptances', ['user_id' => $representative->user_id]);
         $this->assertSoftDeleted('group_members', ['id' => $member->id]);
         $this->assertDatabaseHas('users', [
             'id' => $member->user_id, 'email' => null, 'display_name' => 'Deleted member',
@@ -140,6 +145,11 @@ class AccountLifecycleTest extends TestCase
     {
         $this->configureLifecycleStorage();
         [$group, $representative, $otherParent, $member] = $this->family();
+        foreach ([$representative, $otherParent, $member] as $membership) {
+            $this->recordLegalHistory($membership->user);
+        }
+        $unrelated = User::factory()->create();
+        $this->recordLegalHistory($unrelated);
         $oldToken = $representative->user->createToken('revoked-on-withdrawal')->accessToken;
         Sanctum::actingAs($representative->user);
         $prepared = $this->postJson("/v1/groups/{$group->id}/lifecycle-operations", ['kind' => 'group_withdraw'])
@@ -152,15 +162,18 @@ class AccountLifecycleTest extends TestCase
         $this->assertNotNull($group->fresh()->withdrawn_at);
         foreach ([$representative, $otherParent, $member] as $membership) {
             $this->assertSoftDeleted('users', ['id' => $membership->user_id]);
+            $this->assertDatabaseMissing('legal_acceptances', ['user_id' => $membership->user_id]);
             $this->assertSoftDeleted('group_members', ['id' => $membership->id]);
         }
         $this->assertDatabaseMissing('personal_access_tokens', ['id' => $oldToken->id]);
+        $this->assertDatabaseHas('legal_acceptances', ['user_id' => $unrelated->id]);
     }
 
     public function test_failed_confirmation_does_not_write_vault_or_delete_the_member(): void
     {
         $vault = $this->configureLifecycleStorage();
         [$group, $representative, , $member] = $this->family();
+        $this->recordLegalHistory($member->user);
         $member->update(['status' => GroupMember::STATUS_INACTIVE]);
         Sanctum::actingAs($representative->user);
         $prepared = $this->postJson("/v1/groups/{$group->id}/lifecycle-operations", [
@@ -174,6 +187,7 @@ class AccountLifecycleTest extends TestCase
         ])->assertUnprocessable();
 
         $this->assertNotSoftDeleted('users', ['id' => $member->user_id]);
+        $this->assertDatabaseHas('legal_acceptances', ['user_id' => $member->user_id]);
         $this->assertNotSoftDeleted('group_members', ['id' => $member->id]);
         $this->assertFileDoesNotExist($vault.'/'.$prepared->json('data.receipt_id').'.json');
         $this->assertDatabaseHas('account_lifecycle_operations', [
@@ -756,6 +770,14 @@ class AccountLifecycleTest extends TestCase
         $this->assertDatabaseHas('account_lifecycle_operations', ['id' => $receipt, 'state' => 'prepared']);
         $this->assertDatabaseHas('account_lifecycle_credentials', ['operation_id' => $receipt]);
         $this->assertNotSoftDeleted('users', ['id' => $member->user_id]);
+    }
+
+    private function recordLegalHistory(User $user): void
+    {
+        config(['legal.storage_enabled' => true]);
+        LegalAcceptance::query()->create(['user_id' => $user->id, 'document_id' => 'terms',
+            'document_version' => '0.1.0', 'document_sha256' => str_repeat('a', 64),
+            'action' => 'accept', 'locale' => 'ja', 'recorded_at' => now()->utc()]);
     }
 
     private function configureLifecycleStorage(): string

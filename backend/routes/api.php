@@ -8,12 +8,14 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\EmailController;
 use App\Http\Controllers\Api\GroupController;
+use App\Http\Controllers\Api\LegalAcceptanceController;
 use App\Http\Controllers\Api\LegalDocumentController;
 use App\Http\Controllers\Api\LoginSecurityAlertController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\RewardController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Middleware\EnsureLegalAcceptance;
 use App\Http\Middleware\SetUiLocale;
 use Illuminate\Support\Facades\Route;
 
@@ -28,7 +30,8 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/register/username-availability', [AuthController::class, 'usernameAvailability'])->middleware('throttle:30,1');
     Route::post('/lifecycle-operation-status', [AccountLifecycleController::class, 'status'])->middleware('throttle:lifecycle-status');
 
-    Route::middleware(['auth:sanctum', SetUiLocale::class.':authenticated'])->group(function () {
+    Route::middleware(['auth:sanctum', SetUiLocale::class.':authenticated', EnsureLegalAcceptance::class])->group(function () {
+        Route::post('/auth/legal-acceptances', LegalAcceptanceController::class)->middleware('throttle:10,1');
         Route::post('/auth/me/email', [EmailController::class, 'store'])->middleware('throttle:account-mail-ip');
         Route::post('/auth/me/email/resend', [EmailController::class, 'resend'])->middleware('throttle:account-mail-ip');
         Route::delete('/auth/me/email', [EmailController::class, 'destroy'])->middleware('throttle:10,1');

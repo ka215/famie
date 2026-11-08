@@ -618,6 +618,19 @@
     "linksLabel": "Legal and privacy information",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
-    "cookies": "Cookie Policy"
+    "cookies": "Cookie Policy",
+    "confirmTitle": "Review terms and privacy information",
+    "checkHelp": "Read each document and select each checkbox separately.",
+    "acceptTerms": "I agree to the Terms of Service.",
+    "acknowledgePrivacy": "I have read the Privacy Policy.",
+    "privacyHelp": "Acknowledging the Privacy Policy does not provide blanket consent to all data processing.",
+    "reconfirmHelp": "The family representative must review these documents personally. Normal features are restricted for this account until review is complete. Other members can continue using Famie.",
+    "confirmSubmit": "Confirm and continue",
+    "loadFailed": "Could not load document information. Please retry.",
+    "versionChanged": "The documents have changed. Review them and select each checkbox again.",
+    "retry": "Retry",
+    "contact": "Contact support",
+    "logout": "Sign out",
+    "continue": "Continue"
   }
 }

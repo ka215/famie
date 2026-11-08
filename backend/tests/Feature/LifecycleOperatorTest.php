@@ -9,6 +9,7 @@ use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Models\LegalAcceptance;
 use App\Models\User;
 use App\Services\AccountLifecycleCleanup;
 use App\Services\ActivityImageDeletionService;
@@ -2260,6 +2261,13 @@ class LifecycleOperatorTest extends TestCase
     {
         [$record, $sha] = $this->restoreFixture();
         $user = User::query()->firstOrFail();
+        config(['legal.storage_enabled' => true, 'legal.acceptance_enabled' => false]);
+        $other = User::factory()->create();
+        foreach ([$user, $other] as $subject) {
+            LegalAcceptance::query()->create(['user_id' => $subject->id, 'document_id' => 'terms',
+                'document_version' => '0.1.0', 'document_sha256' => str_repeat('a', 64),
+                'action' => 'accept', 'locale' => 'ja', 'recorded_at' => now()->utc()]);
+        }
         $user->createToken('restored-token');
         DB::table('sessions')->insert(['id' => (string) Str::uuid(), 'user_id' => $user->id, 'payload' => 'synthetic', 'last_activity' => now()->timestamp]);
         DB::table('password_reset_tokens')->insert(['email' => $user->email, 'token' => 'synthetic-reset', 'created_at' => now()]);
@@ -2268,6 +2276,7 @@ class LifecycleOperatorTest extends TestCase
         $service = app(LifecycleRestoreReapply::class);
         $plan = $service->reapply($record['restore_id'], $record['receipt_id'], $sha, $record['ledger_sha256'], $record['source_url'], $record['environment'], 'ops-01');
         $this->assertFalse($plan['applied']);
+        $this->assertDatabaseCount('legal_acceptances', 2);
         $this->assertSame($auditSha, hash_file('sha256', $auditPath));
         $this->assertSame('prepared', AccountLifecycleOperation::query()->firstOrFail()->state);
         $this->assertNull($user->fresh()->deleted_at);
@@ -2276,6 +2285,8 @@ class LifecycleOperatorTest extends TestCase
         $this->assertFalse($result['reopen_allowed']);
         $masked = User::withTrashed()->findOrFail($user->id);
         $this->assertNotNull($masked->deleted_at);
+        $this->assertDatabaseMissing('legal_acceptances', ['user_id' => $user->id]);
+        $this->assertDatabaseHas('legal_acceptances', ['user_id' => $other->id]);
         $this->assertFalse(Hash::check('password', $masked->password));
         $this->assertNull($masked->email);
         $this->assertDatabaseCount('personal_access_tokens', 0);
