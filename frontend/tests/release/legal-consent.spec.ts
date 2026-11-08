@@ -24,7 +24,10 @@ const identity = {
 
 test.beforeEach(async ({ baseURL }) => {
   if (!baseURL) throw new Error('Local base URL required')
-  expect(['127.0.0.1', 'localhost']).toContain(new URL(baseURL).hostname)
+  test.skip(
+    !['127.0.0.1', 'localhost'].includes(new URL(baseURL).hostname),
+    'Synthetic API tests run only on local hosts'
+  )
 })
 
 test('登録では別々の未選択チェックが必要で、版変更時には選択を解除する', async ({
