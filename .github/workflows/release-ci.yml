@@ -347,7 +347,7 @@ jobs:
           cp .env.example .env
           php artisan key:generate --force
           mkdir -p ../coverage-results/backend-postgres
-          php artisan test --filter="RewardPostgresTest|RepresentativePostgresTest|AccountLifecyclePostgresTest|AccountLifecycleCleanupPostgresTest|MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest|AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest|DailyBackupPostgresTest" --coverage-clover ../coverage-results/backend-postgres/clover.xml
+          php artisan test --filter="RewardPostgresTest|RepresentativePostgresTest|AccountLifecyclePostgresTest|AccountLifecycleCleanupPostgresTest|MemberPasswordRecoveryTest|LoginSecurityAlertTest|LoginSecurityTest|PasswordSecurityTest|AccountEmailTest|EmailPrivacyTest|PostgresConcurrencyTest|DailyBackupPostgresTest|LegalAcceptanceStorageTest|LegalAcceptanceGateTest" --coverage-clover ../coverage-results/backend-postgres/clover.xml
           php ../scripts/coverage/backend-summary.php ../coverage-results/backend-postgres/clover.xml backend-postgres ../coverage-results/backend-postgres/summary.json
       - uses: actions/setup-node@v7.1.0
         with:
