@@ -811,6 +811,7 @@ watch(locale, () => {
       <p class="text-center text-xs text-slate-500 dark:text-slate-400">© MAGIC METHODS</p>
     </SettingsCard>
     <MemberManageDialog v-if="selectedMember && isParent" :member="selectedMember" :inactive="restoringMember" @close="selectedMember = null" @saved="memberSaved" />
+    <LegalLinks class="my-6" />
     <AccountLifecycleDialog v-if="lifecycleMember" kind="member_delete" :member="lifecycleMember" @close="lifecycleMember = null" @committed="memberDeleted" />
     <AccountLifecycleDialog v-if="withdrawalOpen" kind="group_withdraw" @close="withdrawalOpen = false" @committed="familyWithdrawn" />
     <CategoryManageDialog v-if="selectedCategory && isParent" :category="selectedCategory" @close="selectedCategory = null" @saved="categorySaved" />

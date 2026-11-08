@@ -613,5 +613,12 @@
     "likesReceivedTotalUnknown": "いいね獲得総数: —",
     "postsTotal": "アクティビティ投稿総数 {count}件",
     "likesReceivedTotal": "いいね獲得総数 {count}件"
+  },
+  "legal": {
+    "linksLabel": "利用条件と個人情報の取扱い",
+    "terms": "利用規約",
+    "privacy": "プライバシーポリシー",
+    "cookies": "Cookieポリシー",
+    "newTab": "（別タブで開きます）"
   }
 }
