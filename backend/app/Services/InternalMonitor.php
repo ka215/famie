@@ -9,9 +9,9 @@ use Throwable;
 
 class InternalMonitor
 {
-    public const CHECKS = ['database', 'storage', 'capacity', 'backup', 'image-deletions', 'lifecycle-cleanup', 'server_errors', 'authentication_failures', 'rate_limits', 'permission_denials', 'log_integrity', 'housekeeping'];
+    public const CHECKS = ['database', 'storage', 'capacity', 'backup', 'image-deletions', 'lifecycle-cleanup', 'access-log-retention', 'server_errors', 'authentication_failures', 'rate_limits', 'permission_denials', 'log_integrity', 'housekeeping'];
 
-    public function __construct(private OperationState $state) {}
+    public function __construct(private OperationState $state, private AccessLogRetention $accessLogRetention) {}
 
     /** @return array<string, string> */
     public function check(): array
@@ -48,6 +48,11 @@ class InternalMonitor
             $results['image-deletions'] = 'critical';
         }
         $previous = $this->state->read('monitor');
+        if (config('operations.access_log_monitor_enabled')) {
+            $results['access-log-retention'] = $this->accessLogRetention->check(
+                config('operations.access_log_path'), now()->timestamp,
+            );
+        }
         if (config('famie.lifecycle_monitor_enabled')) {
             $results['lifecycle-cleanup'] = $this->lifecycleCleanup();
         }
