@@ -17,8 +17,8 @@ class AccessLogRetention
         }
 
         $severity = 'ok';
-        foreach (['', '.1', '.2', '.3', '.4'] as $suffix) {
-            $path = $basePath.$suffix;
+        foreach (range(0, 4) as $generation) {
+            $path = $generation === 0 ? $basePath : substr($basePath, 0, -4).'.'.$generation.'.log';
             clearstatcache(true, $path);
             $metadata = file_exists($path) || is_link($path) ? @lstat($path) : false;
             if ($metadata === false || ($metadata['mode'] & 0170000) !== 0100000

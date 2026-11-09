@@ -31,9 +31,9 @@ class AccessLogRetentionTest extends TestCase
         $this->root = realpath(sys_get_temp_dir()).DIRECTORY_SEPARATOR.'famie-retention-'.bin2hex(random_bytes(8));
         mkdir($this->root, 0700);
         $base = $this->root.DIRECTORY_SEPARATOR.'example.log';
-        foreach (['', '.1', '.2', '.3', '.4'] as $suffix) {
-            file_put_contents($base.$suffix, 'fixture content');
-            touch($base.$suffix, self::CHECKED_AT);
+        foreach (['example.log', 'example.1.log', 'example.2.log', 'example.3.log', 'example.4.log'] as $name) {
+            file_put_contents($this->root.'/'.$name, 'fixture content');
+            touch($this->root.'/'.$name, self::CHECKED_AT);
         }
 
         return $base;
@@ -46,33 +46,42 @@ class AccessLogRetentionTest extends TestCase
         file_put_contents($this->root.'/unrelated.log', 'unrelated');
         touch($this->root.'/unrelated.log', 1);
         foreach ([2160000 => 'ok', 2160001 => 'warning', 2592000 => 'warning', 2592001 => 'critical'] as $age => $expected) {
-            touch($base.'.4', self::CHECKED_AT - $age);
+            touch($this->root.'/example.4.log', self::CHECKED_AT - $age);
 
             $this->assertSame($expected, $monitor->check($base, self::CHECKED_AT));
-            $this->assertSame(self::CHECKED_AT - $age, filemtime($base.'.4'));
-            $this->assertSame('fixture content', file_get_contents($base.'.4'));
+            $this->assertSame(self::CHECKED_AT - $age, filemtime($this->root.'/example.4.log'));
+            $this->assertSame('fixture content', file_get_contents($this->root.'/example.4.log'));
         }
         $this->assertSame('unrelated', file_get_contents($this->root.'/unrelated.log'));
+    }
+
+    public function test_ignores_files_with_generation_after_the_log_extension(): void
+    {
+        $base = $this->logs();
+        file_put_contents($this->root.'/example.log.4', 'unrelated legacy naming');
+        touch($this->root.'/example.log.4', 1);
+
+        $this->assertSame('ok', (new AccessLogRetention)->check($base, self::CHECKED_AT));
     }
 
     public function test_does_not_report_missing_or_future_dated_logs_as_healthy(): void
     {
         $base = $this->logs();
-        unlink($base.'.2');
+        unlink($this->root.'/example.2.log');
         $monitor = new AccessLogRetention;
 
         $this->assertSame('warning', $monitor->check($base, self::CHECKED_AT));
-        touch($base.'.2', self::CHECKED_AT + 1);
+        touch($this->root.'/example.2.log', self::CHECKED_AT + 1);
         $this->assertSame('warning', $monitor->check($base, self::CHECKED_AT));
-        touch($base.'.4', self::CHECKED_AT - 2592001);
+        touch($this->root.'/example.4.log', self::CHECKED_AT - 2592001);
         $this->assertSame('critical', $monitor->check($base, self::CHECKED_AT));
     }
 
     public function test_rejects_directory_instead_of_a_regular_log(): void
     {
         $base = $this->logs();
-        unlink($base.'.1');
-        mkdir($base.'.1');
+        unlink($this->root.'/example.1.log');
+        mkdir($this->root.'/example.1.log');
 
         $this->assertSame('warning', (new AccessLogRetention)->check($base, self::CHECKED_AT));
     }
@@ -89,8 +98,8 @@ class AccessLogRetentionTest extends TestCase
     public function test_rejects_hard_linked_log(): void
     {
         $base = $this->logs();
-        unlink($base.'.1');
-        link($base, $base.'.1');
+        unlink($this->root.'/example.1.log');
+        link($base, $this->root.'/example.1.log');
 
         $this->assertSame('warning', (new AccessLogRetention)->check($base, self::CHECKED_AT));
     }
@@ -101,8 +110,8 @@ class AccessLogRetentionTest extends TestCase
             $this->markTestSkipped('Creating symbolic links requires a separate Windows privilege. Covered on Linux CI.');
         }
         $base = $this->logs();
-        unlink($base.'.1');
-        symlink($base, $base.'.1');
+        unlink($this->root.'/example.1.log');
+        symlink($base, $this->root.'/example.1.log');
 
         $this->assertSame('warning', (new AccessLogRetention)->check($base, self::CHECKED_AT));
     }
@@ -124,9 +133,9 @@ class AccessLogRetentionTest extends TestCase
             $this->markTestSkipped('POSIX read permissions are covered on Linux CI.');
         }
         $base = $this->logs();
-        chmod($base.'.1', 0000);
-        clearstatcache(true, $base.'.1');
-        if (is_readable($base.'.1')) {
+        chmod($this->root.'/example.1.log', 0000);
+        clearstatcache(true, $this->root.'/example.1.log');
+        if (is_readable($this->root.'/example.1.log')) {
             $this->markTestSkipped('This test requires an unprivileged user.');
         }
 
