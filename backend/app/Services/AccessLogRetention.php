@@ -20,7 +20,7 @@ class AccessLogRetention
         foreach (['', '.1', '.2', '.3', '.4'] as $suffix) {
             $path = $basePath.$suffix;
             clearstatcache(true, $path);
-            $metadata = @lstat($path);
+            $metadata = file_exists($path) || is_link($path) ? @lstat($path) : false;
             if ($metadata === false || ($metadata['mode'] & 0170000) !== 0100000
                 || $metadata['nlink'] !== 1 || ! is_readable($path) || $metadata['mtime'] > $checkedAt) {
                 $severity = $severity === 'critical' ? 'critical' : 'warning';
