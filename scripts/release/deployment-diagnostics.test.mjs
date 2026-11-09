@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { chmod, copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -10,6 +10,42 @@ import test from 'node:test'
 const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash'
 const source = dirname(fileURLToPath(import.meta.url))
 const shellPath = (path) => resolve(path).replaceAll('\\', '/').replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`)
+
+for (const scenario of ['unchanged', 'earlier migration', 'modified migration', 'deleted migration', 'missing tag']) {
+  test(`rollback compatibility against published tag: ${scenario}`, async (t) => {
+    const root = await mkdtemp(join(tmpdir(), 'famie-rollback-test-'))
+    assert.equal(dirname(root), resolve(tmpdir()))
+    t.after(() => rm(root, { recursive: true, force: true }))
+    const git = (...args) => {
+      const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true })
+      assert.equal(result.status, 0, result.stderr)
+    }
+    git('init')
+    git('config', 'user.name', 'Fixture')
+    git('config', 'user.email', 'fixture@example.invalid')
+    git('config', 'commit.gpgsign', 'false')
+    const migrations = join(root, 'backend/database/migrations')
+    await mkdir(migrations, { recursive: true })
+    const migration = join(migrations, 'baseline.php')
+    await writeFile(migration, '<?php // baseline\n')
+    git('add', '.')
+    git('commit', '-m', 'published')
+    if (scenario !== 'missing tag') git('tag', 'v0.19.2')
+    if (scenario === 'earlier migration') await writeFile(join(migrations, 'new.php'), '<?php // new\n')
+    if (scenario === 'modified migration') await writeFile(migration, '<?php // changed\n')
+    if (scenario === 'deleted migration') await rm(migration)
+    git('add', '-A')
+    git('commit', '--allow-empty', '-m', 'implementation')
+    await writeFile(join(root, 'notes.md'), 'Documentation-only final commit\n')
+    git('add', '.')
+    git('commit', '-m', 'documentation')
+    const result = spawnSync(bash, ['--noprofile', '--norc', '-c', 'source "$1"; database_rollback_compatibility 0.19.2', 'fixture', shellPath(join(source, 'database-compatibility.sh'))], {
+      cwd: root, env: { ...process.env, BASH_ENV: '' }, encoding: 'utf8', windowsHide: true,
+    })
+    assert.equal(result.status, 0, result.stderr)
+    assert.equal(result.stdout.trim(), scenario === 'unchanged' ? 'true' : 'false')
+  })
+}
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'famie-deployment-diagnostic-test-'))

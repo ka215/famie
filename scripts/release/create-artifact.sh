@@ -34,10 +34,8 @@ git archive HEAD backend | tar -xf - -C "$work/payload"
 )
 tar -C "$work/payload" -czf "$work/bundle/payload.tar.gz" .
 payload_sha=$(sha256sum "$work/bundle/payload.tar.gz" | cut -d' ' -f1)
-database_rollback_compatible=true
-if git rev-parse --verify HEAD^ >/dev/null 2>&1 && ! git diff --quiet HEAD^ HEAD -- backend/database/migrations; then
-  database_rollback_compatible=false
-fi
+source scripts/release/database-compatibility.sh
+database_rollback_compatible=$(database_rollback_compatibility "$current")
 workflow_run_id=${GITHUB_RUN_ID:-0}
 created_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 jq -n \
