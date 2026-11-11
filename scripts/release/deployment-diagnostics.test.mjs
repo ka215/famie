@@ -108,6 +108,38 @@ exit 99`)
   })
 }
 
+for (const [initial, publicDns, after, hosted, expected, modified] of [
+  [1, 0, 1, 'github-hosted', 0, false],
+  [0, 1, 1, 'github-hosted', 1, false],
+  [0, 0, 1, 'github-hosted', 0, true],
+  [0, 0, 0, 'github-hosted', 1, true],
+  [0, 0, 1, 'self-hosted', 1, false],
+]) {
+  test(`hosted runner DNS preparation is gated and verified (${initial}/${publicDns}/${after}/${hosted})`, async (t) => {
+    const root = await fixture(t)
+    await mkdir(join(root, 'bin'))
+    await executable(join(root, 'bin', 'timeout'), 'shift; exec "$@"')
+    await executable(join(root, 'bin', 'getent'), `[[ ${initial} == 1 || ( ${after} == 1 && -f "$HOME/dns-switched" ) ]]`)
+    await executable(join(root, 'bin', 'node'), `exit ${publicDns}`)
+    await executable(join(root, 'bin', 'systemctl'), 'exit 0')
+    await executable(join(root, 'bin', 'resolvectl'), 'exit 0')
+    await executable(join(root, 'bin', 'ip'), 'echo "default via 192.0.2.1 dev eth0"')
+    await executable(join(root, 'bin', 'sudo'), `printf '%s\\n' "$*" >> "$HOME/dns-commands"
+if [[ $2 == flush-caches ]]; then touch "$HOME/dns-switched"; fi`)
+
+    const result = await run(root, join(source, 'prepare-ci-dns.sh'), [], {
+      GITHUB_ACTIONS: 'true', RUNNER_OS: 'Linux', RUNNER_ENVIRONMENT: hosted,
+    })
+
+    assert.equal(result.code, expected, result.output)
+    if (modified) {
+      assert.equal(await readFile(join(root, 'dns-commands'), 'utf8'), 'resolvectl dns eth0 1.1.1.1\nresolvectl domain eth0 ~.\nresolvectl flush-caches\n')
+    } else {
+      assert.equal((await readdir(root)).includes('dns-commands'), false)
+    }
+  })
+}
+
 for (const code of [0, 27, 255]) {
   test(`supervisor preserves child exit ${code} and structured checkpoints`, async (t) => {
     const root = await fixture(t)

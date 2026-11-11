@@ -1,7 +1,7 @@
 import { getServers } from 'node:dns'
 import { Resolver } from 'node:dns/promises'
 
-if (process.env.GITHUB_ACTIONS !== 'true' || process.env.RUNNER_OS !== 'Linux') {
+if (process.env.GITHUB_ACTIONS !== 'true' || process.env.RUNNER_OS !== 'Linux' || process.env.RUNNER_ENVIRONMENT !== 'github-hosted') {
   throw new Error('Run DNS diagnostics only on a GitHub Actions Linux runner.')
 }
 
@@ -12,8 +12,10 @@ const resolvers = [
   ['google', ['8.8.8.8']],
   ['cloudflare', ['1.1.1.1']],
 ]
+const checkCloudflare = process.argv[2] === '--check-cloudflare'
+let failures = 0
 
-await Promise.all(resolvers.map(async ([label, servers]) => {
+await Promise.all(resolvers.filter(([label]) => !checkCloudflare || label === 'cloudflare').map(async ([label, servers]) => {
   const resolver = new Resolver({ timeout: 2000, tries: 1 })
   resolver.setServers(servers)
   console.log(`DNS ${label}: servers=${servers.join(',')}`)
@@ -22,8 +24,10 @@ await Promise.all(resolvers.map(async ([label, servers]) => {
       const records = await resolver.resolve4(host)
       console.log(`DNS ${label}: ${host} OK A_records=${records.length}`)
     } catch (error) {
+      failures++
       const code = typeof error.code === 'string' && /^[A-Z_]+$/.test(error.code) ? error.code : 'FAILED'
       console.log(`DNS ${label}: ${host} ${code}`)
     }
   }))
 }))
+if (checkCloudflare && failures > 0) process.exitCode = 1
