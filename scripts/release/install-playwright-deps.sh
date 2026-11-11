@@ -13,6 +13,7 @@ mirror=archive.ubuntu.com
 if ! timeout 15 getent ahostsv4 "$mirror" >/dev/null; then
   mirror=azure.archive.ubuntu.com
   if ! timeout 15 getent ahostsv4 "$mirror" >/dev/null; then
+    timeout 25 node "$(dirname "$0")/diagnose-ci-dns.mjs" || true
     echo 'Neither Ubuntu mirror could be resolved; dependency installation was not started.' >&2
     exit 1
   fi

@@ -91,6 +91,7 @@ if [[ $2 == azure.archive.ubuntu.com ]]; then exit ${fallback}; fi
 exit 99`)
     await executable(join(root, 'bin', 'sudo'), 'if [[ $1 == tee ]]; then cat >/dev/null; fi')
     await executable(join(root, 'bin', 'pnpm'), 'echo ISOLATED_APT_INSTALL_REACHED')
+    await executable(join(root, 'bin', 'node'), 'echo ISOLATED_DNS_DIAG_REACHED')
 
     const result = await run(root, join(source, 'install-playwright-deps.sh'), ['chromium'], { GITHUB_ACTIONS: 'true', RUNNER_OS: 'Linux' })
 
@@ -98,9 +99,11 @@ exit 99`)
     if (expected) {
       assert.ok(result.output.includes(`Playwright dependency mirror: ${expected}`), result.output)
       assert.match(result.output, /ISOLATED_APT_INSTALL_REACHED/)
+      assert.doesNotMatch(result.output, /ISOLATED_DNS_DIAG_REACHED/)
     } else {
       assert.match(result.output, /Neither Ubuntu mirror could be resolved/)
       assert.doesNotMatch(result.output, /ISOLATED_APT_INSTALL_REACHED/)
+      assert.match(result.output, /ISOLATED_DNS_DIAG_REACHED/)
     }
   })
 }
