@@ -81,6 +81,30 @@ async function logs(root) {
   return (await Promise.all((await readdir(directory)).map((name) => readFile(join(directory, name), 'utf8')))).join('\n')
 }
 
+for (const [primary, fallback, expected] of [[0, 0, 'archive.ubuntu.com'], [1, 0, 'azure.archive.ubuntu.com'], [1, 1, null]]) {
+  test(`CI dependency installation checks DNS before APT (${primary}/${fallback})`, async (t) => {
+    const root = await fixture(t)
+    await mkdir(join(root, 'bin'))
+    await executable(join(root, 'bin', 'timeout'), 'shift; exec "$@"')
+    await executable(join(root, 'bin', 'getent'), `if [[ $2 == archive.ubuntu.com ]]; then exit ${primary}; fi
+if [[ $2 == azure.archive.ubuntu.com ]]; then exit ${fallback}; fi
+exit 99`)
+    await executable(join(root, 'bin', 'sudo'), 'if [[ $1 == tee ]]; then cat >/dev/null; fi')
+    await executable(join(root, 'bin', 'pnpm'), 'echo ISOLATED_APT_INSTALL_REACHED')
+
+    const result = await run(root, join(source, 'install-playwright-deps.sh'), ['chromium'], { GITHUB_ACTIONS: 'true', RUNNER_OS: 'Linux' })
+
+    assert.equal(result.code, expected ? 0 : 1, result.output)
+    if (expected) {
+      assert.ok(result.output.includes(`Playwright dependency mirror: ${expected}`), result.output)
+      assert.match(result.output, /ISOLATED_APT_INSTALL_REACHED/)
+    } else {
+      assert.match(result.output, /Neither Ubuntu mirror could be resolved/)
+      assert.doesNotMatch(result.output, /ISOLATED_APT_INSTALL_REACHED/)
+    }
+  })
+}
+
 for (const code of [0, 27, 255]) {
   test(`supervisor preserves child exit ${code} and structured checkpoints`, async (t) => {
     const root = await fixture(t)
