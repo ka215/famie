@@ -81,6 +81,65 @@ async function logs(root) {
   return (await Promise.all((await readdir(directory)).map((name) => readFile(join(directory, name), 'utf8')))).join('\n')
 }
 
+for (const [primary, fallback, expected] of [[0, 0, 'archive.ubuntu.com'], [1, 0, 'azure.archive.ubuntu.com'], [1, 1, null]]) {
+  test(`CI dependency installation checks DNS before APT (${primary}/${fallback})`, async (t) => {
+    const root = await fixture(t)
+    await mkdir(join(root, 'bin'))
+    await executable(join(root, 'bin', 'timeout'), 'shift; exec "$@"')
+    await executable(join(root, 'bin', 'getent'), `if [[ $2 == archive.ubuntu.com ]]; then exit ${primary}; fi
+if [[ $2 == azure.archive.ubuntu.com ]]; then exit ${fallback}; fi
+exit 99`)
+    await executable(join(root, 'bin', 'sudo'), 'if [[ $1 == tee ]]; then cat >/dev/null; fi')
+    await executable(join(root, 'bin', 'pnpm'), 'echo ISOLATED_APT_INSTALL_REACHED')
+    await executable(join(root, 'bin', 'node'), 'echo ISOLATED_DNS_DIAG_REACHED')
+
+    const result = await run(root, join(source, 'install-playwright-deps.sh'), ['chromium'], { GITHUB_ACTIONS: 'true', RUNNER_OS: 'Linux' })
+
+    assert.equal(result.code, expected ? 0 : 1, result.output)
+    if (expected) {
+      assert.ok(result.output.includes(`Playwright dependency mirror: ${expected}`), result.output)
+      assert.match(result.output, /ISOLATED_APT_INSTALL_REACHED/)
+      assert.doesNotMatch(result.output, /ISOLATED_DNS_DIAG_REACHED/)
+    } else {
+      assert.match(result.output, /Neither Ubuntu mirror could be resolved/)
+      assert.doesNotMatch(result.output, /ISOLATED_APT_INSTALL_REACHED/)
+      assert.match(result.output, /ISOLATED_DNS_DIAG_REACHED/)
+    }
+  })
+}
+
+for (const [initial, publicDns, after, hosted, expected, modified] of [
+  [1, 0, 1, 'github-hosted', 0, false],
+  [0, 1, 1, 'github-hosted', 1, false],
+  [0, 0, 1, 'github-hosted', 0, true],
+  [0, 0, 0, 'github-hosted', 1, true],
+  [0, 0, 1, 'self-hosted', 1, false],
+]) {
+  test(`hosted runner DNS preparation is gated and verified (${initial}/${publicDns}/${after}/${hosted})`, async (t) => {
+    const root = await fixture(t)
+    await mkdir(join(root, 'bin'))
+    await executable(join(root, 'bin', 'timeout'), 'shift; exec "$@"')
+    await executable(join(root, 'bin', 'getent'), `[[ ${initial} == 1 || ( ${after} == 1 && -f "$HOME/dns-switched" ) ]]`)
+    await executable(join(root, 'bin', 'node'), `exit ${publicDns}`)
+    await executable(join(root, 'bin', 'systemctl'), 'exit 0')
+    await executable(join(root, 'bin', 'resolvectl'), 'exit 0')
+    await executable(join(root, 'bin', 'ip'), 'echo "default via 192.0.2.1 dev eth0"')
+    await executable(join(root, 'bin', 'sudo'), `printf '%s\\n' "$*" >> "$HOME/dns-commands"
+if [[ $2 == flush-caches ]]; then touch "$HOME/dns-switched"; fi`)
+
+    const result = await run(root, join(source, 'prepare-ci-dns.sh'), [], {
+      GITHUB_ACTIONS: 'true', RUNNER_OS: 'Linux', RUNNER_ENVIRONMENT: hosted,
+    })
+
+    assert.equal(result.code, expected, result.output)
+    if (modified) {
+      assert.equal(await readFile(join(root, 'dns-commands'), 'utf8'), 'resolvectl dns eth0 1.1.1.1\nresolvectl domain eth0 ~.\nresolvectl flush-caches\n')
+    } else {
+      assert.equal((await readdir(root)).includes('dns-commands'), false)
+    }
+  })
+}
+
 for (const code of [0, 27, 255]) {
   test(`supervisor preserves child exit ${code} and structured checkpoints`, async (t) => {
     const root = await fixture(t)
