@@ -57,11 +57,10 @@ useHead(() => ({ title: `${t('legal.confirmTitle')} | Famie` }))
 <template>
   <main class="min-h-screen bg-slate-100 px-4 py-8 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
     <section class="relative mx-auto w-full max-w-lg space-y-5 rounded-2xl bg-white p-6 shadow-md dark:bg-slate-800">
-      <LanguageSwitcher />
-      <h1 class="pr-8 text-xl font-bold">{{ t('legal.confirmTitle') }}</h1>
+      <h1 class="text-xl font-bold">{{ t('legal.confirmTitle') }}</h1>
       <p class="text-sm">{{ t('legal.reconfirmHelp') }}</p>
       <form v-if="loaded && enabled && legal?.required" class="space-y-4" @submit.prevent="submit">
-        <LegalConsentFields v-model:terms="termsAccepted" v-model:privacy="privacyAcknowledged" :documents="documents" :language="language" />
+        <LegalConsentFields v-model:terms="termsAccepted" v-model:privacy="privacyAcknowledged" :documents="documents" :language="language" return-to="legal-confirmation" />
         <p v-if="error" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ error }}</p>
         <button type="submit" :disabled="busy || !ready" class="w-full rounded-lg bg-blue-600 px-4 py-3 text-white disabled:opacity-50">{{ t('legal.confirmSubmit') }}</button>
       </form>
@@ -70,7 +69,7 @@ useHead(() => ({ title: `${t('legal.confirmTitle')} | Famie` }))
         <button type="button" class="mt-2 text-blue-600 dark:text-blue-300" @click="load">{{ t('legal.retry') }}</button>
       </div>
       <NuxtLink v-if="loaded && (!enabled || !legal?.required)" to="/" class="block text-center text-sm text-blue-600 dark:text-blue-300">{{ t('legal.continue') }}</NuxtLink>
-      <LegalLinks />
+      <LegalLinks return-to="legal-confirmation" />
       <div class="flex flex-wrap justify-center gap-4 text-sm">
         <a href="mailto:support@famie.co" class="text-blue-600 dark:text-blue-300">{{ t('legal.contact') }}</a>
         <button type="button" class="text-blue-600 dark:text-blue-300" @click="logout">{{ t('legal.logout') }}</button>

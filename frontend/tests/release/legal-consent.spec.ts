@@ -123,6 +123,7 @@ test('未確認の代表管理者は確認画面へ移動し文書・問い合�
   })
   await page.goto('/settings/')
   await expect(page).toHaveURL(/\/legal-confirmation\/?$/)
+  await expect(page.locator('[aria-label="言語"]')).toHaveCount(0)
   await expect(page.locator('a[href="mailto:support@famie.co"]')).toBeVisible()
   await expect(page.locator('a[href^="/legal/"]')).toHaveCount(5)
   const checks = page.locator('fieldset input[type=checkbox]')
