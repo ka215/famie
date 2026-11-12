@@ -10,4 +10,6 @@ return [
     'quota_bytes' => (int) env('FAMIE_OPERATIONS_QUOTA_BYTES', 500000000000),
     'quota_roots' => array_values(array_filter(explode(',', (string) env('FAMIE_OPERATIONS_QUOTA_ROOTS', '')))),
     'backup_time' => env('FAMIE_OPERATIONS_BACKUP_TIME', '03:00'),
+    'access_log_monitor_enabled' => (bool) env('FAMIE_OPERATIONS_ACCESS_LOG_MONITOR_ENABLED', false),
+    'access_log_path' => env('FAMIE_OPERATIONS_ACCESS_LOG_PATH'),
 ];

@@ -196,7 +196,7 @@ class PostgresConcurrencyTest extends TestCase
         $this->assertSame($likeFirst ? [200, 200] : [200, 404], array_column($results, 'status'), json_encode($results));
         $this->assertSame($likeFirst && $change !== 'delete' ? 1 : 0, ActivityLike::query()->where('activity_log_id', $log->id)->count());
         if ($change === 'sender') {
-            $this->assertSame(0, ActivityLog::query()->withLikeState($admin->user_id)->findOrFail($log->id)->likes_count);
+            $this->assertSame($likeFirst ? 1 : 0, ActivityLog::query()->withLikeState($admin->user_id)->findOrFail($log->id)->likes_count);
         }
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AccountLifecycleController;
 use App\Http\Controllers\Api\ActivityImageController;
 use App\Http\Controllers\Api\ActivityLikeController;
 use App\Http\Controllers\Api\ActivityLogController;
@@ -7,24 +8,30 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\EmailController;
 use App\Http\Controllers\Api\GroupController;
+use App\Http\Controllers\Api\LegalAcceptanceController;
+use App\Http\Controllers\Api\LegalDocumentController;
 use App\Http\Controllers\Api\LoginSecurityAlertController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\RewardController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Middleware\EnsureLegalAcceptance;
 use App\Http\Middleware\SetUiLocale;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::get('/status', StatusController::class);
+    Route::get('/legal/documents', LegalDocumentController::class)->name('legal.documents');
     Route::post('/auth/email/verify', [EmailController::class, 'verify'])->middleware('throttle:20,1');
     Route::post('/auth/password/forgot', [PasswordResetController::class, 'store'])->middleware('throttle:account-mail-ip');
     Route::post('/auth/password/reset', [PasswordResetController::class, 'update'])->middleware('throttle:20,1');
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login-ip');
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/register/username-availability', [AuthController::class, 'usernameAvailability'])->middleware('throttle:30,1');
+    Route::post('/lifecycle-operation-status', [AccountLifecycleController::class, 'status'])->middleware('throttle:lifecycle-status');
 
-    Route::middleware(['auth:sanctum', SetUiLocale::class.':authenticated'])->group(function () {
+    Route::middleware(['auth:sanctum', SetUiLocale::class.':authenticated', EnsureLegalAcceptance::class])->group(function () {
+        Route::post('/auth/legal-acceptances', LegalAcceptanceController::class)->middleware('throttle:10,1');
         Route::post('/auth/me/email', [EmailController::class, 'store'])->middleware('throttle:account-mail-ip');
         Route::post('/auth/me/email/resend', [EmailController::class, 'resend'])->middleware('throttle:account-mail-ip');
         Route::delete('/auth/me/email', [EmailController::class, 'destroy'])->middleware('throttle:10,1');
@@ -54,6 +61,9 @@ Route::prefix('v1')->group(function () {
             Route::patch('/members/{member}', [UserController::class, 'update'])->whereNumber('member');
             Route::put('/members/{member}/status', [UserController::class, 'updateStatus'])->whereNumber('member');
             Route::put('/members/{member}/password', [UserController::class, 'resetPassword'])->whereNumber('member')->middleware('throttle:member-password-reset');
+            Route::post('/lifecycle-operations', [AccountLifecycleController::class, 'store'])->middleware('throttle:lifecycle-prepare');
+            Route::post('/lifecycle-operations/{operation}/commit', [AccountLifecycleController::class, 'commit'])->whereUuid('operation')->middleware('throttle:lifecycle-commit');
+            Route::post('/lifecycle-operations/{operation}/cancel', [AccountLifecycleController::class, 'cancel'])->whereUuid('operation')->middleware('throttle:30,1');
             Route::get('/categories', [CategoryController::class, 'index']);
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::put('/categories/{category}', [CategoryController::class, 'update']);

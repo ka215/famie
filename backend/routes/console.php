@@ -12,4 +12,5 @@ if (config('operations.enabled')) {
     Schedule::command('famie:monitor-internal')->hourly()->withoutOverlapping(5);
     Schedule::command('famie:run-operation backup')->dailyAt(config('operations.backup_time'))->timezone('Asia/Tokyo')->withoutOverlapping(15);
     Schedule::command('famie:run-operation image-deletions')->dailyAt('04:00')->timezone('Asia/Tokyo')->withoutOverlapping(15);
+    Schedule::command(config('famie.lifecycle_monitor_enabled') ? 'famie:run-lifecycle-cleanup' : 'famie:cleanup-account-lifecycle')->everyFiveMinutes()->withoutOverlapping(10);
 }

@@ -1,6 +1,21 @@
 <?php
 
 return [
+    'lifecycle_crypto_unavailable' => '暗号化環境を利用できないため、操作を確定できません。',
+    'lifecycle_vault_unavailable' => '問い合わせ用の安全な保管領域を利用できないため、操作を確定できません。',
+    'lifecycle_ledger_unavailable' => '削除記録の保管領域を利用できないため、操作を確定できません。',
+    'lifecycle_group_withdrawn' => 'この家族はすでに退会済みです。',
+    'lifecycle_representative_only' => 'この操作は代表管理者のみ実行できます。',
+    'lifecycle_already_prepared' => '別の確認操作が進行中です。その確認画面を閉じるか、開始から:minutes分後にやり直してください。',
+    'lifecycle_cancel_committed' => 'すでに確定した操作は取り消せません。保存した受付情報で状況をご確認ください。',
+    'lifecycle_cancel_unavailable' => '前の確認操作の状態を確認する必要があります。操作を続けず、お問い合わせください。',
+    'lifecycle_member_must_be_inactive' => '削除するメンバーを先に無効化してください。',
+    'lifecycle_kind_invalid' => '退会・削除操作の種類が正しくありません。',
+    'lifecycle_membership_required' => 'メンバー削除では対象メンバーを1人指定してください。家族退会では指定できません。',
+    'lifecycle_prepare_expired' => '確認期限を過ぎたか、この操作は確定できません。最初からやり直してください。',
+    'lifecycle_code_invalid' => '問い合わせ用確認コードが正しくありません。',
+    'lifecycle_subject_changed' => '対象の状態が変わったため確定できません。最初からやり直してください。',
+    'representative_protected' => '代表管理者の役割・利用状態・パスワードを他のメンバー管理操作で変更することはできません。',
     'member_max' => '家族メンバーは最大:max人です。',
     'category_limit' => 'カテゴリは最大:max件です。',
     'account_create_forbidden' => 'アカウントの作成権限がありません。',

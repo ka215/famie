@@ -1,6 +1,7 @@
 import type {
   ApiRequestError,
   CurrentUserResponse,
+  LegalStatus,
   LoginResponse,
   Membership,
   User,
@@ -11,6 +12,7 @@ export const useAuth = () => {
   const t = useNuxtApp().$i18n.t
   const user = useState<User | null>('auth_user', () => null)
   const membership = useState<Membership | null>('auth_membership', () => null)
+  const legal = useState<LegalStatus | null>('auth_legal', () => null)
   const accessError = useState<string>('auth_access_error', () => '')
   const token = useCookie<string | null>('auth_token', {
     maxAge: 60 * 60 * 24 * 30,
@@ -36,6 +38,7 @@ export const useAuth = () => {
     resetLikes()
     user.value = res.user
     membership.value = res.membership
+    legal.value = res.legal ?? null
     accessError.value = ''
     return res
   }
@@ -46,6 +49,7 @@ export const useAuth = () => {
     token.value = res.access_token
     user.value = res.user
     membership.value = res.membership
+    legal.value = res.legal ?? null
     accessError.value = ''
 
     return res
@@ -64,6 +68,7 @@ export const useAuth = () => {
         resetLikes()
         user.value = null
         membership.value = null
+        legal.value = null
         accessError.value = ''
         navigateTo('/login')
       }
@@ -82,12 +87,14 @@ export const useAuth = () => {
       if (requestToken !== token.value) return null
       user.value = res.user
       membership.value = res.membership
+      legal.value = res.legal ?? null
       return res.user
     } catch (error: unknown) {
       if (isMaintenance.value) throw error
       if (requestToken !== token.value) return null
       user.value = null
       membership.value = null
+      legal.value = null
       const status =
         (error as ApiRequestError).response?.status ?? (error as ApiRequestError).statusCode
       if (status === 401) {
@@ -106,6 +113,7 @@ export const useAuth = () => {
   return {
     user,
     membership,
+    legal,
     accessError,
     token,
     login,

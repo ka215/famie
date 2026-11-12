@@ -35,6 +35,45 @@ root="$HOME/$app_name-release-backups"
 releases="$root/releases"
 incoming="$root/incoming"
 mkdir -p "$releases" "$incoming"
+if [[ -z ${FAMIE_DEPLOY_DIAGNOSTICS_DIR:-} ]]; then
+  FAMIE_DEPLOY_DIAGNOSTICS_DIR=$(mktemp -d "$incoming/diagnostics.XXXXXX")
+  export FAMIE_DEPLOY_DIAGNOSTICS_DIR
+fi
+source "$(dirname "$0")/deployment-diagnostics.sh"
+diagnostic_init deploy
+started=0
+lock_owned=0
+work=
+release_dir=
+finish() {
+  local result=$?
+  trap - EXIT ERR
+  set +e
+  diagnostic_record finished "$result" "$LINENO"
+  if ((result != 0 && started)); then
+    : > "$docroot/.maintenance"
+    (cd "$repo/backend" && "$PHPCLI" artisan down --retry=60)
+    printf 'Deployment failed. Maintenance remains enabled. Evidence: %s\n' "$release_dir" >&2
+  fi
+  local cleanup_result=0
+  if ((lock_owned)); then
+    rmdir "$releases/.deploy-lock" || cleanup_result=$?
+    diagnostic_record lock_cleanup "$cleanup_result" "$LINENO"
+  fi
+  if [[ -n $work ]]; then
+    cleanup_result=0
+    rm -rf -- "$work" || cleanup_result=$?
+    diagnostic_record work_cleanup "$cleanup_result" "$LINENO"
+  fi
+  diagnostic_record cleanup_finished "$result" "$LINENO"
+  exit "$result"
+}
+trap finish EXIT
+trap 'diagnostic_record error "$?" "$LINENO"' ERR
+trap 'diagnostic_interrupted HUP 129 "$LINENO"' HUP
+trap 'diagnostic_interrupted INT 130 "$LINENO"' INT
+trap 'diagnostic_interrupted TERM 143 "$LINENO"' TERM
+diagnostic_checkpoint environment_guard
 repo=$(realpath "$repo")
 [[ -d $docroot && ! -L $docroot && $(realpath "$docroot") == "$docroot" ]] || fail 'Unexpected or symlinked document root.'
 docroot=$(realpath "$docroot")
@@ -45,10 +84,10 @@ guard="$(dirname "$0")/check-deploy-environment.php"
 "$PHPCLI" "$guard" "$repo/backend" "$base_url" "$database"
 
 expected=$(cut -d' ' -f1 "$checksum")
+diagnostic_checkpoint bundle_verification
 actual=$(sha256sum "$bundle" | cut -d' ' -f1)
 [[ $expected == "$actual" ]] || fail 'Release bundle checksum mismatch.'
 work=$(mktemp -d "$incoming/deploy.XXXXXX")
-trap 'rm -rf -- "$work"' EXIT
 tar -xzf "$bundle" -C "$work"
 [[ -f $work/manifest.json && -f $work/manifest.sha256 && -f $work/payload.tar.gz ]] || fail 'Invalid release bundle.'
 (cd "$work" && sha256sum --check manifest.sha256)
@@ -70,50 +109,53 @@ printf 'Environment: %s\nVersion: v%s\nTree: %s\nBundle SHA256: %s\n' "$environm
 if ((apply == 0)); then echo 'Preflight passed; no changes applied.'; exit 0; fi
 [[ ! -e $releases/.deploy-lock ]] || fail 'Another deployment is active.'
 mkdir "$releases/.deploy-lock"
-started=0
+lock_owned=1
 release_dir="$releases/$(date +%Y%m%d-%H%M%S)-v$version-${tree:0:12}"
 mkdir "$release_dir"
-finish() {
-  status=$?
-  trap - EXIT
-  if ((status != 0 && started)); then
-    : > "$docroot/.maintenance" || true
-    (cd "$repo/backend" && "$PHPCLI" artisan down --retry=60) || true
-    printf 'Deployment failed. Maintenance remains enabled. Evidence: %s\n' "$release_dir" >&2
-  fi
-  rmdir "$releases/.deploy-lock" 2>/dev/null || true
-  rm -rf -- "$work"
-  exit "$status"
-}
-trap finish EXIT
-trap 'exit 130' INT TERM HUP
+diagnostic_checkpoint code_backup
 cp "$work/manifest.json" "$release_dir/manifest.json"
 printf '%s  %s\n' "$actual" "$(basename "$bundle")" > "$release_dir/bundle.sha256"
 rsync -a --exclude='/api' "$docroot/" "$release_dir/frontend/"
 rsync -a --exclude='/.env' --exclude='/storage' --exclude='/vendor' "$repo/backend/" "$release_dir/backend/"
+diagnostic_checkpoint database_backup_starting
 db_backup=$("$(dirname "$0")/backup-database.sh" "$repo/backend" "$release_dir")
+diagnostic_checkpoint database_backup_returned
 printf '%s\n' "$db_backup" > "$release_dir/db-backup-reference"
+diagnostic_checkpoint database_backup_reference_saved
 
 started=1
+diagnostic_checkpoint maintenance_starting
 : > "$docroot/.maintenance"
 (cd "$repo/backend" && "$PHPCLI" artisan down --retry=60)
+diagnostic_checkpoint backend_sync
 rsync -a --chmod=D705,F604 --delete --exclude='/.env' --exclude='/storage' --exclude='/vendor' "$work/payload/backend/" "$repo/backend/"
+diagnostic_checkpoint composer_install
 (cd "$repo/backend" && "$PHPCLI" "$COMPOSER_FILE" install --no-dev --prefer-dist --optimize-autoloader --no-interaction)
+diagnostic_checkpoint cache_clear
 (cd "$repo/backend" && "$PHPCLI" artisan optimize:clear)
+diagnostic_checkpoint migration_status
 (cd "$repo/backend" && "$PHPCLI" artisan migrate:status --no-interaction) > "$release_dir/migration-status-before.txt"
+diagnostic_checkpoint migrate
 (cd "$repo/backend" && "$PHPCLI" artisan migrate --force --no-interaction)
+diagnostic_checkpoint category_seed
 (cd "$repo/backend" && "$PHPCLI" artisan db:seed --class=CategorySeeder --force --no-interaction)
+diagnostic_checkpoint optimize
 (cd "$repo/backend" && "$PHPCLI" artisan optimize)
+diagnostic_checkpoint post_deploy_guard
 "$PHPCLI" "$guard" "$repo/backend" "$base_url" "$database"
+diagnostic_checkpoint frontend_sync
 rsync -a --omit-dir-times --delete --chmod=D705,F604 --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' "$work/payload/frontend/public/" "$docroot/"
 [[ -L $docroot/api && $(realpath "$docroot/api") == "$repo/backend/public" ]] || fail 'API link changed.'
 if [[ -n $restore_db ]]; then
+  diagnostic_checkpoint explicit_database_restore
   "$(dirname "$0")/restore-database.sh" "$repo/backend" "$restore_db"
   (cd "$repo/backend" && "$PHPCLI" artisan optimize:clear && "$PHPCLI" artisan optimize)
 fi
+diagnostic_checkpoint maintenance_ending
 (cd "$repo/backend" && "$PHPCLI" artisan up)
 rm -- "$docroot/.maintenance"
 
+diagnostic_checkpoint public_http_checks
 for path in / /login/ /settings/ /sw.js /manifest.webmanifest; do
   status=$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' "$base_url$path")
   [[ $status == 200 ]] || fail "$path returned HTTP $status"
@@ -129,10 +171,12 @@ for asset in $entries; do
   [[ $asset == *.js && $content_type == *javascript* || $asset == *.css && $content_type == *text/css* ]] || fail "$asset has invalid Content-Type:$content_type"
   ! grep -qi '<!doctype html' "$body" || fail "$asset returned HTML fallback."
 done
+diagnostic_checkpoint frontend_integrity
 frontend_drift=$(rsync -ani --omit-dir-times --checksum --delete --chmod=D705,F604 --exclude='/.htaccess' --exclude='/api' --exclude='/.maintenance' "$work/payload/frontend/public/" "$docroot/")
 [[ -z $frontend_drift ]] || fail 'Deployed frontend differs from the verified payload.'
 cp "$work/manifest.json" "$release_dir/deployed-manifest.json"
 cp "$work/manifest.json" "$root/current-manifest.json"
 printf '%s\n' "$actual" > "$release_dir/deployed-bundle-sha256"
 started=0
+diagnostic_checkpoint deployed
 printf 'Released v%s to %s. Evidence: %s\n' "$version" "$environment" "$release_dir"

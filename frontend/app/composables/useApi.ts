@@ -35,6 +35,10 @@ export const useApi = () => {
       },
       onResponseError({ response }) {
         if (requestToken !== token.value) return
+        if (response.status === 428 && response._data?.code === 'legal_acceptance_required') {
+          useState('auth_legal').value = { enabled: true, required: true }
+          navigateTo('/legal-confirmation')
+        }
         if (response.status === 503 && response._data?.code === 'maintenance') {
           isMaintenance.value = true
         }
@@ -45,6 +49,7 @@ export const useApi = () => {
           useState('activity_like_owner').value = ''
           useState('auth_user').value = null
           useState('auth_membership').value = null
+          useState('auth_legal').value = null
           if (behavior.redirectOnUnauthorized !== false) navigateTo('/login')
         }
       },

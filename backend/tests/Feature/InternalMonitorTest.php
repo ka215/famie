@@ -2,6 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityImage;
+use App\Models\ActivityLog;
+use App\Models\Category;
+use App\Models\GroupMember;
+use App\Services\ActivityImageDeletionService;
 use App\Services\InternalMonitor;
 use App\Services\OperationState;
 use Carbon\CarbonImmutable;
@@ -84,7 +89,11 @@ class InternalMonitorTest extends TestCase
         $this->isolateOperationsStorage();
         $this->freezeTime();
         app(OperationState::class)->write('backup', ['outcome' => 'started', 'started_at' => now()->timestamp]);
-        DB::table('activity_image_deletions')->insert(['disk' => 'local', 'path' => 'private-image', 'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2)]);
+        $member = GroupMember::factory()->create();
+        $category = Category::query()->create(['group_id' => $member->group_id, 'name' => '監視', 'sort_order' => 1]);
+        $log = ActivityLog::query()->create(['group_id' => $member->group_id, 'user_id' => $member->user_id, 'category_id' => $category->id, 'activity_date' => now(), 'content' => '監視']);
+        $image = ActivityImage::query()->create(['group_id' => $member->group_id, 'activity_log_id' => $log->id, 'disk' => 'local', 'path' => 'private-image', 'bytes' => 10, 'width' => 1, 'height' => 1, 'mime' => 'image/webp', 'position' => 0, 'retired_at' => now()->subDays(2)]);
+        DB::table('activity_image_deletions')->insert(['group_id' => $member->group_id, 'activity_image_id' => $image->id, 'disk' => 'local', 'path' => 'private-image', 'bytes' => 10, 'attempts' => 1, 'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2)]);
         $results = app(InternalMonitor::class)->check();
         $this->assertSame('warning', $results['backup']);
         $this->assertSame('warning', $results['image-deletions']);
@@ -175,5 +184,22 @@ class InternalMonitorTest extends TestCase
             }
             $this->assertSame($expected, $actual);
         }
+    }
+
+    public function test_image_retry_child_can_acquire_the_shared_deletion_lock_inside_its_job(): void
+    {
+        $this->isolateOperationsStorage();
+        config(['operations.enabled' => true]);
+        Process::preventStrayProcesses();
+        Process::fake(function () {
+            app(ActivityImageDeletionService::class)->process();
+
+            return Process::result();
+        });
+
+        $this->artisan('famie:run-operation', ['job' => 'image-deletions'])->assertSuccessful();
+
+        $this->assertSame('success', app(OperationState::class)->read('image-deletions')['outcome']);
+        Process::assertRan(fn ($process): bool => $process->command === [PHP_BINARY, 'artisan', 'famie:retry-image-deletions', '--no-interaction']);
     }
 }

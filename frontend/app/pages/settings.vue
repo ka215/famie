@@ -178,9 +178,13 @@ const familyMembers = ref<FamilyMember[]>([])
 const inactiveMembers = ref<FamilyMember[]>([])
 const inactiveLoaded = ref(false)
 const inactiveLoading = ref(false)
+const inactiveExpanded = ref(false)
+const inactiveError = ref('')
 const memberMessage = ref('')
 const memberError = ref('')
 const selectedMember = ref<FamilyMember | null>(null)
+const lifecycleMember = ref<FamilyMember | null>(null)
+const withdrawalOpen = ref(false)
 const restoringMember = ref(false)
 const selectedCategory = ref<Category | null>(null)
 const groupName = ref(membership.value?.group.name ?? '')
@@ -258,11 +262,13 @@ const fetchMembers = async () => {
 const fetchInactiveMembers = async () => {
   if (!isParent.value || inactiveLoading.value) return
   inactiveLoading.value = true
+  inactiveError.value = ''
   try {
     inactiveMembers.value = await fetchApi<FamilyMember[]>(groupPath('/members/inactive'))
     inactiveLoaded.value = true
+    if (!inactiveMembers.value.length) inactiveExpanded.value = false
   } catch (cause: unknown) {
-    memberError.value =
+    inactiveError.value =
       (cause as ApiRequestError).data?.message ?? t('settings.members.inactiveFailed')
   } finally {
     inactiveLoading.value = false
@@ -286,6 +292,28 @@ const memberSaved = async (member: FamilyMember) => {
   }
   await fetchMembers()
   if (inactiveLoaded.value) await fetchInactiveMembers()
+}
+
+const requestMemberDeletion = (member: FamilyMember) => {
+  selectedMember.value = null
+  lifecycleMember.value = member
+}
+
+const memberDeleted = async () => {
+  lifecycleMember.value = null
+  memberMessage.value = t('settings.lifecycle.memberDeleted')
+  await fetchMembers()
+  await fetchInactiveMembers()
+  const response = await fetchApi<DataResponse<Group>>(groupPath())
+  imageSettings.value = response.data.images
+}
+
+const familyWithdrawn = async () => {
+  withdrawalOpen.value = false
+  token.value = null
+  user.value = null
+  membership.value = null
+  await navigateTo('/lifecycle-status')
 }
 
 const categorySaved = async () => {
@@ -390,6 +418,7 @@ const handleGroupNameSave = async () => {
 
 onMounted(() => {
   fetchMembers()
+  if (isParent.value) fetchInactiveMembers()
   fetchCategories()
   fetchApi<DataResponse<Group>>(groupPath())
     .then((response) => {
@@ -430,7 +459,7 @@ watch(locale, () => {
             isParent ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300',
           ]"
         >
-          {{ isParent ? t('settings.role.parent') : t('settings.role.child') }}
+          {{ membership?.is_representative ? t('settings.role.representative') : isParent ? t('settings.role.parent') : t('settings.role.child') }}
         </span>
       </div>
       <form class="space-y-3 pt-3" novalidate @submit.prevent="handleProfileSave">
@@ -493,6 +522,10 @@ watch(locale, () => {
           <span>{{ t('settings.storage.remaining') }} {{ formatStorageSize(storageRemainingBytes) }} / {{ formatStorageSize(storageQuotaBytes) }}</span>
         </div>
       </div>
+      <div v-if="membership?.is_representative" class="border-t border-slate-200 pt-4 dark:border-slate-700">
+        <p class="text-xs text-slate-600 dark:text-slate-300">{{ t('settings.lifecycle.withdrawHelp') }}</p>
+        <button type="button" class="mt-3 min-h-11 rounded-lg border border-red-400 px-4 text-sm text-red-700 dark:text-red-300" @click="withdrawalOpen = true">{{ t('settings.lifecycle.withdrawFamily') }}</button>
+      </div>
     </SettingsCard>
 
     <SettingsCard id="family-members" :title="t('settings.members.title')" :initial-open="route.hash === '#family-members'">
@@ -507,19 +540,38 @@ watch(locale, () => {
           </div>
           <div class="flex shrink-0 items-center gap-2">
           <span class="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded-md">
-            {{ member.role === 'admin' ? t('settings.role.parentShort') : t('settings.role.childShort') }}
+            {{ member.is_representative ? t('settings.role.representative') : member.role === 'admin' ? t('settings.role.parentShort') : t('settings.role.childShort') }}
           </span>
           <button v-if="isParent" type="button" :aria-label="t('settings.members.manageName', { value1: member.display_name })" class="min-h-11 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-600" @click="openMember(member)">{{ t('common.manage') }}</button>
           </div>
         </div>
       </div>
       <div v-if="isParent" class="space-y-3 border-t border-slate-200 dark:border-slate-700 pt-3">
-        <button type="button" :disabled="inactiveLoading" class="min-h-11 text-sm text-blue-600 dark:text-blue-300 disabled:opacity-50" @click="memberError = ''; fetchInactiveMembers()">{{ t('settings.members.restoreInactive') }}</button>
-        <p v-if="inactiveLoaded && !inactiveMembers.length" class="text-sm text-slate-600 dark:text-slate-300">{{ t('settings.members.noInactive') }}</p>
-        <div v-for="member in inactiveMembers" :key="member.membership_id" class="flex items-center justify-between gap-3">
-          <div class="min-w-0 text-sm break-all" tabindex="-1" data-alert-focus>{{ member.display_name }}<MemberSecurityAlert :membership-id="member.membership_id" :name="member.display_name" />（@{{ member.username }}）<span class="ml-2">{{ member.role === 'admin' ? t('settings.role.parentShort') : t('settings.role.childShort') }}</span></div>
-          <button type="button" :aria-label="t('settings.members.restoreName', { value1: member.display_name })" class="min-h-11 shrink-0 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-600" @click="openMember(member, true)">{{ t('common.restore') }}</button>
+        <p v-if="inactiveLoading && !inactiveLoaded" role="status" class="text-sm text-slate-600 dark:text-slate-300">{{ t('common.loading') }}</p>
+        <div v-if="inactiveError" role="alert" class="text-sm text-red-600 dark:text-red-300">
+          {{ inactiveError }}
+          <button type="button" :disabled="inactiveLoading" class="min-h-11 px-3 underline" @click="fetchInactiveMembers">{{ t('common.retry') }}</button>
         </div>
+        <p v-else-if="inactiveLoaded && !inactiveMembers.length" class="text-sm text-slate-600 dark:text-slate-300">{{ t('settings.members.noInactive') }}</p>
+        <template v-if="inactiveLoaded && inactiveMembers.length">
+          <button type="button" :aria-expanded="inactiveExpanded" aria-controls="inactive-members-list" class="min-h-11 text-sm text-blue-600 dark:text-blue-300" @click="inactiveExpanded = !inactiveExpanded">{{ t('settings.members.restoreInactive') }}</button>
+          <ul id="inactive-members-list" v-show="inactiveExpanded" class="divide-y divide-slate-100 dark:divide-slate-700">
+            <li v-for="member in inactiveMembers" :key="member.membership_id" class="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+              <div class="min-w-0 break-all">
+                <div class="flex items-center" tabindex="-1" data-alert-focus>
+                  <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ member.display_name }}</p>
+                  <MemberSecurityAlert :membership-id="member.membership_id" :name="member.display_name" />
+                </div>
+                <p class="text-xs text-slate-400 dark:text-slate-400">@{{ member.username }}</p>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <span class="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded-md">{{ member.is_representative ? t('settings.role.representative') : member.role === 'admin' ? t('settings.role.parentShort') : t('settings.role.childShort') }}</span>
+                <button type="button" :aria-label="t('settings.members.restoreName', { value1: member.display_name })" class="min-h-11 px-3 text-sm rounded-lg border border-slate-300 dark:border-slate-600" @click="openMember(member, true)">{{ t('common.restore') }}</button>
+                <button v-if="membership?.is_representative && !member.is_representative" type="button" :aria-label="t('settings.lifecycle.deleteName', { name: member.display_name })" class="min-h-11 px-3 text-sm rounded-lg border border-red-400 text-red-700 dark:text-red-300" @click="requestMemberDeletion(member)">{{ t('settings.lifecycle.deleteAction') }}</button>
+              </div>
+            </li>
+          </ul>
+        </template>
       </div>
       <p v-if="memberMessage" role="status" class="text-sm text-emerald-600 dark:text-emerald-300">{{ memberMessage }}</p>
       <p v-if="memberError" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ memberError }}</p>
@@ -756,9 +808,12 @@ watch(locale, () => {
         <div class="flex justify-between gap-4"><dt>{{ t('settings.about.version') }}</dt><dd>{{ publicConfig.appVersion }}</dd></div>
       </dl>
       <a href="/THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 underline dark:text-blue-300">{{ t('settings.about.licenses') }}</a>
+      <LegalLinks return-to="settings" />
       <p class="text-center text-xs text-slate-500 dark:text-slate-400">© MAGIC METHODS</p>
     </SettingsCard>
     <MemberManageDialog v-if="selectedMember && isParent" :member="selectedMember" :inactive="restoringMember" @close="selectedMember = null" @saved="memberSaved" />
+    <AccountLifecycleDialog v-if="lifecycleMember" kind="member_delete" :member="lifecycleMember" @close="lifecycleMember = null" @committed="memberDeleted" />
+    <AccountLifecycleDialog v-if="withdrawalOpen" kind="group_withdraw" @close="withdrawalOpen = false" @committed="familyWithdrawn" />
     <CategoryManageDialog v-if="selectedCategory && isParent" :category="selectedCategory" @close="selectedCategory = null" @saved="categorySaved" />
   </div>
 </template>

@@ -78,7 +78,7 @@ test('管理者がメンバーを編集・無効化・復元し、履歴が再�
     headers: { Authorization: `Bearer ${targetToken}` },
   })
   expect(denied.status()).toBe(401)
-  await page.getByRole('button', { name: '無効化済みメンバーを復元', exact: true }).click()
+  await page.getByRole('button', { name: '無効化済みメンバー', exact: true }).click()
   await page.getByRole('button', { name: '編集した名前を復元', exact: true }).click()
   await dialog.getByRole('button', { name: '復元する', exact: true }).click()
   await expect(page.getByRole('button', { name: '編集した名前を管理', exact: true })).toBeVisible()
@@ -89,6 +89,50 @@ test('管理者がメンバーを編集・無効化・復元し、履歴が再�
   await page.getByRole('button', { name: '管理する親を管理', exact: true }).click()
   await expect(dialog.getByLabel('メンバーの役割')).toBeDisabled()
   await expect(dialog.getByRole('button', { name: 'このメンバーを無効化' })).toHaveCount(0)
+})
+
+test('別の親は代表管理者を降格・無効化・パスワード再発行できない', async ({ page, context }) => {
+  const family = await setupFamily(page, context)
+  const created = await page.request.post(`${family.path}/members`, {
+    headers: family.headers,
+    data: {
+      username: `${family.username}parent`,
+      display_name: '別の親',
+      role: 'admin',
+      password,
+      password_confirmation: password,
+    },
+  })
+  expect(created.ok()).toBeTruthy()
+  const parent = (await created.json()).data
+  expect(parent.is_representative).toBe(false)
+  const login = await page.request.post('/api/v1/auth/login', {
+    data: { login: parent.username, password },
+  })
+  expect(login.ok()).toBeTruthy()
+  const identity = await login.json()
+  expect(identity.membership.is_representative).toBe(false)
+  await context.addCookies([
+    { name: 'auth_token', value: identity.access_token, url: 'http://127.0.0.1' },
+  ])
+  await page.goto('/settings')
+  await page.getByText('家族メンバー', { exact: true }).click()
+  await expect(page.getByText('代表管理者', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '管理する親を管理', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByLabel('メンバーの役割')).toBeDisabled()
+  await expect(dialog.getByRole('button', { name: 'パスワードを再発行', exact: true })).toHaveCount(
+    0
+  )
+  await expect(
+    dialog.getByRole('button', { name: 'このメンバーを無効化', exact: true })
+  ).toHaveCount(0)
+  await dialog.getByLabel('メンバーの表示名').fill('代表者の名前変更')
+  await dialog.getByRole('button', { name: '変更を保存', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: '代表者の名前変更を管理', exact: true })
+  ).toBeVisible()
 })
 
 test('カテゴリを編集し、使用中は削除拒否、未使用なら確認後に削除できる', async ({
@@ -155,7 +199,7 @@ test('一般メンバーには管理操作がなく、テーマは変更・保�
   await page.getByRole('heading', { name: '家族メンバー', exact: true }).click()
   await page.getByRole('heading', { name: 'カテゴリ', exact: true }).click()
   await expect(page.getByRole('button', { name: /を管理$/ })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '無効化済みメンバーを復元' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '無効化済みメンバー', exact: true })).toHaveCount(0)
   await page.getByRole('heading', { name: '表示設定', exact: true }).click()
   await page.getByRole('radio', { name: 'ダーク', exact: true }).check()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')

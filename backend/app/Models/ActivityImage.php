@@ -11,6 +11,11 @@ class ActivityImage extends Model
 {
     protected $hidden = ['disk', 'path', 'group_id', 'activity_log_id', 'created_at', 'updated_at'];
 
+    protected function casts(): array
+    {
+        return ['retired_at' => 'datetime'];
+    }
+
     /** @return BelongsTo<ActivityLog, $this> */
     public function activityLog(): BelongsTo
     {

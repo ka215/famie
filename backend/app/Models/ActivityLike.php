@@ -30,13 +30,12 @@ class ActivityLike extends Model
     }
 
     /** @param Builder<ActivityLike> $query */
-    public function scopeFromActiveMembers(Builder $query): void
+    public function scopeFromRetainedContributors(Builder $query): void
     {
         $query->whereExists(function (QueryBuilder $members): void {
             $members->selectRaw('1')->from('group_members')
                 ->whereColumn('group_members.group_id', 'activity_likes.group_id')
-                ->whereColumn('group_members.user_id', 'activity_likes.user_id')
-                ->where('group_members.status', GroupMember::STATUS_ACTIVE);
+                ->whereColumn('group_members.user_id', 'activity_likes.user_id');
         });
     }
 }

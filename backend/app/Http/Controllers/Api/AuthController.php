@@ -8,6 +8,7 @@ use App\Models\GroupMember;
 use App\Models\User;
 use App\Rules\StrongPassword;
 use App\Services\AccountEmailService;
+use App\Services\LegalAcceptanceService;
 use App\Services\LoginThrottle;
 use App\Support\InitialCategories;
 use App\Support\PasswordStrength;
@@ -31,7 +32,10 @@ class AuthController extends Controller
     public function login(Request $request, LoginThrottle $throttle): JsonResponse
     {
         $request->validate(['login' => ['required', 'string', 'max:255'], 'password' => ['required', 'string', 'max:4096']]);
-        $user = User::query()->where('username', $request->string('login'))->orWhereRaw('LOWER(email) = ?', [strtolower((string) $request->string('login'))])->first();
+        $user = User::query()->where(function ($query) use ($request): void {
+            $query->where('username', $request->string('login'))
+                ->orWhereRaw('LOWER(email) = ?', [strtolower((string) $request->string('login'))]);
+        })->whereNull('deleted_at')->first();
 
         $identity = $user ? 'user:'.$user->id : 'unknown:'.mb_strtolower((string) $request->string('login'));
 
@@ -61,12 +65,12 @@ class AuthController extends Controller
         }, $user);
     }
 
-    public function register(Request $request): JsonResponse
+    public function register(Request $request, LegalAcceptanceService $acceptances): JsonResponse
     {
         if ($response = $this->consumeRegistrationAttempt($request)) {
             return $response;
         }
-        if (array_intersect(array_keys($request->all()), ['group_id', 'type', 'role', 'status', 'email', 'ui_locale'])) {
+        if (array_intersect(array_keys($request->all()), ['group_id', 'type', 'role', 'status', 'email', 'ui_locale', 'representative_user_id', 'is_representative'])) {
             throw ValidationException::withMessages(['registration' => [__('messages.registration_fields')]]);
         }
 
@@ -77,7 +81,8 @@ class AuthController extends Controller
             'password' => ['required', 'string', new StrongPassword, 'confirmed'],
         ], UsernameRules::messages());
 
-        [$user, $membership] = DB::transaction(function () use ($validated, $request): array {
+        $legalRecords = $acceptances->enabled() ? $acceptances->validate($request->input('legal')) : [];
+        [$user, $membership] = DB::transaction(function () use ($validated, $request, $acceptances, $legalRecords): array {
             $user = User::query()->create([
                 'username' => $validated['username'], 'display_name' => $validated['display_name'],
                 'email' => null, 'password' => Hash::make($validated['password']),
@@ -87,7 +92,11 @@ class AuthController extends Controller
             $membership = $group->memberships()->create([
                 'user_id' => $user->id, 'role' => GroupMember::ROLE_ADMIN, 'status' => GroupMember::STATUS_ACTIVE,
             ]);
+            $group->forceFill(['representative_user_id' => $user->id])->save();
             InitialCategories::createFor($group, (string) $request->attributes->get('ui_locale'));
+            if ($legalRecords !== []) {
+                $acceptances->record($user, $acceptances->validate($request->input('legal')));
+            }
 
             return [$user, $membership->setRelation('group', $group)];
         });
@@ -212,6 +221,7 @@ class AuthController extends Controller
     private function identityPayload(User $user, GroupMember $membership): array
     {
         return [
+            'legal' => app(LegalAcceptanceService::class)->status($user, $membership),
             'user' => [
                 ...$user->fresh()->only(['id', 'username', 'display_name', 'show_name_suffix', 'ui_locale', 'email', 'email_verified_at', 'pending_email', 'email_verification_expires_at']),
                 'password_security' => [
@@ -221,6 +231,7 @@ class AuthController extends Controller
             ],
             'membership' => [
                 'id' => $membership->id, 'role' => $membership->role, 'status' => $membership->status,
+                'is_representative' => $membership->group->isRepresentative($membership->user_id),
                 'group' => $membership->group->only(['id', 'name', 'type']),
             ],
         ];

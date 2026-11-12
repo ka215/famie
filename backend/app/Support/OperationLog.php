@@ -20,7 +20,11 @@ class OperationLog
         'admin.reward_updated', 'admin.reward_deleted', 'admin.reward_status_changed',
         'admin.reward_prepared', 'admin.alert_read',
         'mail.delivery_failed', 'mail.recipient_blocked', 'mail.logging_mailer_blocked',
-        'image.deletion_failed', 'operation.started', 'operation.finished', 'operation.failed',
+        'image.deletion_failed', 'image.deletion_deferred',
+        'lifecycle.vault_cleanup_failed', 'lifecycle.ledger_failed',
+        'lifecycle.cleanup_deferred',
+        'lifecycle.reconciliation_required',
+        'operation.started', 'operation.finished', 'operation.failed',
         'monitor.failed', 'monitor.recovered', 'monitor.notification_failed',
     ];
 

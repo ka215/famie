@@ -1,13 +1,13 @@
 {
 	"name": "famie-frontend",
 	"description": "Frontend for the Famie project",
-	"version": "0.19.2",
+	"version": "0.20.0",
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"build": "pnpm i18n:generate && nuxt generate",
-		"dev": "nuxt dev",
-		"generate": "pnpm i18n:generate && nuxt generate",
+		"build": "pnpm legal:generate && pnpm i18n:generate && nuxt generate",
+		"dev": "pnpm legal:generate && nuxt dev",
+		"generate": "pnpm legal:generate && pnpm i18n:generate && nuxt generate",
 		"preview": "nuxt preview",
 		"postinstall": "nuxt prepare",
 		"lint": "biome check .",
@@ -21,7 +21,8 @@
 		"test:api": "redocly lint ../docs/api/openapi.yaml --extends spec && node ../scripts/check-api-contract.mjs",
 		"i18n:generate": "node scripts/i18n.mjs --write",
 		"i18n:check": "node scripts/i18n.mjs",
-		"test:coverage": "node ../scripts/coverage/frontend.mjs"
+		"test:coverage": "node ../scripts/coverage/frontend.mjs",
+		"legal:generate": "node scripts/legal.mjs"
 	},
 	"dependencies": {
 		"@nuxtjs/i18n": "10.6.0",
@@ -40,6 +41,8 @@
 		"@vite-pwa/nuxt": "^1.1.1",
 		"ajv": "8.20.0",
 		"ajv-formats": "3.0.1",
+		"marked": "18.1.3",
+		"sanitize-html": "2.18.1",
 		"typescript": "^5.7.0",
 		"vue-tsc": "^2.2.0"
 	}

@@ -31,7 +31,9 @@ class RunOperation extends Command
         $id = (string) Str::uuid();
         app()->instance('operation.run_id', $id);
         try {
-            return $state->locked($job, function () use ($state, $backup, $job, $id): int {
+            $jobLock = $job === 'image-deletions' ? 'image-deletions-job' : $job;
+
+            return $state->locked($jobLock, function () use ($state, $backup, $job, $id): int {
                 $started = now()->timestamp;
                 $state->write($job, ['started_at' => $started, 'run_id' => $id, 'outcome' => 'started']);
                 OperationLog::write('operation.started', 'started', ['job' => $job]);

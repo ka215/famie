@@ -97,7 +97,11 @@ useHead(() => ({ title: `${t('auth.login.title')} | Famie` }))
       <div class="border-t border-slate-200 pt-4 text-center dark:border-slate-700">
         <NuxtLink to="/register" class="text-sm font-medium text-blue-600 dark:text-blue-300">{{ t('auth.register.title') }}</NuxtLink>
       </div>
+      <div class="border-t border-slate-200 pt-4 text-center dark:border-slate-700">
+        <NuxtLink to="/lifecycle-status" class="text-sm text-blue-600 dark:text-blue-300">{{ t('settings.lifecycle.statusTitle') }}</NuxtLink>
+      </div>
     </div>
     <HomeInstallGuide class="w-full max-w-sm" />
+    <LegalLinks class="w-full max-w-sm" />
   </div>
 </template>

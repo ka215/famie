@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'accepted' => ':attributeの確認項目を選択してください。',
     'required' => ':attributeを入力してください。',
     'string' => ':attributeは文字列で入力してください。',
     'integer' => ':attributeは整数で入力してください。',

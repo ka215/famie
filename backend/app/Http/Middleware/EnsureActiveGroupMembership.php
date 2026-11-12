@@ -24,7 +24,7 @@ class EnsureActiveGroupMembership
     {
         $groupId = $request->route('group');
         $group = $groupId instanceof Group ? $groupId : Group::query()->findOrFail($groupId);
-        if (! $request->isMethodSafe()) {
+        if (! $request->isMethodSafe() && ! $request->is('v1/groups/*/lifecycle-operations*')) {
             return DB::transaction(function () use ($request, $next, $group): Response {
                 $lockedGroup = Group::query()->whereKey($group->id)->lockForUpdate()->firstOrFail();
 
@@ -45,6 +45,7 @@ class EnsureActiveGroupMembership
 
     private function handleForGroup(Request $request, Closure $next, Group $group): Response
     {
+        abort_if($group->withdrawn_at !== null, 404);
         $membership = GroupMember::query()
             ->where('group_id', $group->id)
             ->where('user_id', $request->user()->id)

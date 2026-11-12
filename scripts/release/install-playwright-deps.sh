@@ -8,10 +8,22 @@ set -Eeuo pipefail
 }
 [[ $# -gt 0 ]] || { echo 'Specify the Playwright browsers.' >&2; exit 1; }
 
-# Azureミラーの低速取得を避ける。security.ubuntu.com・署名設定は変更しない。
+# 解決不能な配布先へAPTが長時間再試行する前に、既知のミラーを選ぶ。
+mirror=archive.ubuntu.com
+if ! timeout 15 getent ahostsv4 "$mirror" >/dev/null; then
+  mirror=azure.archive.ubuntu.com
+  if ! timeout 15 getent ahostsv4 "$mirror" >/dev/null; then
+    timeout 25 node "$(dirname "$0")/diagnose-ci-dns.mjs" || true
+    echo 'Neither Ubuntu mirror could be resolved; dependency installation was not started.' >&2
+    exit 1
+  fi
+fi
+printf 'Playwright dependency mirror: %s\n' "$mirror"
+
+# security.ubuntu.com・署名設定は変更しない。
 for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
   if [[ -f "$source" ]]; then
-    sudo sed -i 's|https\?://azure\.archive\.ubuntu\.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+    sudo sed -i "s|https\\?://\\(azure\\.\\)\\?archive\\.ubuntu\\.com/ubuntu|https://$mirror/ubuntu|g" "$source"
   fi
 done
 

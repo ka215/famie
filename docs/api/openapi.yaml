@@ -46,6 +46,8 @@ paths:
               schema: {type: object, properties: {status: {type: string, const: ok}}}
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/auth/login':
@@ -71,6 +73,8 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         "429":
           $ref: '#/components/responses/RateLimited'
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
       description: 同一アカウント＋IPで10分間に5回失敗すると10分停止。ログインIDとメールは同一アカウントとして計数。IP全体は60回/分。成功時に失敗回数を消去し、既存パスワードの強度を判定する。値はサーバー設定で変更可能。
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
@@ -86,7 +90,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {type: object, required: [group_name, username, display_name, password, password_confirmation], properties: {group_name: {type: string, minLength: 1, maxLength: 50}, username: {$ref: '#/components/schemas/Username'}, display_name: {type: string, minLength: 1, maxLength: 50}, password: {$ref: '#/components/schemas/Password'}, password_confirmation: {$ref: '#/components/schemas/Password'}}}
+            schema: {type: object, required: [group_name, username, display_name, password, password_confirmation], properties: {group_name: {type: string, minLength: 1, maxLength: 50}, username: {$ref: '#/components/schemas/Username'}, display_name: {type: string, minLength: 1, maxLength: 50}, password: {$ref: '#/components/schemas/Password'}, password_confirmation: {$ref: '#/components/schemas/Password'}, legal: {$ref: '#/components/schemas/LegalAcceptanceInput', description: 同意記録機能の有効時は必須。無効時は記録しない。新規本人の履歴を登録トランザクション内で作成する。}}}
       responses:
         '201':
           description: 成功
@@ -97,6 +101,10 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "409":
+          description: legal_version_changed。dataに現行文書一覧を返す。登録データは保存しない。
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/auth/register/username-availability':
@@ -122,6 +130,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/auth/logout':
@@ -177,6 +187,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/auth/me/password':
@@ -229,6 +241,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     delete:
       operationId: cancelEmail
       summary: 確認待ち申請を取消
@@ -245,6 +259,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/auth/me/email/resend':
@@ -265,6 +281,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/auth/email/verify':
@@ -290,6 +308,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/auth/password/forgot':
@@ -315,6 +335,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/auth/password/reset':
@@ -340,6 +362,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   '/groups/{group}':
@@ -360,6 +384,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     patch:
       operationId: updateGroup
       summary: 家族名を変更
@@ -382,6 +408,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/members':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -400,6 +428,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     post:
       operationId: createMember
       summary: 新規メンバーを作成
@@ -422,6 +452,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/members/inactive':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -442,6 +474,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/members/{member}':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -469,6 +503,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/members/{member}/status':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -496,6 +532,87 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+  '/groups/{group}/lifecycle-operations':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - $ref: '#/components/parameters/UiLanguage'
+    post:
+      operationId: prepareAccountLifecycleOperation
+      summary: メンバー削除・家族退会を準備
+      tags: [groups]
+      description: 代表管理者専用。元の識別情報や破壊的変更はこの段階では保存・実行しない。確認コードはこの応答で一度だけ返す。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind: {type: string, enum: [member_delete, group_withdraw]}
+                membership_id: {$ref: '#/components/schemas/Id'}
+              additionalProperties: false
+      responses:
+        '201': {description: 準備完了, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecyclePrepared'}}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
+  '/groups/{group}/lifecycle-operations/{operation}/commit':
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+      - $ref: '#/components/parameters/UiLanguage'
+    post:
+      operationId: commitAccountLifecycleOperation
+      summary: メンバー削除・家族退会を確定
+      tags: [groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, confirmation_code, confirmed]
+              properties:
+                current_password: {type: string, maxLength: 4096}
+                confirmation_code: {type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$'}
+                confirmed: {type: boolean, const: true}
+              additionalProperties: false
+      responses:
+        '202': {description: 確定済み, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecycleStatus'}}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
+  '/lifecycle-operation-status':
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
+    post:
+      operationId: getAccountLifecycleOperationStatus
+      summary: 受付番号と確認コードで退会・削除状況を確認
+      tags: [groups]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [receipt_id, confirmation_code], properties: {receipt_id: {type: string, format: uuid}, confirmation_code: {type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$'}}, additionalProperties: false}
+      responses:
+        '200': {description: 成功, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecycleStatus'}}}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/categories':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -514,6 +631,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     post:
       operationId: createCategory
       summary: カテゴリ作成
@@ -536,6 +655,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/categories/{category}':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -563,6 +684,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     delete:
       operationId: deleteCategory
       summary: 未使用カテゴリを削除
@@ -580,6 +703,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/logs':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -607,6 +732,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     post:
       operationId: createActivity
       summary: 本人の活動を作成
@@ -636,6 +763,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/gallery':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -663,6 +792,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/logs/counts':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -689,6 +820,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/logs/{log}':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -708,6 +841,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     put:
       operationId: updateActivity
       summary: 本人の活動を更新
@@ -731,6 +866,8 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     patch:
       operationId: patchActivity
       summary: 本人の活動を部分更新
@@ -754,6 +891,8 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     post:
       operationId: uploadActivityImage
       summary: multipartで本人の活動画像を差替え
@@ -778,6 +917,8 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     delete:
       operationId: deleteActivity
       summary: 本人の活動と添付画像を削除
@@ -794,6 +935,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/images/{image}':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -815,6 +958,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/logs/{log}/like':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -838,6 +983,8 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     delete:
       operationId: unlikeActivity
       summary: いいねを解除
@@ -856,6 +1003,8 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/rewards':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -887,6 +1036,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     post:
       operationId: createReward
       summary: 下書きリワードを作成
@@ -910,6 +1061,8 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/rewards/manage':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -933,6 +1086,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/rewards/{reward}':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -961,6 +1116,8 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     delete:
       operationId: deleteReward
       summary: 下書き・停止済みを削除
@@ -984,6 +1141,8 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/rewards/{reward}/status':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -1036,6 +1195,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/rewards/notifications':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -1057,6 +1218,8 @@ paths:
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Validation'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   '/groups/{group}/rewards/prepare':
     parameters:
       - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
@@ -1077,6 +1240,8 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '503': {$ref: '#/components/responses/Unavailable'}
         '404': {$ref: '#/components/responses/NotFound'}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
   /auth/me/password-warning/snooze:
     post:
       operationId: snoozePasswordWarning
@@ -1103,6 +1268,8 @@ paths:
           $ref: '#/components/responses/RateLimited'
         "503":
           $ref: '#/components/responses/Unavailable'
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
     parameters:
       - $ref: '#/components/parameters/UiLanguage'
   /groups/{group}/members/{member}/password:
@@ -1233,6 +1400,8 @@ paths:
           $ref: '#/components/responses/Unavailable'
         "422":
           $ref: '#/components/responses/Validation'
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
       parameters:
         - name: membership_id
           in: query
@@ -1268,6 +1437,114 @@ paths:
           $ref: '#/components/responses/Validation'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /groups/{group}/lifecycle-operations/{operation}/cancel:
+    parameters:
+      - {name: group, in: path, required: true, schema: {$ref: '#/components/schemas/Id'}}
+      - {name: operation, in: path, required: true, schema: {type: string, format: uuid}}
+      - $ref: '#/components/parameters/UiLanguage'
+    post:
+      operationId: cancelAccountLifecycleOperation
+      summary: 未確定の退会・メンバー削除の確認を取り消す
+      tags: [groups]
+      responses:
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Validation'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+        "200": {description: 確認取消済み（利用データの削除なし）, content: {application/json: {schema: {type: object, required: [data], properties: {data: {$ref: '#/components/schemas/LifecycleStatus'}}}}}}
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
+  /legal/documents:
+    "get":
+      "operationId": "getLegalDocuments"
+      "summary": "公開文書の版・言語・ハッシュを取得"
+      "description": "未認証で取得可能。生成マニフェストだけを参照しDBを使用しない。先行確認版も返す。meta.acceptance_enabledは保存・記録機能の両設定が有効な場合のみtrue。初期値はfalse。"
+      "tags":
+        - "auth"
+      "security": []
+      "responses":
+        "200":
+          "description": "現行3文書の情報。Cache-Control: no-store。"
+          "content":
+            "application/json":
+              "schema":
+                "type": "object"
+                "required":
+                  - "data"
+                  - "meta"
+                "properties":
+                  "data":
+                    "type": "array"
+                    "minItems": 3
+                    "maxItems": 3
+                    "items":
+                      "$ref": "#/components/schemas/LegalDocumentMetadata"
+                  "meta":
+                    "type": "object"
+                    "required":
+                      - "acceptance_enabled"
+                    "properties":
+                      "acceptance_enabled":
+                        "type": "boolean"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "503":
+          "$ref": "#/components/responses/Unavailable"
+        "428":
+          $ref: '#/components/responses/LegalAcceptanceRequired'
+    "parameters":
+      - "$ref": "#/components/parameters/UiLanguage"
+  /auth/legal-acceptances:
+    post:
+      operationId: acceptLegalDocuments
+      summary: 代表管理者本人の規約同意・プライバシー確認を記録
+      description: 初期無効。storage_enabledとacceptance_enabledの両方が有効な場合のみ利用可能。本人の有効な所属と代表権限を確認し、サーバーの現行版・ハッシュ・日時で記録する。同じ文書版と操作の再送は初回記録を維持する。1分10回。
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - legal
+              properties:
+                legal:
+                  $ref: '#/components/schemas/LegalAcceptanceInput'
+      responses:
+        "200":
+          description: '記録済み。Cache-Control: no-store。'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - current
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: legal_version_changed。dataに現行文書一覧を返す。文書を再表示して確認を求める。
+        "422":
+          $ref: '#/components/responses/Validation'
+        "429":
+          $ref: '#/components/responses/RateLimited'
+        "503":
+          $ref: '#/components/responses/Unavailable'
+    parameters:
+      - $ref: '#/components/parameters/UiLanguage'
 components:
   securitySchemes:
     bearerAuth:
@@ -1368,18 +1645,23 @@ components:
             max_input_bytes: {type: integer, const: 31457280}
     Membership:
       type: object
-      required: [id, role, status, group]
+      required: [id, role, status, group, is_representative]
       properties:
         id: {$ref: '#/components/schemas/Id'}
         role: {type: string, enum: [admin, member]}
         status: {type: string, enum: [active, inactive]}
         group: {$ref: '#/components/schemas/Group'}
+        is_representative:
+          type: boolean
+          description: 家族の固定された代表管理者であるか
     Identity:
       type: object
       required: [user, membership]
       properties:
         user: {$ref: '#/components/schemas/User'}
         membership: {$ref: '#/components/schemas/Membership'}
+        legal:
+          $ref: '#/components/schemas/LegalStatus'
     Login:
       allOf:
         - $ref: '#/components/schemas/Identity'
@@ -1393,11 +1675,44 @@ components:
       allOf:
         - $ref: '#/components/schemas/PublicUser'
         - type: object
-          required: [membership_id, role]
+          required: [membership_id, role, is_representative]
           properties:
             membership_id: {$ref: '#/components/schemas/Id'}
             role: {type: string, enum: [admin, member]}
             status: {type: string, enum: [active, inactive], description: active一覧・作成応答では省略}
+            is_representative:
+              type: boolean
+              description: 家族の固定された代表管理者であるか
+    LifecyclePrepared:
+      type: object
+      required: [receipt_id, confirmation_code, kind, prepared_expires_at, impact, commit_retry_after]
+      properties:
+        receipt_id: {type: string, format: uuid}
+        confirmation_code: {type: string, minLength: 43, maxLength: 43, writeOnly: true, pattern: '^[A-Za-z0-9_-]{43}$'}
+        kind: {type: string, enum: [member_delete, group_withdraw]}
+        prepared_expires_at: {type: string, format: date-time}
+        impact:
+          type: object
+          required: [family, members, posts, images]
+          properties:
+            family: {type: boolean}
+            members: {type: integer, minimum: 1}
+            posts: {type: string, const: delete}
+            images: {type: string, const: delete}
+        commit_retry_after:
+          type: integer
+          minimum: 0
+          description: 確定操作の回数制限が解除されるまでの秒数。制限なしは0。状態確認では確定の試行回数を消費しない。
+    LifecycleStatus:
+      type: object
+      required: [receipt_id, kind, state, cleanup_state, committed_at, retention_until]
+      properties:
+        receipt_id: {type: string, format: uuid}
+        kind: {type: string, enum: [member_delete, group_withdraw]}
+        state: {type: string, enum: [prepared, committed, aborted]}
+        cleanup_state: {type: string, enum: [pending, processing, complete]}
+        committed_at: {type: [string, 'null'], format: date-time}
+        retention_until: {type: [string, 'null'], format: date-time}
     Category:
       type: object
       required: [id, group_id, name, color_code, sort_order]
@@ -1648,7 +1963,130 @@ components:
                     likes_received:
                       type: integer
                       minimum: 0
-                      description: 対象投稿に現在付いた有効メンバーからのいいね総数。削除・取消・無効化で減少する
+                      description: 対象投稿に付いた同一家族の保持対象いいね総数。送信者の無効化・削除では減らず、取消・対象投稿削除で減少する
+    LegalDocumentMetadata:
+      "type": "object"
+      "required":
+        - "id"
+        - "version"
+        - "publishedOn"
+        - "effectiveAt"
+        - "effectiveOnRelease"
+        - "authoritativeLocale"
+        - "current"
+        - "preview"
+        - "requiresAcceptance"
+        - "translations"
+      "properties":
+        "id":
+          "type": "string"
+          "enum":
+            - "terms"
+            - "privacy"
+            - "cookies"
+        "version":
+          "type": "string"
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        "publishedOn":
+          "type":
+            - "string"
+            - "null"
+          "format": "date"
+        "effectiveAt":
+          "type":
+            - "string"
+            - "null"
+          "format": "date"
+        "effectiveOnRelease":
+          "type":
+            - "string"
+            - "null"
+        "authoritativeLocale":
+          "type": "string"
+          "const": "ja"
+        "current":
+          "type": "boolean"
+          "const": true
+        "preview":
+          "type": "boolean"
+        "requiresAcceptance":
+          "type": "boolean"
+          "description": "termsは同意、privacyは確認。実際の記録可否はmeta.acceptance_enabledに従う。"
+        "translations":
+          "type": "object"
+          "required":
+            - "ja"
+            - "en"
+          "additionalProperties":
+            "type": "object"
+            "required":
+              - "title"
+              - "url"
+              - "sha256"
+            "properties":
+              "title":
+                "type": "string"
+              "url":
+                "type": "string"
+              "sha256":
+                "type": "string"
+                "pattern": "^[a-f0-9]{64}$"
+    LegalAcceptanceInput:
+      type: object
+      additionalProperties: false
+      required:
+        - terms
+        - privacy
+      properties:
+        terms:
+          type: object
+          additionalProperties: false
+          required:
+            - version
+            - locale
+            - accepted
+          properties:
+            version:
+              type: string
+              maxLength: 64
+            locale:
+              type: string
+              enum:
+                - ja
+                - en
+            accepted:
+              type: boolean
+              const: true
+        privacy:
+          type: object
+          additionalProperties: false
+          required:
+            - version
+            - locale
+            - acknowledged
+          properties:
+            version:
+              type: string
+              maxLength: 64
+            locale:
+              type: string
+              enum:
+                - ja
+                - en
+            acknowledged:
+              type: boolean
+              const: true
+    LegalStatus:
+      type: object
+      required:
+        - enabled
+        - required
+      properties:
+        enabled:
+          type: boolean
+        required:
+          type: boolean
+          description: 有効な所属の代表管理者本人だけが再確認対象。過去の有効な文書版を確認済みならfalse。
   responses:
     Unauthorized:
       description: Bearer未指定・失効
@@ -1687,6 +2125,21 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
+    LegalAcceptanceRequired:
+      description: 428 legal_acceptance_required。未確認の代表管理者本人の通常機能を制限。法務文書、GET /auth/me、同意確認POST、ログアウト、家族退会の準備・確定・取消は利用可能。他のメンバーは制限しない。
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - code
+              - message
+            properties:
+              code:
+                type: string
+                const: legal_acceptance_required
+              message:
+                type: string
   parameters:
     UiLanguage:
       name: Accept-Language

@@ -16,7 +16,7 @@ class GroupMembershipService
     public function updateMember(User $actor, GroupMember $target, string $displayName, string $role): GroupMember
     {
         return DB::transaction(function () use ($actor, $target, $displayName, $role): GroupMember {
-            Group::query()->whereKey($target->group_id)->lockForUpdate()->firstOrFail();
+            $group = Group::query()->whereKey($target->group_id)->lockForUpdate()->firstOrFail();
             $memberships = GroupMember::query()->where('group_id', $target->group_id)->orderBy('id')->lockForUpdate()->get();
             $actorMembership = $memberships->firstWhere('user_id', $actor->id);
             $lockedTarget = $memberships->firstWhere('id', $target->id);
@@ -26,6 +26,7 @@ class GroupMembershipService
                 throw ValidationException::withMessages(['role' => [__('messages.role_invalid')]]);
             }
             if ($lockedTarget->role !== $role) {
+                abort_if($group->isRepresentative($lockedTarget->user_id), 403, __('messages.representative_protected'));
                 abort_if($lockedTarget->user_id === $actor->id, 422, __('messages.self_role'));
                 $activeAdmins = $memberships->where('status', GroupMember::STATUS_ACTIVE)->where('role', GroupMember::ROLE_ADMIN)->count();
                 abort_if($lockedTarget->isAdmin() && $activeAdmins <= 1, 422, __('messages.last_admin_demote'));
@@ -44,13 +45,14 @@ class GroupMembershipService
         }
 
         return DB::transaction(function () use ($actor, $target, $status): GroupMember {
-            Group::query()->whereKey($target->group_id)->lockForUpdate()->firstOrFail();
+            $group = Group::query()->whereKey($target->group_id)->lockForUpdate()->firstOrFail();
             $memberships = GroupMember::query()->where('group_id', $target->group_id)->orderBy('id')->lockForUpdate()->get();
             $actorMembership = $memberships->firstWhere('user_id', $actor->id);
             $lockedTarget = $memberships->firstWhere('id', $target->id);
             abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, __('messages.membership_forbidden'));
 
             if ($status === GroupMember::STATUS_INACTIVE) {
+                abort_if($group->isRepresentative($lockedTarget->user_id), 403, __('messages.representative_protected'));
                 abort_if($lockedTarget->user_id === $actor->id, 422, __('messages.self_deactivate'));
                 $activeAdmins = $memberships->where('status', GroupMember::STATUS_ACTIVE)->where('role', GroupMember::ROLE_ADMIN)->count();
                 abort_if($lockedTarget->isAdmin() && $activeAdmins <= 1, 422, __('messages.last_admin_deactivate'));
@@ -73,11 +75,12 @@ class GroupMembershipService
     public function resetPassword(User $actor, GroupMember $target, string $currentPassword, string $newPassword): void
     {
         DB::transaction(function () use ($actor, $target, $currentPassword, $newPassword): void {
-            Group::query()->whereKey($target->group_id)->lockForUpdate()->firstOrFail();
+            $group = Group::query()->whereKey($target->group_id)->lockForUpdate()->firstOrFail();
             $memberships = GroupMember::query()->where('group_id', $target->group_id)->orderBy('id')->lockForUpdate()->get();
             $actorMembership = $memberships->firstWhere('user_id', $actor->id);
             $lockedTarget = $memberships->firstWhere('id', $target->id);
             abort_unless($actorMembership?->isAdmin() && $lockedTarget, 403, __('messages.member_forbidden'));
+            abort_if($group->isRepresentative($lockedTarget->user_id), 403, __('messages.representative_protected'));
             abort_if($lockedTarget->user_id === $actor->id, 422, __('messages.self_password'));
             abort_if($lockedTarget->status !== GroupMember::STATUS_ACTIVE, 422, __('messages.inactive_reset'));
             $parent = User::query()->whereKey($actor->id)->lockForUpdate()->firstOrFail();

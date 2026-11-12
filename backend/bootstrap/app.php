@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
-return Application::configure(basePath: dirname(__DIR__))
+$app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
@@ -25,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: '',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trimStrings(except: ['new_password', 'new_password_confirmation']);
+        $middleware->trimStrings(except: ['new_password', 'new_password_confirmation', 'confirmation_code']);
         $middleware->prepend([TraceRequest::class, SetUiLocale::class, RestrictIpAddress::class]);
         $middleware->alias(['group.member' => EnsureActiveGroupMembership::class]);
         // API専用アプリのためゲストのリダイレクト先'login'ルートは存在しない
@@ -92,3 +92,15 @@ return Application::configure(basePath: dirname(__DIR__))
             return UiLocale::decorate($response, $request, true);
         });
     })->create();
+
+// Laravel's default cache prefixes do not include Windows drive paths.
+if (PHP_OS_FAMILY === 'Windows') {
+    foreach (range('A', 'Z') as $drive) {
+        foreach ([$drive, strtolower($drive)] as $prefix) {
+            $app->addAbsoluteCachePathPrefix($prefix.':\\');
+            $app->addAbsoluteCachePathPrefix($prefix.':/');
+        }
+    }
+}
+
+return $app;

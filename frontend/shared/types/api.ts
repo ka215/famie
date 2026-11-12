@@ -52,6 +52,7 @@ export interface Membership {
   id: number
   role: MembershipRole
   status: 'active'
+  is_representative: boolean
   group: Group
 }
 
@@ -60,7 +61,28 @@ export interface FamilyMember {
   username: string
   display_name: string
   membership_id: number
+  is_representative: boolean
   role: MembershipRole
+}
+
+export type LifecycleKind = 'member_delete' | 'group_withdraw'
+
+export interface LifecyclePrepared {
+  receipt_id: string
+  confirmation_code: string
+  kind: LifecycleKind
+  prepared_expires_at: string
+  commit_retry_after: number
+  impact: { family: boolean; members: number; posts: 'delete'; images: 'delete' }
+}
+
+export interface LifecycleStatus {
+  receipt_id: string
+  kind: LifecycleKind
+  state: 'prepared' | 'committed' | 'aborted'
+  cleanup_state: 'pending' | 'processing' | 'complete'
+  committed_at: string | null
+  retention_until: string | null
 }
 
 export interface Category {
@@ -135,6 +157,7 @@ export interface MessageResponse {
 }
 
 export interface LoginResponse extends MessageResponse {
+  legal?: LegalStatus
   access_token: string
   token_type: 'Bearer'
   user: User
@@ -142,8 +165,25 @@ export interface LoginResponse extends MessageResponse {
 }
 
 export interface CurrentUserResponse {
+  legal?: LegalStatus
   user: User
   membership: Membership
+}
+
+export interface LegalStatus {
+  enabled: boolean
+  required: boolean
+}
+
+export interface LegalDocument {
+  id: 'terms' | 'privacy' | 'cookies'
+  version: string
+  translations: Record<'ja' | 'en', { title: string; url: string; sha256: string }>
+}
+
+export interface LegalInput {
+  terms: { version: string; locale: string; accepted: boolean }
+  privacy: { version: string; locale: string; acknowledged: boolean }
 }
 
 export interface ApiErrorBody {

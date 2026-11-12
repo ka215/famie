@@ -4,9 +4,7 @@ namespace App\Services;
 
 use App\Models\ActivityLog;
 use App\Models\Group;
-use App\Support\OperationLog;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +13,8 @@ use Throwable;
 
 class ActivityImageService
 {
+    public function __construct(private GroupImageUsage $usage, private ActivityImageDeletionService $deletions) {}
+
     /** @return array{disk: string, path: string, bytes: int, width: int, height: int, mime: string} */
     public function prepare(UploadedFile $file): array
     {
@@ -64,13 +64,12 @@ class ActivityImageService
         if ($prepared !== null) {
             $lockedGroup = Group::query()->lockForUpdate()->findOrFail($group->id);
             abort_unless($lockedGroup->images_enabled, 422, __('messages.image_disabled'));
-            $used = (int) $lockedGroup->images()->sum('bytes');
-            $next = $used - ($old?->bytes ?? 0) + $prepared['bytes'];
+            $used = $this->usage->bytes($lockedGroup);
+            $next = $used + $prepared['bytes'];
             abort_if($next > $lockedGroup->image_quota_bytes && $next >= $used, 422, __('messages.image_quota'));
         }
         if ($old && ($prepared !== null || $remove)) {
-            $this->scheduleDeletion($old->disk, $old->path);
-            $old->delete();
+            $this->deletions->retire($old);
         }
         if ($prepared !== null) {
             $log->image()->create([...$prepared, 'group_id' => $group->id]);
@@ -81,33 +80,12 @@ class ActivityImageService
     {
         $image = $log->image()->first();
         if ($image) {
-            $this->scheduleDeletion($image->disk, $image->path);
-            $image->delete();
+            $this->deletions->retire($image);
         }
     }
 
     public function cleanupPrepared(array $prepared): void
     {
         Storage::disk($prepared['disk'])->delete($prepared['path']);
-    }
-
-    private function scheduleDeletion(string $disk, string $path): void
-    {
-        $id = DB::table('activity_image_deletions')->insertGetId([
-            'disk' => $disk, 'path' => $path, 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::afterCommit(function () use ($id): void {
-            $deletion = DB::table('activity_image_deletions')->find($id);
-            if (! $deletion) {
-                return;
-            }
-            try {
-                if (Storage::disk($deletion->disk)->delete($deletion->path)) {
-                    DB::table('activity_image_deletions')->where('id', $id)->delete();
-                }
-            } catch (Throwable $e) {
-                OperationLog::write('image.deletion_failed', 'failure', ['deletion_id' => $id, 'exception_type' => $e::class], 'warning');
-            }
-        });
     }
 }

@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Services;
+
+class AccessLogRetention
+{
+    public function check(?string $basePath, int $checkedAt): string
+    {
+        if ($basePath === null || $basePath === '' || str_contains($basePath, "\0")
+            || ! str_ends_with($basePath, '.log')) {
+            return 'warning';
+        }
+        $parent = dirname($basePath);
+        $resolved = realpath($parent);
+        if ($resolved === false || str_replace('\\', '/', $resolved) !== str_replace('\\', '/', $parent)) {
+            return 'warning';
+        }
+
+        $severity = 'ok';
+        foreach (range(0, 4) as $generation) {
+            $path = $generation === 0 ? $basePath : substr($basePath, 0, -4).'.'.$generation.'.log';
+            clearstatcache(true, $path);
+            $metadata = file_exists($path) || is_link($path) ? @lstat($path) : false;
+            if ($metadata === false || ($metadata['mode'] & 0170000) !== 0100000
+                || $metadata['nlink'] !== 1 || ! is_readable($path) || $metadata['mtime'] > $checkedAt) {
+                $severity = $severity === 'critical' ? 'critical' : 'warning';
+
+                continue;
+            }
+            $age = $checkedAt - $metadata['mtime'];
+            if ($age > 30 * 86400) {
+                $severity = 'critical';
+            } elseif ($age > 25 * 86400 && $severity === 'ok') {
+                $severity = 'warning';
+            }
+        }
+
+        return $severity;
+    }
+}
