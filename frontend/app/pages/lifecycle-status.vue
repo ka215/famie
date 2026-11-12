@@ -13,9 +13,15 @@ const confirmationCode = ref(remembered.value?.confirmation_code ?? '')
 const status = ref<LifecycleStatus | null>(null)
 const error = ref('')
 const busy = ref(false)
+const valid = computed(
+  () =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      receiptId.value
+    ) && /^[A-Za-z0-9_-]{43}$/.test(confirmationCode.value)
+)
 
 const check = async () => {
-  if (busy.value) return
+  if (busy.value || !valid.value) return
   busy.value = true
   error.value = ''
   try {
@@ -33,7 +39,7 @@ const check = async () => {
 }
 
 onMounted(() => {
-  if (receiptId.value && confirmationCode.value) check()
+  if (valid.value) check()
 })
 useHead(() => ({
   title: `${t('settings.lifecycle.statusTitle')} | Famie`,
@@ -50,7 +56,7 @@ useHead(() => ({
       <form class="space-y-4" @submit.prevent="check">
         <div><label for="lifecycle-receipt" class="block text-sm">{{ t('settings.lifecycle.receipt') }}</label><input id="lifecycle-receipt" v-model="receiptId" autocomplete="off" required class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2"></div>
         <div><label for="lifecycle-code" class="block text-sm">{{ t('settings.lifecycle.code') }}</label><input id="lifecycle-code" v-model="confirmationCode" autocomplete="off" required class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2"></div>
-        <button type="submit" :disabled="busy" class="min-h-11 w-full rounded-lg bg-blue-600 text-white disabled:opacity-50">{{ busy ? t('common.processing') : t('settings.lifecycle.checkStatus') }}</button>
+        <button type="submit" :disabled="busy || !valid" class="min-h-11 w-full rounded-lg bg-blue-600 text-white disabled:opacity-50">{{ busy ? t('common.processing') : t('settings.lifecycle.checkStatus') }}</button>
       </form>
       <p v-if="error" role="alert" class="text-sm text-red-600 dark:text-red-300">{{ error }}</p>
       <dl v-if="status" class="space-y-2 rounded-lg bg-slate-100 p-4 text-sm dark:bg-slate-900">

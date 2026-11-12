@@ -807,7 +807,7 @@ watch(locale, () => {
       <dl class="text-sm text-slate-600 dark:text-slate-300">
         <div class="flex justify-between gap-4"><dt>{{ t('settings.about.version') }}</dt><dd>{{ publicConfig.appVersion }}</dd></div>
       </dl>
-      <a href="/THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 underline dark:text-blue-300">{{ t('settings.about.licenses') }}</a>
+      <NuxtLink to="/licenses" class="text-xs text-blue-600 underline dark:text-blue-300">{{ t('settings.about.licenses') }}</NuxtLink>
       <LegalLinks return-to="settings" />
       <p class="text-center text-xs text-slate-500 dark:text-slate-400">© MAGIC METHODS</p>
     </SettingsCard>
