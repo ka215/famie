@@ -20,6 +20,7 @@ const route = useRoute()
 const groupPath = (path = '') => `/groups/${groupId.value}${path}`
 const { public: publicConfig } = useRuntimeConfig()
 const { fetchApi } = useApi()
+const groupSettings = useGroupSettings()
 const { theme, setTheme, storageError } = useTheme()
 const { choices: localeChoices, effective, intlLocale, automatic } = useUiLocale()
 const localeSelection = ref<UiLocalePreference>(user.value?.ui_locale ?? null)
@@ -187,9 +188,9 @@ const lifecycleMember = ref<FamilyMember | null>(null)
 const withdrawalOpen = ref(false)
 const restoringMember = ref(false)
 const selectedCategory = ref<Category | null>(null)
-const groupName = ref(membership.value?.group.name ?? '')
+const groupName = ref(groupSettings.group.value?.name ?? membership.value?.group.name ?? '')
 const groupNameIsLoading = ref(false)
-const imageSettings = ref<Group['images']>()
+const imageSettings = computed(() => groupSettings.group.value?.images)
 const storageUsedBytes = computed(() => Math.max(0, imageSettings.value?.used_bytes ?? 0))
 const storageQuotaBytes = computed(() => Math.max(0, imageSettings.value?.quota_bytes ?? 0))
 const storageRemainingBytes = computed(() =>
@@ -300,12 +301,17 @@ const requestMemberDeletion = (member: FamilyMember) => {
 }
 
 const memberDeleted = async () => {
+  const requestOwner = groupSettings.owner.value
   lifecycleMember.value = null
   memberMessage.value = t('settings.lifecycle.memberDeleted')
   await fetchMembers()
   await fetchInactiveMembers()
-  const response = await fetchApi<DataResponse<Group>>(groupPath())
-  imageSettings.value = response.data.images
+  try {
+    const response = await fetchApi<DataResponse<Group>>(groupPath(), { timeout: 15000 })
+    groupSettings.updateGroup(response.data, requestOwner)
+  } catch {
+    memberError.value = t('errors.groupSettingsFailed')
+  }
 }
 
 const familyWithdrawn = async () => {
@@ -400,11 +406,13 @@ const handleGroupNameSave = async () => {
   if (!groupName.value.trim() || !isParent.value) return
   groupNameIsLoading.value = true
   groupNameMessage.value = ''
+  const requestOwner = groupSettings.owner.value
   try {
     const response = await fetchApi<DataResponse<Group>>(groupPath(), {
       method: 'PATCH',
       body: { name: groupName.value },
     })
+    if (!groupSettings.updateGroup(response.data, requestOwner)) return
     groupName.value = response.data.name
     if (membership.value) membership.value.group.name = response.data.name
     groupNameMessage.value = t('settings.family.saved')
@@ -420,13 +428,6 @@ onMounted(() => {
   fetchMembers()
   if (isParent.value) fetchInactiveMembers()
   fetchCategories()
-  fetchApi<DataResponse<Group>>(groupPath())
-    .then((response) => {
-      imageSettings.value = response.data.images
-    })
-    .catch(() => {
-      imageSettings.value = undefined
-    })
 })
 useHead(() => ({ title: `${t('navigation.settings')} | Famie` }))
 watch(locale, () => {

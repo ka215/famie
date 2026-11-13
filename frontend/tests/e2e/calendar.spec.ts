@@ -32,7 +32,22 @@ test('週の日付選択、月別件数、指定日表示、登録日の引き�
   ])
   await page.route('**/v1/**', async (route) => {
     const url = new URL(route.request().url())
-    if (url.pathname.endsWith('/auth/me')) return route.fulfill({ json: { user: owner } })
+    if (/\/groups\/\d+$/.test(url.pathname))
+      return route.fulfill({
+        json: { data: { id: 1, name: '家族', type: 'family', images: { enabled: false } } },
+      })
+    if (url.pathname.endsWith('/auth/me'))
+      return route.fulfill({
+        json: {
+          user: owner,
+          membership: {
+            id: 1,
+            role: owner.role === 'parent' ? 'admin' : 'member',
+            status: 'active',
+            group: { id: 1, name: '家族', type: 'family' },
+          },
+        },
+      })
     if (url.pathname.endsWith('/categories')) return route.fulfill({ json: [category] })
     if (url.pathname.endsWith('/users')) return route.fulfill({ json: [owner] })
     if (url.pathname.endsWith('/logs/counts')) {

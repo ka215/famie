@@ -7,6 +7,10 @@ test('カテゴリ追加欄が320px幅で整列し、親だけが追加できる
   await context.addCookies([{ name: 'auth_token', value: 'mobile-test', url: 'http://127.0.0.1' }])
   await page.route('**/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname
+    if (/\/groups\/\d+$/.test(path))
+      return route.fulfill({
+        json: { data: { id: 1, name: '家族', type: 'family', images: { enabled: false } } },
+      })
     if (path.endsWith('/auth/me'))
       return route.fulfill({
         json: {
@@ -60,8 +64,23 @@ test('スマホの入力欄は16px以上で、日時フィルターと登録フ�
   const category = { id: 1, name: '家事', color_code: '#10B981' }
   await page.route('**/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname
+    if (/\/groups\/\d+$/.test(path))
+      return route.fulfill({
+        json: { data: { id: 1, name: '家族', type: 'family', images: { enabled: false } } },
+      })
     if (path.endsWith('/status')) return route.fulfill({ json: { status: 'ok' } })
-    if (path.endsWith('/auth/me')) return route.fulfill({ json: { user } })
+    if (path.endsWith('/auth/me'))
+      return route.fulfill({
+        json: {
+          user: user,
+          membership: {
+            id: 1,
+            role: 'admin',
+            status: 'active',
+            group: { id: 1, name: '家族', type: 'family' },
+          },
+        },
+      })
     if (path.endsWith('/categories')) return route.fulfill({ json: [category] })
     if (path.endsWith('/users')) return route.fulfill({ json: [user] })
     if (path.endsWith('/logs/1'))
@@ -144,11 +163,26 @@ test('編集・閲覧専用の日時欄は狭い画面でも重ならず、編�
   await context.addCookies([{ name: 'auth_token', value: 'mobile-test', url: 'http://127.0.0.1' }])
   await page.route('**/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname
+    if (/\/groups\/\d+$/.test(path))
+      return route.fulfill({
+        json: { data: { id: 1, name: '家族', type: 'family', images: { enabled: false } } },
+      })
     if (route.request().method() === 'PUT') {
       saved = route.request().postDataJSON()
       return route.fulfill({ json: {} })
     }
-    if (path.endsWith('/auth/me')) return route.fulfill({ json: { user } })
+    if (path.endsWith('/auth/me'))
+      return route.fulfill({
+        json: {
+          user: user,
+          membership: {
+            id: 1,
+            role: 'admin',
+            status: 'active',
+            group: { id: 1, name: '家族', type: 'family' },
+          },
+        },
+      })
     if (path.endsWith('/categories')) return route.fulfill({ json: [category] })
     if (path.endsWith('/users')) return route.fulfill({ json: [user] })
     if (path.endsWith('/logs/1')) {

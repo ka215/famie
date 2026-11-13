@@ -1,4 +1,4 @@
-export default defineNuxtRouteMiddleware(async (to) => {
+export default defineNuxtRouteMiddleware(async (to, from) => {
   const t = useNuxtApp().$i18n.t
   const token = useCookie<string | null>('auth_token')
   const { user, fetchUser, legal } = useAuth()
@@ -61,5 +61,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (token.value && ['/login', '/register'].includes(path)) {
     return navigateTo('/')
+  }
+
+  if (token.value && user.value && to.meta.layout !== false) {
+    const refreshSettings = path === '/settings' && from.path.replace(/\/+$/, '') !== path
+    await useGroupSettings().load(refreshSettings)
+    if (!token.value || !user.value) return navigateTo('/login')
+    if (legal.value?.required) return navigateTo('/legal-confirmation')
   }
 })
