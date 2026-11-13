@@ -335,7 +335,8 @@
     "authCheckFailed": "Could not check your login status. Check your connection.",
     "statusCheckFailed": "Could not check service availability. Check your connection.",
     "notFound": "Page not found.",
-    "general": "Could not complete the operation. Check your connection and try again."
+    "general": "Could not complete the operation. Check your connection and try again.",
+    "groupSettingsFailed": "Could not load family settings. Please try again."
   },
   "install": {
     "accepted": "Request accepted. Check your home screen.",
