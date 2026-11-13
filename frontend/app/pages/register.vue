@@ -163,7 +163,5 @@ useHead(() => ({ title: `${t('auth.register.title')} | Famie` }))
       </form>
       <div class="text-center"><NuxtLink to="/login" class="text-sm text-blue-600 dark:text-blue-300">{{ t('auth.backToLogin') }}</NuxtLink></div>
     </div>
-    <HomeInstallGuide class="mx-auto mt-6 w-full max-w-sm" />
-    <LegalLinks class="mx-auto mt-6 w-full max-w-sm" />
   </main>
 </template>

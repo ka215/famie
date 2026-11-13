@@ -25,6 +25,9 @@ table{border-collapse:collapse;display:block;max-width:100%;overflow:auto}th,td{
 .language-menu{position:absolute;right:0;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);box-shadow:0 4px 6px #0000001a}.language-menu a{display:block;padding:8px}.language-menu a[aria-current=page]{font-weight:bold;background:var(--bg);border-radius:4px}
 footer{margin-top:28px;padding-top:20px;border-top:1px solid var(--line);text-align:center;font-size:.875rem}footer a{display:block;margin:8px 0}
 @media(max-width:400px){body{padding:20px 12px}.legal-card{padding:20px}h1{font-size:1.25rem}}
+:root[data-embedded=true] body{padding:0;background:transparent}
+:root[data-embedded=true] .legal-card{max-width:none;margin:0;padding:0;border-radius:0;background:transparent;box-shadow:none}
+:root[data-embedded=true] .legal-card>h1,:root[data-embedded=true] .language-picker{display:none}
 `
 
 export function renderLegalPage({
@@ -51,6 +54,6 @@ export function renderLegalPage({
 <html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f8fafc"><title>${escapeHtml(title)} | Famie</title>${preview ? '<meta name="robots" content="noindex,nofollow">' : ''}<style>${styles}</style><script src="/theme.js"></script><script src="/legal-page.js" defer></script></head>
 <body><main class="legal-card"><details class="language-picker"><summary aria-label="${languageLabel}" title="${languageLabel}">${translateIcon}</summary><nav class="language-menu" aria-label="${languageLabel}">${links}</nav></details>
 <h1>${escapeHtml(title)}</h1><div class="metadata"><p>${japanese ? '文書版' : 'Version'}: ${escapeHtml(version)} · ${japanese ? '公開日' : 'Published'}: ${escapeHtml(published)}</p><p>${japanese ? '施行' : 'Effective'}: ${escapeHtml(effective)}</p><p>${japanese ? '日本語版が正文です。' : 'The Japanese version is authoritative.'}</p></div>${previewNotice}<article>${body}</article>
-<footer><a id="legal-back" href="/login/">${japanese ? 'ログインへ戻る' : 'Back to sign in'}</a></footer></main></body></html>
+<footer><a id="legal-back" href="/login/">${japanese ? '元のページへ戻る' : 'Back to previous page'}</a></footer></main></body></html>
 `
 }
