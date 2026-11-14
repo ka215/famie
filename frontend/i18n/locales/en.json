@@ -577,7 +577,7 @@
     "saveChanges": "Save changes",
     "saveDraft": "Save draft",
     "periodLocked": "The start month and repeat cycle cannot be changed once activated after the period begins.",
-    "nextCycleHelp": "Changes apply from the next cycle. Earned trophies are preserved.",
+    "nextCycleHelp": "The name, reward description, and members apply immediately. Other changes apply from the next cycle. Earned trophies are preserved.",
     "daysHelp": "The target is the number of days in each cycle (31 in October, 30 in November).",
     "metricActivities": "Active days (once per day)",
     "membersMultiple": "Members (select multiple)",
@@ -613,7 +613,8 @@
     "inventoryTotals": "Trophy and activity totals",
     "likesReceivedTotalUnknown": "Total likes received: —",
     "postsTotal": "Total posts: {count} post | Total posts: {count} posts",
-    "likesReceivedTotal": "Total likes received: {count} like | Total likes received: {count} likes"
+    "likesReceivedTotal": "Total likes received: {count} like | Total likes received: {count} likes",
+    "immediate": "Applies immediately"
   },
   "legal": {
     "linksLabel": "Legal and privacy information",

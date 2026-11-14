@@ -98,6 +98,64 @@ class RewardPostgresTest extends TestCase
         return $r;
     }
 
+    public function test_concurrent_immediate_edits_reject_stale_revision_and_award_added_member_once(): void
+    {
+        [$group, $admin, $category] = $this->family();
+        $child = GroupMember::factory()->create(['group_id' => $group->id]);
+        $reward = $this->definition($group, $admin);
+        ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $child->user_id, 'category_id' => $category->id, 'activity_date' => now()->toDateString(), 'content' => '追加前実績']);
+        $body = ['revision' => 1, 'name' => '即時編集', 'description' => '報酬', 'metric' => 'activities', 'color' => 'gold', 'required_count' => 9,
+            'target_ids' => [$admin->id, $child->id], 'start_month' => now()->format('Y-m'), 'cycle_months' => 1, 'timezone' => 'UTC'];
+        $results = $this->race($group, $admin, array_fill(0, 2, ['method' => 'PUT', 'path' => "/v1/groups/{$group->id}/rewards/{$reward->id}", 'body' => $body]));
+        $codes = array_column($results, 'status');
+        sort($codes);
+        $this->assertSame([200, 409], $codes);
+        $this->assertSame(2, $reward->fresh()->revision);
+        $this->assertDatabaseCount('reward_awards', 1);
+        $award = RewardAward::query()->sole();
+        $this->assertSame($child->id, $award->group_member_id);
+        $this->assertSame('即時編集', $award->snapshot['name']);
+        $this->assertSame('bronze', $award->snapshot['color']);
+        $this->assertSame(1, $award->snapshot['required_count']);
+    }
+
+    public function test_activity_and_target_edit_serialize_and_keep_current_conditions(): void
+    {
+        [$group, $admin, $category] = $this->family();
+        $child = GroupMember::factory()->create(['group_id' => $group->id]);
+        $reward = $this->definition($group, $child);
+        $body = ['revision' => 1, 'name' => '投稿と編集', 'description' => '報酬', 'metric' => 'activities', 'color' => 'gold', 'required_count' => 9,
+            'target_ids' => [$admin->id, $child->id], 'start_month' => now()->format('Y-m'), 'cycle_months' => 1, 'timezone' => 'UTC'];
+        $results = $this->race($group, $admin, [
+            ['method' => 'PUT', 'path' => "/v1/groups/{$group->id}/rewards/{$reward->id}", 'body' => $body],
+            ['method' => 'POST', 'path' => "/v1/groups/{$group->id}/logs", 'body' => ['category_id' => $category->id, 'activity_date' => now()->toDateString(), 'content' => '競合する投稿']],
+            ['method' => 'POST', 'path' => "/v1/groups/{$group->id}/rewards/prepare", 'body' => []],
+        ]);
+        $this->assertSame([200, 201, 200], array_column($results, 'status'));
+        $this->assertDatabaseCount('reward_awards', 1);
+        $this->assertSame($admin->id, RewardAward::query()->sole()->group_member_id);
+        $this->assertSame(1, RewardAward::query()->sole()->snapshot['required_count']);
+        $this->assertSame(9, $reward->versions()->orderByDesc('effective_from')->firstOrFail()->required_count);
+    }
+
+    public function test_like_and_target_edit_award_once_under_the_group_lock(): void
+    {
+        [$group, $admin, $category] = $this->family();
+        $child = GroupMember::factory()->create(['group_id' => $group->id]);
+        $reward = $this->definition($group, $admin);
+        $reward->versions()->firstOrFail()->update(['metric' => 'likes']);
+        $log = ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $child->user_id, 'category_id' => $category->id, 'activity_date' => now()->toDateString(), 'content' => 'いいね対象']);
+        $body = ['revision' => 1, 'name' => 'いいねと編集', 'description' => '報酬', 'metric' => 'likes', 'color' => 'bronze', 'required_count' => 1,
+            'target_ids' => [$admin->id, $child->id], 'start_month' => now()->format('Y-m'), 'cycle_months' => 1, 'timezone' => 'UTC'];
+        $results = $this->race($group, $admin, [
+            ['method' => 'PUT', 'path' => "/v1/groups/{$group->id}/rewards/{$reward->id}", 'body' => $body],
+            ['method' => 'PUT', 'path' => "/v1/groups/{$group->id}/logs/{$log->id}/like", 'body' => []],
+        ]);
+        $this->assertSame([200, 200], array_column($results, 'status'));
+        $this->assertDatabaseCount('reward_awards', 1);
+        $this->assertSame($child->id, RewardAward::query()->sole()->group_member_id);
+    }
+
     private function race(Group $group, GroupMember $actor, array $requests): array
     {
         $processes = [];
