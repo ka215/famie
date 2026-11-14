@@ -6,20 +6,30 @@ import imageAlbumIcon from '~/assets/icons/image-album.svg'
 import timelineIcon from '~/assets/icons/timeline.svg'
 import trophyIcon from '~/assets/icons/trophy.svg'
 
-const { user } = useAuth()
-const { groupId } = useAuth()
-const { fetchApi } = useApi()
-const galleryVisible = ref(false)
-onMounted(() => {
-  if (!groupId.value) return
-  fetchApi<{ data: { images?: { enabled: boolean } } }>(`/groups/${groupId.value}`)
-    .then((response) => {
-      galleryVisible.value = Boolean(response.data.images?.enabled)
-    })
-    .catch(() => {
-      galleryVisible.value = false
-    })
-})
+const { user, logout } = useAuth()
+const { owner, group, ready, failed, load } = useGroupSettings()
+const galleryVisible = computed(() => group.value?.images?.enabled === true)
+watch(
+  owner,
+  () => {
+    if (!ready.value && !failed.value) void load()
+  },
+  { immediate: true, flush: 'sync' }
+)
+const loggingOut = ref(false)
+const logoutFailed = ref(false)
+const leave = async () => {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  logoutFailed.value = false
+  try {
+    await logout()
+  } catch {
+    logoutFailed.value = true
+  } finally {
+    loggingOut.value = false
+  }
+}
 const route = useRoute()
 const { clear: clearListReturn } = useListReturn()
 const iconStyles = {
@@ -31,7 +41,22 @@ const iconStyles = {
 </script>
 
 <template>
-  <div class="app-shell bg-slate-50 dark:bg-slate-950">
+  <div v-if="!ready" class="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+    <div class="max-w-sm space-y-6 text-center">
+      <div v-if="!failed" role="status" class="flex items-center justify-center gap-4">
+        <img src="/icon.svg" width="64" height="64" alt="">
+        <span class="text-[2.5rem] font-bold leading-none">Famie</span>
+        <span class="sr-only">{{ t('common.loading') }}</span>
+      </div>
+      <div v-else role="alert" class="space-y-4">
+        <p>{{ t('errors.groupSettingsFailed') }}</p>
+        <button type="button" class="min-h-11 rounded-lg bg-blue-600 px-5 py-2 text-white" @click="load(true)">{{ t('common.retry') }}</button>
+      </div>
+      <p v-if="logoutFailed" role="alert">{{ t('errors.operationFailed') }}</p>
+      <button type="button" :disabled="loggingOut" class="min-h-11 text-blue-600 disabled:opacity-50 dark:text-blue-300" @click="leave">{{ t('auth.logout') }}</button>
+    </div>
+  </div>
+  <div v-else class="app-shell bg-slate-50 dark:bg-slate-950">
     <header class="shrink-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between shadow-xs">
       <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Famie</h1>
       <div class="flex items-center space-x-3 text-sm">

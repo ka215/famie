@@ -23,6 +23,10 @@ for (const mode of ['create', 'edit'] as const) {
     await page.route('**/v1/**', async (route) => {
       const request = route.request()
       const path = new URL(request.url()).pathname
+      if (/\/groups\/\d+$/.test(path))
+        return route.fulfill({
+          json: { data: { id: 1, name: '家族', type: 'family', images: { enabled: false } } },
+        })
       if (['POST', 'PUT'].includes(request.method())) {
         requests.push(request.postDataJSON())
         if (rejectSave) {
@@ -36,7 +40,18 @@ for (const mode of ['create', 'edit'] as const) {
         }
         return route.fulfill({ json: { data: log } })
       }
-      if (path.endsWith('/auth/me')) return route.fulfill({ json: { user: owner } })
+      if (path.endsWith('/auth/me'))
+        return route.fulfill({
+          json: {
+            user: owner,
+            membership: {
+              id: 1,
+              role: owner.role === 'parent' ? 'admin' : 'member',
+              status: 'active',
+              group: { id: 1, name: '家族', type: 'family' },
+            },
+          },
+        })
       if (path.endsWith('/categories')) return route.fulfill({ json: [category] })
       if (path.endsWith('/users')) return route.fulfill({ json: [owner] })
       if (path.endsWith('/logs/1')) return route.fulfill({ json: { data: log } })

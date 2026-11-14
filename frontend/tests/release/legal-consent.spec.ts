@@ -94,6 +94,10 @@ test('未確認の代表管理者は確認画面へ移動し文書・問い合�
       return route.fulfill({
         json: { ...identity, legal: { enabled: true, required: submissions < 2 } },
       })
+    if (path.endsWith('/groups/101'))
+      return route.fulfill({
+        json: { data: { ...identity.membership.group, images: { enabled: false } } },
+      })
     if (path.endsWith('/legal/documents'))
       return route.fulfill({
         json: { data: manifest.documents, meta: { acceptance_enabled: true } },
@@ -151,5 +155,6 @@ test('未確認の代表管理者は確認画面へ移動し文書・問い合�
   await checks.nth(1).check()
   await submit.click()
   await expect(page).toHaveURL(/:\d+\/$/)
+  await expect(page.locator('nav[aria-label="メインメニュー"]')).toBeVisible()
   expect(submissions).toBe(2)
 })

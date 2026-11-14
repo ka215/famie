@@ -4,9 +4,23 @@ test.beforeEach(async ({ page, context }) => {
   await context.addCookies([{ name: 'auth_token', value: 'modal-test', url: 'http://127.0.0.1' }])
   await page.route('**/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname
+    if (/\/groups\/\d+$/.test(path))
+      return route.fulfill({
+        json: { data: { id: 1, name: '家族', type: 'family', images: { enabled: false } } },
+      })
     if (path.endsWith('/status')) return route.fulfill({ json: { status: 'ok' } })
     if (path.endsWith('/auth/me'))
-      return route.fulfill({ json: { user: { id: 1, display_name: '自分', role: 'parent' } } })
+      return route.fulfill({
+        json: {
+          user: { id: 1, display_name: '自分', role: 'parent' },
+          membership: {
+            id: 1,
+            role: 'admin',
+            status: 'active',
+            group: { id: 1, name: '家族', type: 'family' },
+          },
+        },
+      })
     if (path.endsWith('/categories'))
       return route.fulfill({ json: [{ id: 1, name: '家事', color_code: '#10B981' }] })
     if (path.endsWith('/users')) return route.fulfill({ json: [] })
