@@ -614,7 +614,8 @@
     "likesReceivedTotalUnknown": "Total likes received: —",
     "postsTotal": "Total posts: {count} post | Total posts: {count} posts",
     "likesReceivedTotal": "Total likes received: {count} like | Total likes received: {count} likes",
-    "immediate": "Applies immediately"
+    "immediate": "Applies immediately",
+    "unavailableTargets": "Some previously selected members are no longer available. Saving will remove them from the reward targets. Earned trophies are preserved."
   },
   "legal": {
     "linksLabel": "Legal and privacy information",

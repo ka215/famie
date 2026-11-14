@@ -39,6 +39,18 @@ for (const locale of ['ja', 'en'] as const) {
     })
     expect(child.ok()).toBeTruthy()
     const member = (await child.json()).data
+    const oldMemberResponse = await page.request.post(`${path}/members`, {
+      headers,
+      data: {
+        username: `${username}old`,
+        display_name: 'Former target',
+        role: 'member',
+        password,
+        password_confirmation: password,
+      },
+    })
+    expect(oldMemberResponse.ok()).toBeTruthy()
+    const oldMember = (await oldMemberResponse.json()).data
     const categories = await (await page.request.get(`${path}/categories`, { headers })).json()
     const today = new Date().toISOString().slice(0, 10)
     expect(
@@ -61,7 +73,7 @@ for (const locale of ['ja', 'en'] as const) {
         metric: 'activities',
         color: 'bronze',
         required_count: 1,
-        target_ids: [member.membership_id],
+        target_ids: [member.membership_id, oldMember.membership_id],
         start_month: today.slice(0, 7),
         cycle_months: 1,
         timezone: 'UTC',
@@ -77,6 +89,44 @@ for (const locale of ['ja', 'en'] as const) {
         })
       ).ok()
     ).toBeTruthy()
+    const reserved = await page.request.put(`${path}/rewards/${reward.id}`, {
+      headers,
+      data: {
+        name: 'Original reward',
+        description: 'Original description',
+        metric: 'activities',
+        color: 'bronze',
+        count_mode: 'fixed',
+        category_id: null,
+        target_ids: [member.membership_id, oldMember.membership_id],
+        required_count: 5,
+        revision: 2,
+        start_month: today.slice(0, 7),
+        cycle_months: 1,
+        timezone: 'UTC',
+      },
+    })
+    expect(reserved.ok()).toBeTruthy()
+    expect(
+      (
+        await page.request.put(`${path}/members/${oldMember.membership_id}/status`, {
+          headers,
+          data: { status: 'inactive' },
+        })
+      ).ok()
+    ).toBeTruthy()
+    const addedResponse = await page.request.post(`${path}/members`, {
+      headers,
+      data: {
+        username: `${username}new`,
+        display_name: 'New member after activation',
+        role: 'member',
+        password,
+        password_confirmation: password,
+      },
+    })
+    expect(addedResponse.ok()).toBeTruthy()
+    const added = (await addedResponse.json()).data
     await context.addCookies([
       { name: 'auth_token', value: identity.access_token, url: 'https://127.0.0.1' },
     ])
@@ -84,11 +134,33 @@ for (const locale of ['ja', 'en'] as const) {
     await page.getByRole('button', { name: labels.manage, exact: true }).click()
     await page.getByRole('button', { name: labels.edit, exact: true }).click()
     const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText(labels.unavailableTargets, { exact: true })).toBeVisible()
+    await expect(dialog.getByRole('checkbox', { name: /Former target/ })).toHaveCount(0)
+    const unchangedSave = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PUT' && response.url().endsWith(`/rewards/${reward.id}`)
+    )
+    const refreshedAfterSave = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' && response.url().endsWith('/rewards/notifications')
+    )
+    await dialog.getByRole('button', { name: labels.saveChanges, exact: true }).click()
+    const unchangedResponse = await unchangedSave
+    expect(unchangedResponse.ok()).toBeTruthy()
+    const unchanged = (await unchangedResponse.json()).data
+    expect(unchanged.version.target_ids).toEqual([member.membership_id])
+    expect(unchanged.pending_version.target_ids).toEqual([member.membership_id])
+    expect(unchanged.pending_version.required_count).toBe(5)
+    await refreshedAfterSave
+    await expect(dialog).not.toBeVisible()
+    await page.getByRole('button', { name: labels.edit, exact: true }).click()
+    await expect(dialog.getByText(labels.unavailableTargets, { exact: true })).toHaveCount(0)
     await expect(dialog.getByText(labels.immediate, { exact: true })).toHaveCount(3)
     await expect(dialog.getByText(labels.nextCycleHelp, { exact: true })).toBeVisible()
     await dialog.getByLabel(labels.name, { exact: true }).fill('Immediate reward')
     await dialog.getByLabel(labels.description, { exact: true }).fill('Immediate description')
     await dialog.getByRole('checkbox', { name: /Immediate parent/ }).check()
+    await dialog.getByRole('checkbox', { name: /New member after activation/ }).check()
     await dialog.getByLabel(labels.required, { exact: true }).fill('5')
     const firstSave = page.waitForResponse(
       (response) =>
@@ -100,6 +172,8 @@ for (const locale of ['ja', 'en'] as const) {
     expect(saved.version.required_count).toBe(1)
     expect(saved.pending_version.required_count).toBe(5)
     expect(saved.version.target_ids).toContain(identity.membership.id)
+    expect(saved.version.target_ids).toContain(added.membership_id)
+    expect(saved.version.target_ids).not.toContain(oldMember.membership_id)
     const notification = page.getByRole('dialog', { name: labels.earnedTitle, exact: true })
     await expect(notification).toBeVisible()
     await expect(notification.getByText('Immediate reward', { exact: true })).toBeVisible()
