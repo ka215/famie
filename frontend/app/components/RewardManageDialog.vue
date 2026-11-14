@@ -37,8 +37,10 @@ const color = ref<TrophyColor>(source?.color ?? 'bronze')
 const requiredCount = ref(source?.required_count ?? 10)
 const countMode = ref<RewardVersion['count_mode']>(source?.count_mode ?? 'fixed')
 const categoryId = ref<number | null>(source?.category_id ?? null)
+const availableTargetIds = new Set(props.members.map((member) => member.membership_id))
+const unavailableTargets = source?.target_ids.some((id) => !availableTargetIds.has(id)) ?? false
 const targetIds = ref<number[]>(
-  source ? [...source.target_ids] : props.members.map((member) => member.membership_id)
+  source ? source.target_ids.filter((id) => availableTargetIds.has(id)) : [...availableTargetIds]
 )
 const startMonth = ref(props.reward?.start_month.slice(0, 7) ?? currentMonth)
 const cycle = ref(props.reward?.cycle_months ?? 1)
@@ -116,6 +118,7 @@ const save = async () => {
         <label class="block text-sm">{{ t('reward.category') }}<select v-model="categoryId" class="reward-input"><option :value="null">{{ t('reward.allCategories') }}</option><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
         <RewardTrophySelect v-model="color" :disabled="busy" />
         <fieldset class="rounded-lg border border-slate-300 dark:border-slate-600 p-3"><legend class="text-sm">{{ t('reward.membersMultiple') }}<span v-if="periodLocked" class="immediate-badge">{{ t('reward.immediate') }}</span></legend>
+          <p v-if="unavailableTargets" role="status" class="pb-2 text-sm text-slate-600 dark:text-slate-300">{{ t('reward.unavailableTargets') }}</p>
           <div class="flex flex-wrap gap-2 pb-2"><button type="button" class="min-h-11 rounded-lg border border-slate-400 px-3 text-sm" @click="targetIds = members.map(member => member.membership_id)">{{ t('reward.selectAll') }}</button><button type="button" class="min-h-11 rounded-lg border border-slate-400 px-3 text-sm" @click="targetIds = []">{{ t('reward.clearAll') }}</button></div>
           <label v-for="member in members" :key="member.membership_id" class="flex min-h-11 items-center gap-3 text-sm"><input v-model="targetIds" type="checkbox" :value="member.membership_id" />{{ t('reward.memberRole', { name: member.display_name, role: t(member.role === 'admin' ? 'settings.role.parentShort' : 'settings.role.childShort') }) }}</label>
         </fieldset>

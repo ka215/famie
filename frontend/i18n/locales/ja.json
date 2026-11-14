@@ -614,7 +614,8 @@
     "likesReceivedTotalUnknown": "いいね獲得総数: —",
     "postsTotal": "アクティビティ投稿総数 {count}件",
     "likesReceivedTotal": "いいね獲得総数 {count}件",
-    "immediate": "即時反映"
+    "immediate": "即時反映",
+    "unavailableTargets": "現在選択できない対象者が含まれています。保存すると、その対象者はリワードの対象から除外されます。獲得済みトロフィーは維持されます。"
   },
   "legal": {
     "linksLabel": "利用条件と個人情報の取扱い",
