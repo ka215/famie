@@ -87,6 +87,165 @@ class RewardTest extends TestCase
         return [$group, $admin, $child, $category];
     }
 
+    public function test_immediate_edits_split_current_cycle_and_preserve_history_and_awards(): void
+    {
+        [$group, $admin, $child, $category] = $this->family();
+        ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $child->user_id, 'category_id' => $category->id, 'activity_date' => '2026-10-01', 'content' => '過去実績']);
+        $id = $this->createReward($group, $child, ['required_count' => 1]);
+        $this->activate($group, $id);
+        $award = RewardAward::query()->sole()->toArray();
+        $old = Reward::query()->findOrFail($id)->versions()->sole();
+        $oldData = $old->toArray();
+        $this->travelTo(CarbonImmutable::parse('2026-11-13', 'UTC'));
+        ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $admin->user_id, 'category_id' => $category->id, 'activity_date' => '2026-11-01', 'content' => '追加前の実績']);
+        $payload = $this->payload($child, ['revision' => 2, 'name' => '即時名称', 'description' => '即時報酬', 'target_ids' => [$child->id, $admin->id], 'required_count' => 5, 'color' => 'gold']);
+        $this->putJson("/v1/groups/{$group->id}/rewards/{$id}", $payload)->assertOk()
+            ->assertJsonPath('data.version.name', '即時名称')->assertJsonPath('data.version.description', '即時報酬')
+            ->assertJsonPath('data.version.target_ids', [$admin->id, $child->id])
+            ->assertJsonPath('data.version.effective_from', '2026-11-01')
+            ->assertJsonPath('data.version.required_count', 1)->assertJsonPath('data.version.color', 'bronze')
+            ->assertJsonPath('data.pending_version.required_count', 5)->assertJsonPath('data.pending_version.color', 'gold');
+        $this->assertSame($oldData, $old->fresh()->toArray());
+        $this->assertSame($award, RewardAward::query()->findOrFail($award['id'])->toArray());
+        $this->assertDatabaseCount('reward_versions', 3);
+        $newAward = RewardAward::query()->where('group_member_id', $admin->id)->sole();
+        $this->assertSame('即時名称', $newAward->snapshot['name']);
+        $this->assertSame('bronze', $newAward->snapshot['color']);
+        $this->assertSame(1, $newAward->snapshot['required_count']);
+        $this->postJson("/v1/groups/{$group->id}/rewards/notifications")->assertJsonCount(1, 'data');
+        $this->postJson("/v1/groups/{$group->id}/rewards/notifications")->assertJsonCount(0, 'data');
+    }
+
+    public function test_immediate_only_edits_preserve_pending_conditions_and_next_cycle_values(): void
+    {
+        [$group, $admin, $child] = $this->family();
+        $id = $this->createReward($group, $child);
+        $this->activate($group, $id);
+        $path = "/v1/groups/{$group->id}/rewards/{$id}";
+        $this->putJson($path, $this->payload($child, ['revision' => 2, 'required_count' => 5, 'color' => 'gold']))->assertOk();
+        $this->putJson($path, $this->payload($child, ['revision' => 3, 'name' => '変更後']))->assertOk()
+            ->assertJsonPath('data.version.name', '変更後')->assertJsonPath('data.version.required_count', 2)
+            ->assertJsonPath('data.pending_version.name', '変更後')->assertJsonPath('data.pending_version.required_count', 5)
+            ->assertJsonPath('data.pending_version.color', 'gold');
+        $this->putJson($path, $this->payload($child, ['revision' => 4, 'description' => '再編集', 'required_count' => 5, 'color' => 'gold', 'update_conditions' => false]))->assertOk()
+            ->assertJsonPath('data.version.description', '再編集')->assertJsonPath('data.pending_version.description', '再編集');
+        $this->travelTo(CarbonImmutable::parse('2026-11-01', 'UTC'));
+        $this->getJson("/v1/groups/{$group->id}/rewards/manage")->assertOk()
+            ->assertJsonPath('data.0.version.description', '再編集')->assertJsonPath('data.0.version.required_count', 5)
+            ->assertJsonPath('data.0.version.color', 'gold')->assertJsonPath('data.0.pending_version', null);
+    }
+
+    public function test_immediate_edits_do_not_create_pending_conditions_and_explicit_revert_cancels_them(): void
+    {
+        [$group, $admin, $child] = $this->family();
+        $id = $this->createReward($group, $child);
+        $this->activate($group, $id);
+        $path = "/v1/groups/{$group->id}/rewards/{$id}";
+        $this->putJson($path, $this->payload($child, ['revision' => 2, 'name' => '即時']))->assertOk()->assertJsonPath('data.pending_version', null);
+        $this->putJson($path, $this->payload($child, ['revision' => 3, 'required_count' => 8]))->assertOk()->assertJsonPath('data.pending_version.required_count', 8);
+        $this->putJson($path, $this->payload($child, ['revision' => 4, 'update_conditions' => true]))->assertOk()->assertJsonPath('data.pending_version', null);
+        $this->assertDatabaseCount('reward_versions', 1);
+    }
+
+    public function test_target_removal_and_readdition_preserve_awards_and_evaluate_unachieved_members(): void
+    {
+        [$group, $admin, $child, $category] = $this->family();
+        $id = $this->createReward($group, $child, ['required_count' => 1]);
+        $this->activate($group, $id);
+        ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $child->user_id, 'category_id' => $category->id, 'activity_date' => '2026-10-01', 'content' => '既存活動']);
+        $path = "/v1/groups/{$group->id}/rewards/{$id}";
+        $this->putJson($path, $this->payload($child, ['revision' => 2, 'required_count' => 1]))->assertOk();
+        $award = RewardAward::query()->sole()->toArray();
+        $this->putJson($path, $this->payload($admin, ['revision' => 3, 'required_count' => 1]))->assertOk();
+        Sanctum::actingAs($child->user);
+        $this->getJson("/v1/groups/{$group->id}/rewards")->assertJsonCount(0, 'data');
+        $this->getJson("/v1/groups/{$group->id}/rewards/awards")->assertJsonCount(1, 'data');
+        $this->assertDatabaseMissing('reward_progress', ['reward_id' => $id, 'group_member_id' => $child->id]);
+        Sanctum::actingAs($admin->user);
+        ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $admin->user_id, 'category_id' => $category->id, 'activity_date' => '2026-10-02', 'content' => '未達者の実績']);
+        $this->putJson($path, $this->payload($child, ['revision' => 4, 'required_count' => 1, 'name' => '改名', 'target_ids' => [$child->id, $admin->id]]))->assertOk();
+        $this->assertDatabaseCount('reward_awards', 2);
+        $this->assertSame($award, RewardAward::query()->findOrFail($award['id'])->toArray());
+    }
+
+    public function test_stopped_edits_apply_metadata_without_awarding_until_resume(): void
+    {
+        [$group, $admin, $child, $category] = $this->family();
+        $id = $this->createReward($group, $child, ['required_count' => 1]);
+        $this->activate($group, $id);
+        $path = "/v1/groups/{$group->id}/rewards/{$id}";
+        $this->putJson($path.'/status', ['revision' => 2, 'status' => 'stopped'])->assertOk();
+        ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $admin->user_id, 'category_id' => $category->id, 'activity_date' => '2026-10-01', 'content' => '停止中']);
+        $this->putJson($path, $this->payload($admin, ['revision' => 3, 'name' => '停止中の編集', 'required_count' => 5]))->assertOk()
+            ->assertJsonPath('data.version.name', '停止中の編集')->assertJsonPath('data.version.required_count', 1)
+            ->assertJsonPath('data.pending_version.required_count', 5);
+        $this->assertDatabaseCount('reward_awards', 0);
+        $this->putJson($path.'/status', ['revision' => 4, 'status' => 'active'])->assertOk();
+        $this->assertDatabaseCount('reward_awards', 1);
+    }
+
+    public function test_immediate_update_rejects_invalid_targets_roles_and_stale_revision_without_partial_changes(): void
+    {
+        [$group, $admin, $child] = $this->family();
+        $id = $this->createReward($group, $child);
+        $this->activate($group, $id);
+        $path = "/v1/groups/{$group->id}/rewards/{$id}";
+        $payload = $this->payload($child, ['revision' => 2, 'name' => '拒否される編集']);
+        $foreign = GroupMember::factory()->create();
+        $inactive = GroupMember::factory()->create(['group_id' => $group->id, 'status' => 'inactive']);
+        foreach ([$foreign->id, $inactive->id] as $invalid) {
+            $this->putJson($path, [...$payload, 'target_ids' => [$invalid]])->assertUnprocessable()->assertJsonValidationErrors('target_ids.0');
+        }
+        $this->putJson($path, [...$payload, 'update_conditions' => 'invalid'])->assertUnprocessable()->assertJsonValidationErrors('update_conditions');
+        $this->putJson($path, [...$payload, 'revision' => 1])->assertConflict();
+        $otherReward = Reward::factory()->create(['group_id' => $foreign->group_id]);
+        $this->putJson("/v1/groups/{$group->id}/rewards/{$otherReward->id}", $payload)->assertNotFound();
+        Sanctum::actingAs($child->user);
+        $this->putJson($path, $payload)->assertForbidden();
+        $this->assertSame(2, Reward::query()->findOrFail($id)->revision);
+        $this->assertSame('勉強10日', Reward::query()->findOrFail($id)->versions()->sole()->name);
+        $this->assertDatabaseCount('reward_targets', 1);
+        $this->assertDatabaseCount('reward_awards', 0);
+    }
+
+    public function test_metadata_only_legacy_reservation_is_removed_on_edit_and_registration_does_not_auto_join(): void
+    {
+        [$group, $admin, $child] = $this->family();
+        $id = $this->createReward($group, $child);
+        $this->activate($group, $id);
+        $reward = Reward::query()->findOrFail($id);
+        $current = $reward->versions()->sole();
+        $pending = $reward->versions()->create([...$current->only(['group_id', 'name', 'description', 'metric', 'color', 'count_mode', 'required_count', 'category_id', 'category_name']), 'effective_from' => '2026-11-01']);
+        $pending->targets()->create(['group_id' => $group->id, 'group_member_id' => $child->id]);
+        $newMember = GroupMember::factory()->create(['group_id' => $group->id]);
+        Sanctum::actingAs($newMember->user);
+        $this->getJson("/v1/groups/{$group->id}/rewards")->assertOk()->assertJsonCount(0, 'data');
+        Sanctum::actingAs($admin->user);
+        $this->putJson("/v1/groups/{$group->id}/rewards/{$id}", $this->payload($child, ['revision' => 2, 'name' => '即時変更', 'update_conditions' => false]))
+            ->assertOk()->assertJsonPath('data.pending_version', null)->assertJsonPath('data.version.target_ids', [$child->id]);
+        $this->assertDatabaseCount('reward_versions', 1);
+    }
+
+    public function test_failed_immediate_evaluation_rolls_back_versions_targets_revision_and_awards(): void
+    {
+        [$group, $admin, $child, $category] = $this->family();
+        $id = $this->createReward($group, $child, ['required_count' => 1]);
+        $this->activate($group, $id);
+        $before = Reward::query()->findOrFail($id)->versions()->with('targets')->get()->toArray();
+        ActivityLog::query()->create(['group_id' => $group->id, 'user_id' => $admin->user_id, 'category_id' => $category->id, 'activity_date' => '2026-10-01', 'content' => '追加実績']);
+        $failing = Mockery::mock(RewardService::class)->makePartial();
+        $failing->shouldReceive('evaluate')->once()->andReturnUsing(function (Group $locked): void {
+            (new RewardService)->evaluate($locked);
+            throw new \RuntimeException('Injected edit evaluation failure');
+        });
+        $this->app->instance(RewardService::class, $failing);
+        $this->putJson("/v1/groups/{$group->id}/rewards/{$id}", $this->payload($admin, ['revision' => 2, 'name' => 'rollback', 'required_count' => 9]))->assertStatus(500);
+        $this->assertSame(2, Reward::query()->findOrFail($id)->revision);
+        $this->assertSame($before, Reward::query()->findOrFail($id)->versions()->with('targets')->get()->toArray());
+        $this->assertDatabaseCount('reward_awards', 0);
+        $this->assertDatabaseCount('reward_periods', 0);
+    }
+
     private function payload(GroupMember $child, array $overrides = []): array
     {
         return [...['name' => '勉強10日', 'description' => 'おやつ', 'metric' => 'activities', 'color' => 'bronze', 'required_count' => 2, 'category_id' => null, 'target_ids' => [$child->id], 'start_month' => '2026-10', 'cycle_months' => 1, 'timezone' => 'UTC'], ...$overrides];

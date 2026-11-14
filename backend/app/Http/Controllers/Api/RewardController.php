@@ -59,7 +59,7 @@ class RewardController extends Controller
     /** @return array<string,mixed> */
     private function validated(Request $request, Group $group, ?Reward $reward = null): array
     {
-        if (array_diff(array_keys($request->all()), ['name', 'description', 'metric', 'color', 'count_mode', 'required_count', 'category_id', 'target_ids', 'start_month', 'cycle_months', 'timezone', 'revision']) !== []) {
+        if (array_diff(array_keys($request->all()), ['name', 'description', 'metric', 'color', 'count_mode', 'required_count', 'category_id', 'target_ids', 'start_month', 'cycle_months', 'timezone', 'revision', 'update_conditions']) !== []) {
             throw ValidationException::withMessages(['reward' => [__('messages.reward_fields')]]);
         }
         foreach (['name', 'description'] as $field) {
@@ -68,6 +68,7 @@ class RewardController extends Controller
             }
         }
         $data = $request->validate([
+            'update_conditions' => ['sometimes', 'boolean'],
             'name' => ['required', 'string', 'max:50'], 'description' => ['required', 'string', 'max:500'],
             'metric' => ['required', Rule::in(['activities', 'likes'])], 'color' => ['required', Rule::in(['gold', 'silver', 'bronze'])],
             'count_mode' => ['sometimes', 'required', Rule::in(['fixed', 'period_days'])],
@@ -116,6 +117,42 @@ class RewardController extends Controller
         $count = Reward::query()->where('group_id', $group->id)->where('status', 'active')->count();
         if ($count >= $group->reward_active_limit) {
             abort(response()->json(['message' => __('messages.reward_active_limit'), 'limit' => $group->reward_active_limit, 'count' => $count], 409));
+        }
+    }
+
+    /** The group write middleware owns the transaction and serializes evaluation. */
+    private function updateStartedVersion(Group $group, Reward $reward, array $data): void
+    {
+        $bounds = $this->rewards->boundaries($reward);
+        $current = $this->rewards->currentVersion($reward);
+        $conditions = ['metric', 'color', 'count_mode', 'required_count', 'category_id'];
+        $changed = array_any($conditions, fn ($field) => $data[$field] != $current->$field);
+        $pending = $reward->versions()->where('effective_from', '>', $bounds['start']->toDateString())->first();
+        $immediate = array_intersect_key($data, array_flip(['name', 'description', 'target_ids']));
+
+        // Copy at the cycle boundary so earlier versions and award snapshots stay intact.
+        $this->saveVersion($reward, [...$current->toArray(), ...$immediate], $bounds['start']->toDateString());
+        if ($data['update_conditions'] ?? $changed) {
+            if ($changed) {
+                $this->saveVersion($reward, $data, $bounds['end']->toDateString());
+            } elseif ($pending) {
+                $pending->targets()->delete();
+                $pending->delete();
+            }
+        } elseif ($pending) {
+            if (array_any($conditions, fn ($field) => $pending->$field != $current->$field)) {
+                $this->saveVersion($reward, [...$pending->toArray(), ...$immediate], $pending->effective_from->toDateString());
+            } else {
+                $pending->targets()->delete();
+                $pending->delete();
+            }
+        }
+
+        DB::table('reward_progress')->where('reward_id', $reward->id)
+            ->where('starts_on', $bounds['start']->toDateString())
+            ->whereNotIn('group_member_id', $data['target_ids'])->delete();
+        if ($reward->status === 'active') {
+            $this->rewards->evaluate($group);
         }
     }
 
@@ -184,7 +221,11 @@ class RewardController extends Controller
             });
             $target->update(array_intersect_key($data, array_flip(['start_month', 'cycle_months'])));
         }
-        $this->saveVersion($target, $data, $effective);
+        if ($begun) {
+            $this->updateStartedVersion($group, $target, $data);
+        } else {
+            $this->saveVersion($target, $data, $effective);
+        }
         $target->increment('revision');
 
         return response()->json(['data' => $this->rewards->present($group, $target->fresh())]);

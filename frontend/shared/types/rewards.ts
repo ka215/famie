@@ -20,6 +20,19 @@ export interface RewardVersion {
   target_ids: number[]
   effective_from: string
 }
+export interface RewardInput
+  extends Pick<
+    RewardVersion,
+    'name' | 'description' | 'metric' | 'color' | 'count_mode' | 'category_id' | 'target_ids'
+  > {
+  required_count: number | null
+  start_month: string
+  cycle_months: number
+  timezone: string
+  revision?: number
+  /** Preserve a reservation when false; change or cancel its conditions when true. */
+  update_conditions?: boolean
+}
 export interface Reward {
   id: number
   status: 'draft' | 'active' | 'stopped'
@@ -28,6 +41,7 @@ export interface Reward {
   cycle_months: number
   timezone: string
   version: RewardVersion
+  /** Scheduled conditions; immediate fields match version. Null when no conditions are pending. */
   pending_version: RewardVersion | null
   starts_on: string
   ends_on: string
