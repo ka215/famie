@@ -140,6 +140,10 @@ for (const locale of ['ja', 'en'] as const) {
       (response) =>
         response.request().method() === 'PUT' && response.url().endsWith(`/rewards/${reward.id}`)
     )
+    const refreshedAfterSave = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' && response.url().endsWith('/rewards/notifications')
+    )
     await dialog.getByRole('button', { name: labels.saveChanges, exact: true }).click()
     const unchangedResponse = await unchangedSave
     expect(unchangedResponse.ok()).toBeTruthy()
@@ -147,6 +151,7 @@ for (const locale of ['ja', 'en'] as const) {
     expect(unchanged.version.target_ids).toEqual([member.membership_id])
     expect(unchanged.pending_version.target_ids).toEqual([member.membership_id])
     expect(unchanged.pending_version.required_count).toBe(5)
+    await refreshedAfterSave
     await expect(dialog).not.toBeVisible()
     await page.getByRole('button', { name: labels.edit, exact: true }).click()
     await expect(dialog.getByText(labels.unavailableTargets, { exact: true })).toHaveCount(0)
