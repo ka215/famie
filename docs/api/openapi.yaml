@@ -1098,7 +1098,7 @@ paths:
       summary: リワード条件を更新・予約
       tags: [rewards]
       description: >-
-        admin専用。開始済みは次の非重複nか月サイクルから適用。下書き・開始前は即時適用。開始済みの期間設定と保存済みtimezoneは変更不可。
+        admin専用。開始済みは名称・説明・対象者を現在サイクルと予約版へ即時反映し、現在条件で再評価する（停止中は付与しない）。その他の条件は次サイクルへ予約。update_conditions=falseは既存の予約条件を保持し、trueは送信条件へ変更（現在条件と同じなら予約取消）。省略時は現在条件との差分で判定する。下書き・開始前は全項目を即時適用。開始済みの期間設定とtimezoneは変更不可。
       requestBody:
         required: true
         content:
@@ -1809,6 +1809,9 @@ components:
         cycle_months: {type: integer, minimum: 1, maximum: 12}
         timezone: {type: [string, 'null'], description: IANA timezone。省略時UTC、保存後固定}
         revision: {type: integer, minimum: 1, description: 更新時のみ必須}
+        update_conditions:
+          type: boolean
+          description: 開始済み更新用。falseで既存予約条件を保持、trueで条件を変更・予約取消。省略時は現在条件との差分で判定。名称・説明・対象者は常に即時反映。
       allOf:
         - if:
             properties:
@@ -1858,6 +1861,7 @@ components:
           anyOf:
             - $ref: '#/components/schemas/RewardVersion'
             - type: 'null'
+          description: 管理APIのみ。現在と異なる次サイクル条件がある場合の予約版。名称・説明・対象者は現在版と共通。対象者向け一覧ではnull。
         starts_on: {type: string, format: date}
         ends_on: {type: string, format: date, description: 表示上の最終日を含む。内部の終了境界は翌日0時}
         started: {type: boolean}

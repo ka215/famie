@@ -577,7 +577,7 @@
     "saveChanges": "変更を保存",
     "saveDraft": "下書きとして保存",
     "periodLocked": "開始月・繰り返し周期は、期間開始後に一度でも有効化すると変更できません。",
-    "nextCycleHelp": "変更は次サイクルから適用されます。獲得済みトロフィーは維持されます。",
+    "nextCycleHelp": "名称・報酬の説明・対象者はすぐに反映されます。その他の変更は次サイクルから適用されます。獲得済みトロフィーは維持されます。",
     "daysHelp": "各サイクルの全日数を必要数にします（10月は31、11月は30）。",
     "metricActivities": "活動した日数（1日1回）",
     "membersMultiple": "対象者（複数選択可）",
@@ -613,7 +613,9 @@
     "inventoryTotals": "トロフィー・活動累計",
     "likesReceivedTotalUnknown": "いいね獲得総数: —",
     "postsTotal": "アクティビティ投稿総数 {count}件",
-    "likesReceivedTotal": "いいね獲得総数 {count}件"
+    "likesReceivedTotal": "いいね獲得総数 {count}件",
+    "immediate": "即時反映",
+    "unavailableTargets": "現在選択できない対象者が含まれています。保存すると、その対象者はリワードの対象から除外されます。獲得済みトロフィーは維持されます。"
   },
   "legal": {
     "linksLabel": "利用条件と個人情報の取扱い",
